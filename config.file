@@ -1,0 +1,35 @@
+
+ITERATION_NUM=1
+CONFIG_FILE=./test-suite.config
+
+#SSH
+LOGIN_ID=root
+SERVER_IP=192.168.2.10
+SSH_KEY_PATH=~/.ssh
+SSH_KEY_NAME=redisClient_rsa
+
+#Server CPU
+GOLDENCOVE_CORES="0-15"
+GRACEMONT_CORES="16-23"
+
+#Redis Server
+REDIS_PATH=/root/redis
+RDB_PATH=/root/redis
+BIND_SOCKET=0
+START_PORT=9000
+
+#Benchmark
+LOG_PATH="/home/redis/results-$(date +"%Y%m%d")"
+
+#emon
+emon_folder=/opt/intel/sep/bin64/  # emon path of the Server
+
+#flame_graph
+flamegraph_folder=/root/tools/FlameGraph-master
+
+#sar
+SAR_DURATION=120
+
+#irq affinity
+SET_IRQ=false
+IRQ_INTERFACE="ens785f0"
