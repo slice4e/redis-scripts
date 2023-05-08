@@ -66,6 +66,27 @@ fi
 
 echo "SSH Connection is Successfull!"
 
+#---------------------------------------------------------- Pre-requisites --------------------------------------------------------
+
+echo "Check pre-requisites on server"
+prerequisites=(
+  "perf"
+  "numactl"
+  "sar"
+)
+
+
+# Check if each prerequisite is installed
+for prerequisite in "${prerequisites[@]}"; do
+  if ! $SSH_COMMAND command -v "$prerequisite" &>/dev/null; then
+    echo "Error: The prerequisite '$prerequisite' is not installed."
+    exit 1
+  fi
+done
+
+# All prerequisites are installed, continue with the script
+echo "All prerequisites are installed."
+
 #---------------------------------------------------------- CPU configuration --------------------------------------------------------
 #ALDERLAKE="12thGenIntel(R)Core(TM)i9-12900HK"
 
