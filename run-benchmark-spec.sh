@@ -112,7 +112,7 @@ echo "All prerequisites are installed on the server."
 
 echo "Check pre-requisites on the client"
 
-if ! command -v "memtier-benchmark" &>/dev/null; then
+if ! command -v "memtier_benchmark" &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
 	apt-get update
 	apt-get install build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev libssl-dev -y
@@ -165,6 +165,16 @@ done
 
 echo "All prerequisites are installed on the client."
 
+#---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
+
+mkdir -p $LOG_PATH
+echo "Capture svr-info from the server."
+CUR_DIR=`pwd`
+cd ${LOG_PATH}
+svr-info -ip ${SERVER_IP} -user ${LOGIN_ID} -key  ${SSH_KEY_PATH}/${SSH_KEY_NAME}
+cd $CUR_DIR
+echo "Done capturing svr-info."
+
 
 #---------------------------------------------------------- CPU configuration --------------------------------------------------------
 #ALDERLAKE="12thGenIntel(R)Core(TM)i9-12900HK"
@@ -204,8 +214,6 @@ do
     if [ "${CPUs[0]}" -gt "15" ]; then
         CORE_TYPE="grt"
     fi
-
-    mkdir -p $LOG_PATH
 
     echo "Redis Server will run on CPU IDs: $CPU_IDs"
     echo "Number of Redis instances=${REDIS_NUM}"
