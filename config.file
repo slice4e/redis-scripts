@@ -1,13 +1,13 @@
 
-ITERATION_NUM=2
-CONFIG_FILE=/home/redis/redis-scripts/test-suite.config
-POST_SCRIPT=/home/redis/redis-scripts/postscripts/post_process.sh
+ITERATION_NUM=3
+CONFIG_FILE=/root/redis-scripts/test-suite.config
+POST_SCRIPT=/root/redis-scripts/postscripts/post_process.sh
 
 #SSH
 LOGIN_ID=root
-SERVER_IP=192.168.2.10
+SERVER_IP=172.31.60.77
 SSH_KEY_PATH=~/.ssh
-SSH_KEY_NAME=redisClient_rsa
+SSH_KEY_NAME=id_rsa
 
 #Server CPU
 GOLDENCOVE_CORES="0-15"
@@ -20,13 +20,13 @@ BIND_SOCKET=0
 START_PORT=9000
 
 #Benchmark
-LOG_PATH="/home/redis/results-$(date +"%Y%m%d")"
+LOG_PATH="/root/results-$(date +"%Y%m%d")"
 
 #emon
 emon_folder=/opt/intel/sep/bin64/  # emon path of the Server
 
 #flame_graph
-flamegraph_folder=/root/tools/FlameGraph-master
+flamegraph_folder=/root/FlameGraph
 
 #sar
 SAR_DURATION=120

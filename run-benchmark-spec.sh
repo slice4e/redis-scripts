@@ -69,12 +69,35 @@ echo "SSH Connection is Successfull!"
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
 
 echo "Check pre-requisites on server"
+
+if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
+	echo "The prerequisite numactl is not installed. Attempting to install."
+	$SSH_COMMAND apt-get update
+	$SSH_COMMAND apt install numactl -y
+fi
+
+if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
+	echo "The prerequisite sysstat is not installed. Attempting to install."
+	$SSH_COMMAND apt-get update
+	$SSH_COMMAND apt install sysstat -y
+fi
+
+if ! $SSH_COMMAND command -v "${flamegraph_folder}/flamegraph.pl" &>/dev/null; then
+	echo "The prerequisite FlameGraph is not installed. Attempting to install."
+	$SSH_COMMAND git clone https://github.com/brendangregg/FlameGraph
+fi
+
+if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
+	echo "The prerequisite perf is not installed."
+fi
+
+
 prerequisites=(
   "perf"
   "numactl"
   "sar"
+  "${flamegraph_folder}/flamegraph.pl"
 )
-
 
 # Check if each prerequisite is installed
 for prerequisite in "${prerequisites[@]}"; do
@@ -85,7 +108,46 @@ for prerequisite in "${prerequisites[@]}"; do
 done
 
 # All prerequisites are installed, continue with the script
-echo "All prerequisites are installed."
+echo "All prerequisites are installed on the server."
+
+echo "Check pre-requisites on the client"
+
+if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
+	echo "The prerequisite Redis Benchmarks Specification is not installed. Attempting to install."
+	apt-get update
+	apt install python3-pip -y
+	pip3 install --upgrade pip
+	apt install docker.io -y
+	pip3 install redis-benchmarks-specification
+	python3 -m pip install cryptography==38.0.4
+	export CURL_CA_BUNDLE=""
+fi
+
+if ! command -v "svr-info" &>/dev/null; then
+	echo "The prerequisite svr-info is not installed. Attempting to install."
+	CUR_DIR=`pwd`
+	cd /opt
+	wget -qO- https://github.com/intel/svr-info/releases/latest/download/svr-info.tgz | tar xvz
+	ln -s /opt/svr-info/svr-info /usr/local/bin/svr-info
+	cd $CUR_DIR
+fi
+
+prerequisites=(
+  "redis-benchmarks-spec-client-runner"
+  "svr-info"
+)
+
+# Check if each prerequisite is installed
+for prerequisite in "${prerequisites[@]}"; do
+  if ! command -v "$prerequisite" &>/dev/null; then
+    echo "Error: The prerequisite '$prerequisite' is not installed."
+    exit 1
+  fi
+done
+
+
+echo "All prerequisites are installed on the client."
+
 
 #---------------------------------------------------------- CPU configuration --------------------------------------------------------
 #ALDERLAKE="12thGenIntel(R)Core(TM)i9-12900HK"
