@@ -149,7 +149,7 @@ if ! command -v "svr-info" &>/dev/null; then
 fi
 
 prerequisites=(
-  "memtier-benchmark"
+  "memtier_benchmark"
   "redis-benchmarks-spec-client-runner"
   "svr-info"
 )
