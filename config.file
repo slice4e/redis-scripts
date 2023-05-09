@@ -1,6 +1,7 @@
 
-ITERATION_NUM=1
-CONFIG_FILE=./test-suite.config
+ITERATION_NUM=2
+CONFIG_FILE=/home/redis/redis-scripts/test-suite.config
+POST_SCRIPT=/home/redis/redis-scripts/postscripts/post_process.sh
 
 #SSH
 LOGIN_ID=root

@@ -284,3 +284,17 @@ do
 done
 
 
+#---------------------------------------------------------- Post Process --------------------------------------------------------
+
+echo "Post processing results..."
+echo "Calculating average ops/sec across runs..."
+CUR_DIR=`pwd`
+cd ${LOG_PATH}
+source $POST_SCRIPT
+cd $CUR_DIR
+echo "Done post processing results..."
+
+
+
+
+
