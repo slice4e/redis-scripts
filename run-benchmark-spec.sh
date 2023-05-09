@@ -112,6 +112,22 @@ echo "All prerequisites are installed on the server."
 
 echo "Check pre-requisites on the client"
 
+if ! command -v "memtier-benchmark" &>/dev/null; then
+	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
+	apt-get update
+	apt-get install build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev libssl-dev -y
+	CUR_DIR=`pwd`
+	cd /opt
+	git clone https://github.com/RedisLabs/memtier_benchmark.git
+	cd /opt/memtier_benchmark
+	autoreconf -ivf
+	./configure
+	make
+	make install
+	cd $CUR_DIR
+
+fi
+
 if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 	echo "The prerequisite Redis Benchmarks Specification is not installed. Attempting to install."
 	apt-get update
@@ -120,7 +136,7 @@ if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 	apt install docker.io -y
 	pip3 install redis-benchmarks-specification
 	python3 -m pip install cryptography==38.0.4
-	export CURL_CA_BUNDLE=""
+	pip install pyopenssl --upgrade
 fi
 
 if ! command -v "svr-info" &>/dev/null; then
@@ -133,6 +149,7 @@ if ! command -v "svr-info" &>/dev/null; then
 fi
 
 prerequisites=(
+  "memtier-benchmark"
   "redis-benchmarks-spec-client-runner"
   "svr-info"
 )
