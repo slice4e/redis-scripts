@@ -70,6 +70,20 @@ echo "SSH Connection is Successfull!"
 
 echo "Check pre-requisites on server"
 
+
+if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
+	echo "Redis is not installed. Attempting to install."
+	$SSH_COMMAND apt-get update
+	$SSH_COMMAND apt install make -y
+	$SSH_COMMAND apt install gcc -y
+	$SSH_COMMAND apt install pkg-config -y
+	$SSH_COMMAND git clone --recursive https://github.com/redis/redis.git
+	$SSH_COMMAND "cd $REDIS_PATH; make -j"
+	$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf | sed \"s/bind/#bind/\" > redis.conf.new"
+	$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf.new | sed \"s/protected-mode yes/protected-mode no/\" > redis.conf.new2"
+	$SSH_COMMAND "cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new"
+fi
+
 if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
 	echo "The prerequisite numactl is not installed. Attempting to install."
 	$SSH_COMMAND apt-get update
@@ -88,15 +102,19 @@ if ! $SSH_COMMAND command -v "${flamegraph_folder}/flamegraph.pl" &>/dev/null; t
 fi
 
 if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
-	echo "The prerequisite perf is not installed."
+	$SSH_COMMAND apt install linux-tools-common -y
+	$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
+	$SSH_COMMAND "echo 1 > /proc/sys/kernel/perf_event_paranoid"
+	$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
 fi
 
 
 prerequisites=(
-  "perf"
+  "$REDIS_PATH/src/redis-server"
   "numactl"
-  "sar"
+  "perf"
   "${flamegraph_folder}/flamegraph.pl"
+  "sar"
 )
 
 # Check if each prerequisite is installed
