@@ -5,7 +5,7 @@ POST_SCRIPT=/root/redis-scripts/postscripts/post_process.sh
 
 #SSH
 LOGIN_ID=root
-SERVER_IP=172.31.60.77
+SERVER_IP=172.31.59.105
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 
@@ -23,7 +23,11 @@ START_PORT=9000
 LOG_PATH="/root/results-$(date +"%Y%m%d")"
 
 #emon
-emon_folder=/opt/intel/sep/bin64/  # emon path of the Server
+RUN_EMON=false
+EMON_FOLDER=/opt/intel/sep/bin64/  # emon path of the Server
+EMON_CONFIG_FILE=/root/redis-scripts/edp_config.txt
+EMON_RESULT_FOLDER=$LOG_PATH/emon_processed
+EMON_POST_SCRIPT=/root/redis-scripts/postscripts/emon_process.sh
 
 #flame_graph
 flamegraph_folder=/root/FlameGraph
