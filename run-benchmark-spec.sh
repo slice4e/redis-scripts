@@ -109,7 +109,7 @@ if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
 fi
 
 if [[ $RUN_EMON == true ]] ; then
-	if ! $SSH_COMMAND command -v "emon" &>/dev/null; then
+	if ! $SSH_COMMAND command -v "${EMON_FOLDER}/emon" &>/dev/null; then
     		echo "EMON is configured to run, but it is not installed on the server."
     		exit 1
 	fi
@@ -295,7 +295,7 @@ do
         echo "Starting Redis server(s) completed in $(($duration / 60)) minutes and $(($duration % 60)) seconds."
 
         #---------------------------------------------------------- Run Benchmarks --------------------------------------------------------
-        if [[ $iteration == 1 ] && [ $RUN_EMON == true ]]; then
+        if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then
             echo "Starting emon... (First, try to stop if emon is running)"
             cmd="${EMON_FOLDER}/emon -stop "
             $SSH_COMMAND $cmd
@@ -352,7 +352,7 @@ do
         duration=$SECONDS
         echo "Memtier benchmark comleted in $(($duration / 60)) minutes and $(($duration % 60)) seconds."
 
-        if [[ $iteration == 1 ] && [ $RUN_EMON == true ]]; then
+        if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then
             echo "Stopping emon..."
             cmd="${EMON_FOLDER}/emon -stop "
             $SSH_COMMAND $cmd
