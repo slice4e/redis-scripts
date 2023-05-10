@@ -108,6 +108,13 @@ if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
 	$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
 fi
 
+if [[ $RUN_EMON == true ]] ; then
+	if ! $SSH_COMMAND command -v "emon" &>/dev/null; then
+    		echo "EMON is configured to run, but it is not installed on the server."
+    		exit 1
+	fi
+fi
+
 
 prerequisites=(
   "$REDIS_PATH/src/redis-server"
@@ -164,6 +171,13 @@ if ! command -v "svr-info" &>/dev/null; then
 	wget -qO- https://github.com/intel/svr-info/releases/latest/download/svr-info.tgz | tar xvz
 	ln -s /opt/svr-info/svr-info /usr/local/bin/svr-info
 	cd $CUR_DIR
+fi
+
+if [[ $RUN_EMON == true ]] ; then
+	if ! command -v "emon" &>/dev/null; then
+    		echo "EMON is configured to run, but it is not installed on the client."
+    		exit 1
+	fi
 fi
 
 prerequisites=(
@@ -281,11 +295,11 @@ do
         echo "Starting Redis server(s) completed in $(($duration / 60)) minutes and $(($duration % 60)) seconds."
 
         #---------------------------------------------------------- Run Benchmarks --------------------------------------------------------
-        if [[ $iteration == 1 ]]; then
+        if [[ $iteration == 1 ] && [ $RUN_EMON == true ]]; then
             echo "Starting emon... (First, try to stop if emon is running)"
-            cmd="${emon_folder}/emon -stop "
+            cmd="${EMON_FOLDER}/emon -stop "
             $SSH_COMMAND $cmd
-            cmd="${emon_folder}/emon -collect-edp -f ${CORE_TYPE}-run${iteration}-emon.dat "
+            cmd="${EMON_FOLDER}/emon -collect-edp -f ${CORE_TYPE}-run${iteration}-emon.dat "
             $SSH_COMMAND $cmd &
         fi
         SECONDS=0
@@ -338,9 +352,9 @@ do
         duration=$SECONDS
         echo "Memtier benchmark comleted in $(($duration / 60)) minutes and $(($duration % 60)) seconds."
 
-        if [[ $iteration == 1 ]]; then
+        if [[ $iteration == 1 ] && [ $RUN_EMON == true ]]; then
             echo "Stopping emon..."
-            cmd="${emon_folder}/emon -stop "
+            cmd="${EMON_FOLDER}/emon -stop "
             $SSH_COMMAND $cmd
 
             echo "Copying emon results..."
@@ -392,6 +406,17 @@ done
 #---------------------------------------------------------- Post Process --------------------------------------------------------
 
 echo "Post processing results..."
+
+if [[ $RUN_EMON == true ]]; then
+	echo "Processing EMON results..."
+	CUR_DIR=`pwd`
+	cd ${LOG_PATH}
+	source $EMON_POST_SCRIPT
+	cd $CUR_DIR
+	echo "Done post processing EMON..."
+
+fi
+
 echo "Calculating average ops/sec across runs..."
 CUR_DIR=`pwd`
 cd ${LOG_PATH}
