@@ -10,7 +10,7 @@ do
     cp $i $EMON_TMP_FOLDER/emon.dat
     cd $EMON_TMP_FOLDER
     echo "Processing edp..."
-    emon -process-edp $EMON_CONFIG_FILE
+    emon -process-pyedp $EMON_CONFIG_FILE
     echo "Edp processing completed, moving results..."
     echo "mv summary.xlsx $EMON_RESULT_FOLDER/$filename-summary.xlsx"
     mv summary.xlsx $EMON_RESULT_FOLDER/$filename-summary.xlsx
