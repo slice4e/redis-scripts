@@ -1,5 +1,5 @@
 
-ITERATION_NUM=1
+ITERATION_NUM=3
 HOME_DIR=/home/redis
 CONFIG_FILE=$HOME_DIR/redis-scripts/test-suite.config
 POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/post_process.sh
@@ -27,7 +27,6 @@ LOG_PATH="$HOME_DIR/results-$(date +"%Y%m%d")"
 RUN_EMON=true
 EMON_FOLDER=/opt/intel/emon/bin64  # emon path of the Server
 EMON_CONFIG_FILE=$HOME_DIR/redis-scripts/pyedp_config.txt
-EMON_RESULT_FOLDER=$LOG_PATH/emon_processed
 EMON_POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/emon_process.sh
 
 #flame_graph
