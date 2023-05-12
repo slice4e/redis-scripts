@@ -1,7 +1,7 @@
 #!/bin/bash
 folder=summary
 summaryfile=${folder}/AverageOpsSec.csv
-finalsummaryfile=${folder}/All-Results-Aggregated.txt
+finalsummaryfile=${folder}/All-Results-Aggregated.txt #space delimited for easier importing into axce; with hyperlinks
 mkdir -p $folder
 
 echo "Calculating average ops/sec across test runs"
@@ -33,16 +33,16 @@ do
                 continue
         fi
 
-        echo -n "$testname,$opssec" >> $finalsummaryfile
+        echo -n "$testname $opssec" >> $finalsummaryfile
 
         PERF_FILE="${testname}-perf.txt"
         if [ -f "$PERF_FILE" ]; then
-                echo -n ",=hyperlink(\"../$PERF_FILE\",\"perf\")" >> $finalsummaryfile
+                echo -n " =hyperlink(\"../$PERF_FILE\",\"perf\")" >> $finalsummaryfile
         fi
 
         EMON_FILE=`ls emon_processed/${testname}-*-emon-summary.xlsx`
         if [ -f "$EMON_FILE" ]; then
-                echo -n ",=hyperlink(\"../$EMON_FILE\",\"emon\")" >> $finalsummaryfile
+                echo -n " =hyperlink(\"../$EMON_FILE\",\"emon\")" >> $finalsummaryfile
         fi
 
         printf "\n"  >> $finalsummaryfile
