@@ -313,7 +313,7 @@ do
         do
             CPU=${CPUs[${instance}-1]}
             PORT=$(($START_PORT + ${instance}))
-            LOG_FILE="${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-cpu${CPU}-run${iteration}"
+            LOG_FILE="${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-run${iteration}-cpu${CPU}"
 
             Redis_Ping=$($SSH_COMMAND "${REDIS_PATH}/src/redis-cli -h ${SERVER_IP} -p ${PORT} ping ")
             echo "Waiting for redis server $instance to be ready..."
