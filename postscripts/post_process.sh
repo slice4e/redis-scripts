@@ -40,6 +40,11 @@ do
                 echo -n " =hyperlink(\"../$PERF_FILE\",\"perf\")" >> $finalsummaryfile
         fi
 
+        FLAMEGRAPH_FILE="${testname}.perf-folded.svg"
+        if [ -f "$FLAMEGRAPH_FILE" ]; then
+                echo -n " =hyperlink(\"../$FLAMEGRAPH_FILE\",\"flamegraph\")" >> $finalsummaryfile
+        fi
+
         EMON_FILE=`ls emon_processed/${testname}-*-emon-summary.xlsx`
         if [ -f "$EMON_FILE" ]; then
                 echo -n " =hyperlink(\"../$EMON_FILE\",\"emon\")" >> $finalsummaryfile
