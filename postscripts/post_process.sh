@@ -1,6 +1,7 @@
 #!/bin/bash
 folder=summary
-summaryfile=${folder}/All-Results-Aggregated.csv
+summaryfile=${folder}/AverageOpsSec.csv
+finalsummaryfile=${folder}/All-Results-Aggregated.csv
 mkdir -p $folder
 
 echo "Calculating average ops/sec across test runs"
@@ -17,5 +18,35 @@ do
     fi
 
 done
-echo "Process completed"
+echo "Calculating average completed"
+
+
+
+echo "Aggregating all results into a summary file." 
+x=0
+while IFS=, read -r testname opssec
+do
+        if [[ $x == 0 ]]; then
+                #echo "Header line"
+                #echo $line
+                x=1;
+                continue
+        fi
+
+        echo -n "$testname,$opssec" >> $finalsummaryfile
+
+        PERF_FILE="${testname}-perf.txt"
+        if [ -f "$PERF_FILE" ]; then
+                echo -n ",=hyperlink($PERF_FILE)" >> $finalsummaryfile
+        fi
+
+        EMON_FILE=`ls ./emon_processed/${testname}-*-emon-summary.xlsx`
+        if [ -f "$EMON_FILE" ]; then
+                echo -n ",=hyperlink($EMON_FILE)" >> $finalsummaryfile
+        fi
+
+        printf "\n"  >> $finalsummaryfile
+
+done < "$summaryfile"
+echo "Aggregating complete."
 

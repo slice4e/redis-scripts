@@ -104,7 +104,7 @@ fi
 if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
 	$SSH_COMMAND apt install linux-tools-common -y
 	$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
-	$SSH_COMMAND "echo 1 > /proc/sys/kernel/perf_event_paranoid"
+	$SSH_COMMAND "echo 0 > /proc/sys/kernel/perf_event_paranoid"
 	$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
 fi
 
@@ -422,14 +422,10 @@ if [[ $RUN_EMON == true ]]; then
 
 fi
 
-echo "Calculating average ops/sec across runs..."
 CUR_DIR=`pwd`
 cd ${LOG_PATH}
 source $POST_SCRIPT
 cd $CUR_DIR
-echo "Done post processing results..."
-
-
 
 
 
