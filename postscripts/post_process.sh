@@ -9,10 +9,14 @@ echo "Calculating average ops/sec across test runs"
 echo "Test,Avg Ops/sec" >> $summaryfile
 for i in $( ls *.csv)
 do
-    test=${i%-cpu*.*}
-    testnum=${i#$test-cpu*-}
+    test=${i%-run*.*}
+    suffix=${i#$test-}
+    testnum=${suffix%-cpu*}
 
-    if [ $testnum = "run1.csv" ]; then
+    #echo $test
+    #echo $testnum
+
+    if [ $testnum = "run1" ]; then
     	echo -n "${test}," >> $summaryfile
     	cat ${test}*.csv | grep -E "Ops/sec" | awk -F "," '{total += $3; count++}END{ print total/count}' >> $summaryfile
     fi
