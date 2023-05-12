@@ -1,7 +1,7 @@
 #!/bin/bash
 folder=summary
 summaryfile=${folder}/AverageOpsSec.csv
-finalsummaryfile=${folder}/All-Results-Aggregated.csv
+finalsummaryfile=${folder}/All-Results-Aggregated.txt
 mkdir -p $folder
 
 echo "Calculating average ops/sec across test runs"
