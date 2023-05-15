@@ -83,29 +83,56 @@ if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf.new | sed \"s/protected-mode yes/protected-mode no/\" > redis.conf.new2"
 	$SSH_COMMAND "cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new"
 fi
+if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
+	echo "Redis is not installed. Unable to automatically install it. Failing."
+	exit 1
+fi
 
 if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
 	echo "The prerequisite numactl is not installed. Attempting to install."
 	$SSH_COMMAND apt-get update
 	$SSH_COMMAND apt install numactl -y
 fi
-
-if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
-	echo "The prerequisite sysstat is not installed. Attempting to install."
-	$SSH_COMMAND apt-get update
-	$SSH_COMMAND apt install sysstat -y
+if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
+	echo "The prerequisite numactl is not installed. Unable to automatically install it. Failing."
+	exit 1
 fi
 
-if ! $SSH_COMMAND command -v "${flamegraph_folder}/flamegraph.pl" &>/dev/null; then
-	echo "The prerequisite FlameGraph is not installed. Attempting to install."
-	$SSH_COMMAND git clone https://github.com/brendangregg/FlameGraph
+if [[ $RUN_SAR == true ]]; then
+	if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
+		echo "The prerequisite sysstat is not installed. Attempting to install."
+		$SSH_COMMAND apt-get update
+		$SSH_COMMAND apt install sysstat -y
+	fi
+	if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
+		echo "The prerequisite sysstat is not installed. Unable to automatically install it. Failing."
+		exit 1
+	fi
 fi
 
-if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
-	$SSH_COMMAND apt install linux-tools-common -y
-	$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
-	$SSH_COMMAND "echo 0 > /proc/sys/kernel/perf_event_paranoid"
-	$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
+if [[ $RUN_FLAMEGRAPH == true ]]; then
+	if ! $SSH_COMMAND command -v "${flamegraph_folder}/flamegraph.pl" &>/dev/null; then
+		echo "The prerequisite FlameGraph is not installed. Attempting to install."
+		$SSH_COMMAND git clone https://github.com/brendangregg/FlameGraph
+	fi
+	if ! $SSH_COMMAND command -v "${flamegraph_folder}/flamegraph.pl" &>/dev/null; then
+		echo "The prerequisite FlameGraph is not installed. Unable to automatically install it. Failing."
+		exit 1
+	fi
+fi
+
+if [[ $RUN_PERF == true ]]; then
+	if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
+		echo "The prerequisite Perf is not installed. Attempting to install."
+		$SSH_COMMAND apt install linux-tools-common -y
+		$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
+		$SSH_COMMAND "echo 0 > /proc/sys/kernel/perf_event_paranoid"
+		$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
+	fi
+	if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
+		echo "The prerequisite Perf is not installed. Unable to automatically install it. Failing."
+		exit 1
+	fi
 fi
 
 if [[ $RUN_EMON == true ]] ; then
@@ -114,23 +141,6 @@ if [[ $RUN_EMON == true ]] ; then
     		exit 1
 	fi
 fi
-
-
-prerequisites=(
-  "$REDIS_PATH/src/redis-server"
-  "numactl"
-  "perf"
-  "${flamegraph_folder}/flamegraph.pl"
-  "sar"
-)
-
-# Check if each prerequisite is installed
-for prerequisite in "${prerequisites[@]}"; do
-  if ! $SSH_COMMAND command -v "$prerequisite" &>/dev/null; then
-    echo "Error: The prerequisite '$prerequisite' is not installed."
-    exit 1
-  fi
-done
 
 # All prerequisites are installed, continue with the script
 echo "All prerequisites are installed on the server."
@@ -152,6 +162,10 @@ if ! command -v "memtier_benchmark" &>/dev/null; then
 	cd $CUR_DIR
 
 fi
+if ! command -v "memtier_benchmark" &>/dev/null; then
+	echo "The prerequisite memtier-benchmark is not installed. Unable to automatically install it. Failing."
+	exit 1
+fi
 
 if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 	echo "The prerequisite Redis Benchmarks Specification is not installed. Attempting to install."
@@ -163,14 +177,24 @@ if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 	python3 -m pip install cryptography==38.0.4
 	pip install pyopenssl --upgrade
 fi
+if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
+	echo "The prerequisite Redis Benchmarks Specification is not installed. Unable to automatically install it. Failing."
+	exit 1
+fi
 
-if ! command -v "svr-info" &>/dev/null; then
-	echo "The prerequisite svr-info is not installed. Attempting to install."
-	CUR_DIR=`pwd`
-	cd /opt
-	wget -qO- https://github.com/intel/svr-info/releases/latest/download/svr-info.tgz | tar xvz
-	ln -s /opt/svr-info/svr-info /usr/local/bin/svr-info
-	cd $CUR_DIR
+if [[ ${RUN_SVR_INFO} == true ]] ; then
+	if ! command -v "svr-info" &>/dev/null; then
+		echo "The prerequisite svr-info is not installed. Attempting to install."
+		CUR_DIR=`pwd`
+		cd /opt
+		wget -qO- https://github.com/intel/svr-info/releases/latest/download/svr-info.tgz | tar xvz
+		ln -s /opt/svr-info/svr-info /usr/local/bin/svr-info
+		cd $CUR_DIR
+	fi
+	if ! command -v "svr-info" &>/dev/null; then
+		echo "The prerequisite svr-info is not installed. Unable to automatically install it. Failing."
+		exit 1
+	fi
 fi
 
 if [[ $RUN_EMON == true ]] ; then
@@ -184,20 +208,6 @@ if [[ $RUN_EMON == true ]] ; then
     		exit 1
 	fi
 fi
-
-prerequisites=(
-  "memtier_benchmark"
-  "redis-benchmarks-spec-client-runner"
-  "svr-info"
-)
-
-# Check if each prerequisite is installed
-for prerequisite in "${prerequisites[@]}"; do
-  if ! command -v "$prerequisite" &>/dev/null; then
-    echo "Error: The prerequisite '$prerequisite' is not installed."
-    exit 1
-  fi
-done
 
 
 echo "All prerequisites are installed on the client."
@@ -339,14 +349,16 @@ do
             $SSH_COMMAND $cmd &> /dev/null
 
             echo "Starting sar..."
-            cmd="sar 1 ${SAR_DURATION} > ${BENCHMARK_TEST}-${CORE_TYPE}-sar-cpu.log"
-            $SSH_COMMAND $cmd &
-            cmd="sar 1 -r ${SAR_DURATION} > ${BENCHMARK_TEST}-${CORE_TYPE}-sar-mem.log"
-            $SSH_COMMAND $cmd &
-            cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${BENCHMARK_TEST}-${CORE_TYPE}-sar-disk.log"
-            $SSH_COMMAND $cmd &
-            cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${BENCHMARK_TEST}-${CORE_TYPE}-sar-net.log"
-            $SSH_COMMAND $cmd &
+	    if [[ $RUN_SAR == true ]]; then
+	        cmd="sar 1 ${SAR_DURATION} > ${BENCHMARK_TEST}-${CORE_TYPE}-sar-cpu.log"
+        	$SSH_COMMAND $cmd &
+            	cmd="sar 1 -r ${SAR_DURATION} > ${BENCHMARK_TEST}-${CORE_TYPE}-sar-mem.log"
+            	$SSH_COMMAND $cmd &
+            	cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${BENCHMARK_TEST}-${CORE_TYPE}-sar-disk.log"
+            	$SSH_COMMAND $cmd &
+            	cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${BENCHMARK_TEST}-${CORE_TYPE}-sar-net.log"
+            	$SSH_COMMAND $cmd &
+	    fi
         fi
 
         while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
@@ -396,8 +408,10 @@ do
             $SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}.perf-ins-folded.svg"
 
             echo "Copying sar results..."
-            scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${BENCHMARK_TEST}-${CORE_TYPE}-sar* ${LOG_PATH}/
-            $SSH_COMMAND "rm /root/${BENCHMARK_TEST}-${CORE_TYPE}-sar*"
+	    if [[ $RUN_SAR == true ]]; then
+            	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${BENCHMARK_TEST}-${CORE_TYPE}-sar* ${LOG_PATH}/
+            	$SSH_COMMAND "rm /root/${BENCHMARK_TEST}-${CORE_TYPE}-sar*"
+	    fi
         fi
         mv $LOG_PATH/aggregate-results.csv $LOG_FILE.csv
     done
