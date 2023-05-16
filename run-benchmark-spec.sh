@@ -183,7 +183,7 @@ if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 fi
 
 if [[ ${RUN_SVR_INFO} == true ]] ; then
-	if ! command -v "svr-info" &>/dev/null; then
+	if ! command -v "${SVR_INFO_PATH}/svr-info" &>/dev/null; then
 		echo "The prerequisite svr-info is not installed. Attempting to install."
 		CUR_DIR=`pwd`
 		cd /opt
@@ -191,7 +191,7 @@ if [[ ${RUN_SVR_INFO} == true ]] ; then
 		ln -s /opt/svr-info/svr-info /usr/local/bin/svr-info
 		cd $CUR_DIR
 	fi
-	if ! command -v "svr-info" &>/dev/null; then
+	if ! command -v "${SVR_INFO_PATH}/svr-info" &>/dev/null; then
 		echo "The prerequisite svr-info is not installed. Unable to automatically install it. Failing."
 		exit 1
 	fi
@@ -218,7 +218,7 @@ mkdir -p $LOG_PATH
 echo "Capture svr-info from the server."
 CUR_DIR=`pwd`
 cd ${LOG_PATH}
-svr-info -ip ${SERVER_IP} -user ${LOGIN_ID} -key  ${SSH_KEY_PATH}/${SSH_KEY_NAME}
+${SVR_INFO_PATH}/svr-info -ip ${SERVER_IP} -user ${LOGIN_ID} -key  ${SSH_KEY_PATH}/${SSH_KEY_NAME}
 cd $CUR_DIR
 echo "Done capturing svr-info."
 

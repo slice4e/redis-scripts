@@ -9,7 +9,7 @@ POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/post_process.sh
 
 #SSH
 LOGIN_ID=root
-SERVER_IP=x.x.x.x
+SERVER_IP=192.168.2.10
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 
@@ -30,6 +30,7 @@ IRQ_INTERFACE="ens785f0"
 
 #svr_info
 RUN_SVR_INFO=true
+SVR_INFO_PATH=/opt/svr-info
 
 #perf
 RUN_PERF=true
