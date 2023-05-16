@@ -78,7 +78,7 @@ if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	$SSH_COMMAND apt install gcc -y
 	$SSH_COMMAND apt install pkg-config -y
 	$SSH_COMMAND git clone --recursive https://github.com/redis/redis.git --branch $REDIS_BRANCH
-	$SSH_COMMAND "cd $REDIS_PATH; make -j"
+	$SSH_COMMAND "cd $REDIS_PATH; make $REDIS_BUILD_FLAGS"
 	$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf | sed \"s/bind/#bind/\" > redis.conf.new"
 	$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf.new | sed \"s/protected-mode yes/protected-mode no/\" > redis.conf.new2"
 	$SSH_COMMAND "cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new"

@@ -2,14 +2,14 @@
 # CLIENT SIDE configs
 ########################################################
 
-ITERATION_NUM=3
+ITERATION_NUM=5
 HOME_DIR=/root
 CONFIG_FILE=$HOME_DIR/redis-scripts/test-suite.config
 POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/post_process.sh
 
 #SSH
 LOGIN_ID=root
-SERVER_IP=192.168.2.10
+SERVER_IP=172.31.61.109
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 
@@ -55,6 +55,7 @@ EMON_POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/emon_process.sh
 
 #Redis Server
 REDIS_BRANCH=7.2-rc2   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+REDIS_BUILD_FLAGS='REDIS_CFLAGS="-fno-plt" REDIS_LDFLAGS="-fno-plt"'  # if building redis, we can pass build flags
 REDIS_PATH=/root/redis
 RDB_PATH=/root/redis
 BIND_SOCKET=0
