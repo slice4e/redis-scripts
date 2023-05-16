@@ -54,6 +54,7 @@ EMON_POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/emon_process.sh
 ########################################################
 
 #Redis Server
+REDIS_BRANCH=7.2-rc2   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
 REDIS_PATH=/root/redis
 RDB_PATH=/root/redis
 BIND_SOCKET=0
