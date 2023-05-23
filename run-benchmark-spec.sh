@@ -386,7 +386,8 @@ do
 
 	    if [[ $RUN_PERF == true ]]; then
             	echo "Creating perf results..."
-            	$SSH_COMMAND "perf report -i /root/${CORE_TYPE}-run${iteration}-perf.data > /root/${CORE_TYPE}-run${iteration}-perf.txt"
+            	$SSH_COMMAND "perf report --hierarchy -i /root/${CORE_TYPE}-run${iteration}-perf.data > /root/${CORE_TYPE}-run${iteration}-perf-hierarchy.txt"
+            	$SSH_COMMAND "perf report --max-stack 0 -i /root/${CORE_TYPE}-run${iteration}-perf.data > /root/${CORE_TYPE}-run${iteration}-perf.txt"
             	$SSH_COMMAND "perf report -i /root/${CORE_TYPE}-run${iteration}-perf-ins.data > /root/${CORE_TYPE}-run${iteration}-perf-ins.txt"
 	    fi
 
@@ -409,6 +410,8 @@ do
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf-ins.data"
             	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}-perf.txt ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-perf.txt
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf.txt"
+            	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}-perf.txt ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-perf-hierarchy.txt
+            	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf-hierarchy.txt"
             	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}-perf-ins.txt ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-perf-ins.txt
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf-ins.txt"
 	    fi
