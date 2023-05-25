@@ -410,7 +410,7 @@ do
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf-ins.data"
             	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}-perf.txt ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-perf.txt
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf.txt"
-            	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}-perf.txt ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-perf-hierarchy.txt
+            	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}-perf-hierarchy.txt ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-perf-hierarchy.txt
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf-hierarchy.txt"
             	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}-perf-ins.txt ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-perf-ins.txt
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf-ins.txt"
