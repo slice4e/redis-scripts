@@ -237,8 +237,6 @@ echo $ARCHT
 echo "Sockets: $SOCKETS"
 echo "Cores: $CORES"
 echo "Threads: $THREADS"
-echo "Big Core (GoldenCove) CPUs: $GOLDENCOVE_CORES"
-echo "Atom Core (Gracemont) CPUs: $GRACEMONT_CORES"
 
 #---------------------------------------------------------- Redis instances & Memtier Clients --------------------------------------------------------
 
@@ -258,9 +256,6 @@ do
     REDIS_NUM=${#CPUs[@]}
 
     CORE_TYPE="glc"
-    if [ "${CPUs[0]}" -gt "15" ]; then
-        CORE_TYPE="grt"
-    fi
 
     echo "Redis Server will run on CPU IDs: $CPU_IDs"
     echo "Number of Redis instances=${REDIS_NUM}"

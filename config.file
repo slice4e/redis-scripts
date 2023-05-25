@@ -13,10 +13,6 @@ SERVER_IP=x.x.x.x
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 
-#Server CPU
-GOLDENCOVE_CORES="0-15"
-GRACEMONT_CORES="16-23"
-
 #Benchmark
 LOG_PATH="$HOME_DIR/results-$(date +"%Y%m%d%H%M")"
 
