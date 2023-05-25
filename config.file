@@ -2,14 +2,14 @@
 # CLIENT SIDE configs
 ########################################################
 
-ITERATION_NUM=5
+ITERATION_NUM=3
 HOME_DIR=/root
 CONFIG_FILE=$HOME_DIR/redis-scripts/test-suite.config
 POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/post_process.sh
 
 #SSH
 LOGIN_ID=root
-SERVER_IP=172.31.61.109
+SERVER_IP=x.x.x.x
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 
@@ -18,11 +18,11 @@ GOLDENCOVE_CORES="0-15"
 GRACEMONT_CORES="16-23"
 
 #Benchmark
-LOG_PATH="$HOME_DIR/results-$(date +"%Y%m%d")"
+LOG_PATH="$HOME_DIR/results-$(date +"%Y%m%d%H%M")"
 
 #irq affinity
 SET_IRQ=false
-IRQ_INTERFACE="ens785f0"
+IRQ_INTERFACE="eno1"
 
 #######################
 # Data Collection Tools
