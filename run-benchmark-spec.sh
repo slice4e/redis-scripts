@@ -15,7 +15,7 @@ config_file="./config.file"
 
 # Check if the file exists
 if [ ! -f "$config_file" ]; then
-  echo "Error: The config file '$config_file' does not exist."
+  echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
   exit 1
 fi
 
