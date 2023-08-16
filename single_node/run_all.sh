@@ -17,13 +17,31 @@ if [[ $COLLECT_EMON == true ]] ; then
 fi
 
 #---------------------------check cpu configuration------------------------------------------
-CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
 NUM_CPUS=`numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w`
-REV_CPUS=""
-for cpu in $CPUS
-do
-	REV_CPUS="$cpu $REV_CPUS"
-done
+if [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
+	SPLIT_SOCKET=$((NUM_CPUS / 2))
+	if [[ $SPLIT_SOCKET -lt $NUM_SERVERS ]]; then
+		echo "Since we are sharing the socket between Redis and Memtier, use at most $SPLIT_SOCKET Redis servers. " 
+		exit 1
+	fi
+
+	CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
+	REV_CPUS=""
+	for cpu in $CPUS
+	do
+		REV_CPUS="$cpu $REV_CPUS"
+	done
+	MEMTIER_CPUS=$REV_CPUS
+else
+	CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
+	MEMTIER_CPUS=`numactl --hardware | grep "node ${MEMTIER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
+
+	if [[ $NUM_CPUS -lt $NUM_SERVERS ]]; then
+		echo "Use at most $NUM_CPUS Redis servers per socket. " 
+		exit 1
+	fi
+fi
+
 mkdir -p ${RESULTS_PATH}
 
 
@@ -54,7 +72,7 @@ echo "$(($(ps -e | grep -c redis-server))) redis servers started"
 
 #--------------------------start memtier benchmark FILL ---------------------------------------------
 instances=1
-for cpu in $REV_CPUS
+for cpu in $MEMTIER_CPUS
 do
 	port=$(($START_PORT + ${instances}))
 	echo -e "starting memtier benchmark $instances on vCPU $cpu"
@@ -77,7 +95,7 @@ done
 
 #--------------------------start memtier benchmark BENCHMARK ------------------------------------------
 instances=1
-for cpu in $REV_CPUS
+for cpu in $MEMTIER_CPUS
 do
 	port=$(($START_PORT + ${instances}))
 	echo -e "starting memtier benchmark $instances on vCPU $cpu"
