@@ -202,6 +202,7 @@ if [[ $RUN_EMON == true ]] ; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		pip3 install --upgrade pip
+		apt install python3-dev -y
 		pip install defusedxml
 		pip install tdigest
 		pip install xlsxwriter
