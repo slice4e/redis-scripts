@@ -134,7 +134,7 @@ if [[ $RUN_EMON == true ]] ; then
 	echo "Processing EMON results..."
 	#dcsomc -n -x alanstu -d ${RESULTS_PATH} -G ${RESULTS_FOLDER}_redis_2lm_${NUM_SERVERS}
 	CUR_DIR=`pwd`
-	cd ${LOG_PATH}
+	cd ${RESULTS_PATH}
 	source $EMON_POST_SCRIPT
 	cd $CUR_DIR
 	echo "Done post processing EMON..."
