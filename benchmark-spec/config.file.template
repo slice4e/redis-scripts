@@ -5,7 +5,7 @@
 ITERATION_NUM=3
 HOME_DIR=/root
 CONFIG_FILE=$HOME_DIR/redis-scripts/benchmark-spec/test-suite.config
-POST_SCRIPT=$HOME_DIR/redis-scripts/benchmark-spec/postscripts/post_process.sh
+POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/post_process.sh
 
 #SSH
 LOGIN_ID=root
@@ -42,15 +42,15 @@ SAR_DURATION=120
 #emon
 RUN_EMON=false
 EMON_FOLDER=/opt/intel/emon/bin64  # emon path of the Server and client
-EMON_CONFIG_FILE=$HOME_DIR/redis-scripts/benchmark-spec/pyedp_config.txt
-EMON_POST_SCRIPT=$HOME_DIR/redis-scripts/benchmark-spec/postscripts/emon_process.sh
+EMON_CONFIG_FILE=$HOME_DIR/redis-scripts/pyedp_config.txt
+EMON_POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/emon_process.sh
 
 ########################################################
 # SERVER SIDE configs
 ########################################################
 
 #Redis Server
-REDIS_BRANCH=7.2-rc2   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+REDIS_BRANCH=7.2   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
 REDIS_BUILD_FLAGS='REDIS_CFLAGS="-fno-plt" REDIS_LDFLAGS="-fno-plt"'  # if building redis, we can pass build flags
 REDIS_PATH=/root/redis
 RDB_PATH=/root/redis

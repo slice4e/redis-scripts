@@ -12,7 +12,7 @@ done
 config_file="./redis_bench.config"
 source $config_file
 
-if [[ $COLLECT_EMON == true ]] ; then
+if [[ $RUN_EMON == true ]] ; then
 	source /opt/intel/sep/sep_vars.sh
 fi
 
@@ -110,7 +110,7 @@ do
 	fi
 done
 
-if [[ $COLLECT_EMON == true ]] ; then
+if [[ $RUN_EMON == true ]] ; then
 	cmd="emon -collect-edp -f ${RESULTS_PATH}/emon.dat "
 	$SSH_COMMAND $cmd &
 fi
@@ -122,20 +122,23 @@ while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
 done
 
 
-if [[ $COLLECT_EMON == true ]] ; then
+if [[ $RUN_EMON == true ]] ; then
 	cmd="emon -stop "
 	$SSH_COMMAND $cmd &
 fi
 
 #-------------------------- Process Emon ------------------ ------------------------------------------
 
-if [[ $COLLECT_EMON == true ]] ; then
+if [[ $RUN_EMON == true ]] ; then
 
 	echo "Processing EMON results..."
 	#dcsomc -n -x alanstu -d ${RESULTS_PATH} -G ${RESULTS_FOLDER}_redis_2lm_${NUM_SERVERS}
+	CUR_DIR=`pwd`
+	cd ${LOG_PATH}
+	source $EMON_POST_SCRIPT
+	cd $CUR_DIR
 	echo "Done post processing EMON..."
 fi
-
 
 #-------------------------- Process Results ------------------ ------------------------------------------
 
