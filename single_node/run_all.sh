@@ -111,8 +111,11 @@ do
 done
 
 if [[ $RUN_EMON == true ]] ; then
+        echo "Starting emon... (First, try to stop if emon is running)"
+        cmd="${EMON_FOLDER}/emon -stop "
+        $cmd
 	cmd="emon -collect-edp -f ${RESULTS_PATH}/emon.dat "
-	$SSH_COMMAND $cmd &
+	$cmd &
 fi
 
 
@@ -124,7 +127,7 @@ done
 
 if [[ $RUN_EMON == true ]] ; then
 	cmd="emon -stop "
-	$SSH_COMMAND $cmd &
+	$cmd &
 fi
 
 #-------------------------- Process Emon ------------------ ------------------------------------------
