@@ -1,0 +1,58 @@
+########################################################
+# CLIENT SIDE configs
+########################################################
+
+ITERATION_NUM=3
+HOME_DIR=/root
+CONFIG_FILE=$HOME_DIR/redis-scripts/benchmark-spec/test-suite.config
+POST_SCRIPT=$HOME_DIR/redis-scripts/benchmark-spec/postscripts/post_process.sh
+
+#SSH
+LOGIN_ID=root
+SERVER_IP=localhost
+SSH_KEY_PATH=~/.ssh
+SSH_KEY_NAME=id_rsa
+
+#Benchmark
+LOG_PATH="$HOME_DIR/results-$(date +"%Y%m%d%H%M")"
+
+#irq affinity
+SET_IRQ=false
+IRQ_INTERFACE="eno1"
+
+#######################
+# Data Collection Tools
+#######################
+
+#svr_info
+RUN_SVR_INFO=true
+SVR_INFO_PATH=/opt/svr-info
+
+#perf
+RUN_PERF=true
+
+#flame_graph
+RUN_FLAMEGRAPH=true
+flamegraph_folder=/root/FlameGraph
+
+#sar
+RUN_SAR=false
+SAR_DURATION=120
+
+#emon
+RUN_EMON=false
+EMON_FOLDER=/opt/intel/emon/bin64  # emon path of the Server and client
+EMON_CONFIG_FILE=$HOME_DIR/redis-scripts/benchmark-spec/pyedp_config.txt
+EMON_POST_SCRIPT=$HOME_DIR/redis-scripts/benchmark-spec/postscripts/emon_process.sh
+
+########################################################
+# SERVER SIDE configs
+########################################################
+
+#Redis Server
+REDIS_BRANCH=7.2-rc2   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+REDIS_BUILD_FLAGS='REDIS_CFLAGS="-fno-plt" REDIS_LDFLAGS="-fno-plt"'  # if building redis, we can pass build flags
+REDIS_PATH=/root/redis-7.2.0_jon_prefetch
+RDB_PATH=/root/redis-7.2.0_jon_prefetch
+BIND_SOCKET=0
+START_PORT=9000
