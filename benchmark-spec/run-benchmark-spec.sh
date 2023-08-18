@@ -216,13 +216,15 @@ echo "All prerequisites are installed on the client."
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 
 mkdir -p $LOG_PATH
-echo "Capture svr-info from the server."
-CUR_DIR=`pwd`
-cd ${LOG_PATH}
-${SVR_INFO_PATH}/svr-info -ip ${SERVER_IP} -user ${LOGIN_ID} -key  ${SSH_KEY_PATH}/${SSH_KEY_NAME}
-cd $CUR_DIR
-echo "Done capturing svr-info."
 
+if [[ ${RUN_SVR_INFO} == true ]] ; then
+	echo "Capture svr-info from the server."
+	CUR_DIR=`pwd`
+	cd ${LOG_PATH}
+	${SVR_INFO_PATH}/svr-info -ip ${SERVER_IP} -user ${LOGIN_ID} -key  ${SSH_KEY_PATH}/${SSH_KEY_NAME}
+	cd $CUR_DIR
+	echo "Done capturing svr-info."
+fi 
 
 #---------------------------------------------------------- CPU configuration --------------------------------------------------------
 #ALDERLAKE="12thGenIntel(R)Core(TM)i9-12900HK"
