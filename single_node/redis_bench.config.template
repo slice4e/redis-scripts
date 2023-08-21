@@ -1,7 +1,7 @@
 
 # Redis server configs
 HOME_DIR=/root
-REDIS_PATH=/root/redis-7.2.0_jon_prefetch
+REDIS_PATH=/root/redis-7.2.0
 SERVER_SOCKET=0
 START_PORT=9000
 HOST="127.0.0.1"
@@ -10,7 +10,7 @@ NUM_SERVERS=36 # Each Redis server contributes about 20GB of memory capacity. Ve
 # Memtier benchmark configs
 MEMTIER_PATH=/root/memtier_benchmark
 MEMTIER_SOCKET=1
-RESULTS_FOLDER=ICX_memtier_result_$(date +"%Y%m%d%H%M")
+RESULTS_FOLDER=memtier_result_$(date +"%Y%m%d%H%M")
 RESULTS_PATH=/root/results/${RESULTS_FOLDER}
 NUM_FILL_REQ=2000000
 #NUM_FILL_REQ=14000000 # approximately 20GB per instance

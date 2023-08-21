@@ -10,6 +10,13 @@ done
 
 # Read the config file
 config_file="./redis_bench.config"
+
+# Check if the file exists
+if [ ! -f "$config_file" ]; then
+	  echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
+	    exit 1
+fi
+
 source $config_file
 
 if [[ $RUN_EMON == true ]] ; then
