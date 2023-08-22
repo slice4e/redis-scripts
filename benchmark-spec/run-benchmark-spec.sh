@@ -387,18 +387,19 @@ do
             	$SSH_COMMAND "perf report --hierarchy -i /root/${CORE_TYPE}-run${iteration}-perf.data > /root/${CORE_TYPE}-run${iteration}-perf-hierarchy.txt"
             	$SSH_COMMAND "perf report --max-stack 0 -i /root/${CORE_TYPE}-run${iteration}-perf.data > /root/${CORE_TYPE}-run${iteration}-perf.txt"
             	$SSH_COMMAND "perf report -i /root/${CORE_TYPE}-run${iteration}-perf-ins.data > /root/${CORE_TYPE}-run${iteration}-perf-ins.txt"
+
+	    	if [[ $RUN_FLAMEGRAPH == true ]]; then
+            		echo "Creating flame graphs"
+            		$SSH_COMMAND "perf script -i /root/${CORE_TYPE}-run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > /root/${CORE_TYPE}-run${iteration}.perf-folded"
+            		$SSH_COMMAND "${flamegraph_folder}/flamegraph.pl /root/${CORE_TYPE}-run${iteration}.perf-folded > /root/${CORE_TYPE}-run${iteration}.perf-folded.svg"
+            		$SSH_COMMAND "rm -f /root/${CORE_TYPE}-run${iteration}.perf-folded"
+
+	            	$SSH_COMMAND "perf script -i /root/${CORE_TYPE}-run${iteration}-perf-ins.data | ${flamegraph_folder}/stackcollapse-perf.pl > /root/${CORE_TYPE}-run${iteration}.perf-ins-folded"
+        	    	$SSH_COMMAND "${flamegraph_folder}/flamegraph.pl /root/${CORE_TYPE}-run${iteration}.perf-ins-folded > /root/${CORE_TYPE}-run${iteration}.perf-ins-folded.svg"
+            		$SSH_COMMAND "rm -f /root/${CORE_TYPE}-run${iteration}.perf-ins-folded"
+	    	fi
 	    fi
 
-	    if [[ $RUN_FLAMEGRAPH == true ]]; then
-            	echo "Creating flame graphs"
-            	$SSH_COMMAND "perf script -i /root/${CORE_TYPE}-run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > /root/${CORE_TYPE}-run${iteration}.perf-folded"
-            	$SSH_COMMAND "${flamegraph_folder}/flamegraph.pl /root/${CORE_TYPE}-run${iteration}.perf-folded > /root/${CORE_TYPE}-run${iteration}.perf-folded.svg"
-            	$SSH_COMMAND "rm -f /root/${CORE_TYPE}-run${iteration}.perf-folded"
-
-            	$SSH_COMMAND "perf script -i /root/${CORE_TYPE}-run${iteration}-perf-ins.data | ${flamegraph_folder}/stackcollapse-perf.pl > /root/${CORE_TYPE}-run${iteration}.perf-ins-folded"
-            	$SSH_COMMAND "${flamegraph_folder}/flamegraph.pl /root/${CORE_TYPE}-run${iteration}.perf-ins-folded > /root/${CORE_TYPE}-run${iteration}.perf-ins-folded.svg"
-            	$SSH_COMMAND "rm -f /root/${CORE_TYPE}-run${iteration}.perf-ins-folded"
-	    fi
 
 	    if [[ $RUN_PERF == true ]]; then
             	echo "Copying perf results..."
@@ -412,14 +413,14 @@ do
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf-hierarchy.txt"
             	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}-perf-ins.txt ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}-perf-ins.txt
             	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}-perf-ins.txt"
-	    fi
 
-	    if [[ $RUN_FLAMEGRAPH == true ]]; then
-            	echo "Copying flamegraph results..."
-           	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}.perf-folded.svg ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}.perf-folded.svg
-            	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}.perf-folded.svg"
-            	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}.perf-ins-folded.svg ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}.perf-ins-folded.svg
-            	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}.perf-ins-folded.svg"
+	    	if [[ $RUN_FLAMEGRAPH == true ]]; then
+	            	echo "Copying flamegraph results..."
+        	   	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}.perf-folded.svg ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}.perf-folded.svg
+            		$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}.perf-folded.svg"
+	            	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:/root/${CORE_TYPE}-run${iteration}.perf-ins-folded.svg ${LOG_PATH}/${BENCHMARK_TEST}-${CORE_TYPE}.perf-ins-folded.svg
+        	    	$SSH_COMMAND "rm /root/${CORE_TYPE}-run${iteration}.perf-ins-folded.svg"
+	    	fi
 	    fi
 
 	    if [[ $RUN_SAR == true ]]; then
