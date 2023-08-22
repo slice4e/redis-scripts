@@ -6,6 +6,10 @@ EMON_TMP_CONFIG=emon_config.txt
 mkdir -p $EMON_TMP_FOLDER
 mkdir -p $EMON_RESULT_FOLDER
 
+if [[ $RUN_EMON == true ]] ; then
+	source $EMON_HOME/sep_vars.sh
+fi
+
 for i in $( ls *.dat )
 do 
     filename=${i%.*}

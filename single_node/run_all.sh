@@ -16,12 +16,22 @@ if [ ! -f "$config_file" ]; then
 	  echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
 	    exit 1
 fi
-
 source $config_file
 
-if [[ $RUN_EMON == true ]] ; then
-	source /opt/intel/sep/sep_vars.sh
-fi
+
+#---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
+
+mkdir -p ${RESULTS_PATH}
+
+if [[ ${RUN_SVR_INFO} == true ]] ; then
+	echo "Capture svr-info from the server."
+	CUR_DIR=`pwd`
+	cd ${RESULTS_PATH}
+	${SVR_INFO_PATH}/svr-info
+	cd $CUR_DIR
+	echo "Done capturing svr-info."
+fi 
+
 
 #---------------------------check cpu configuration------------------------------------------
 NUM_CPUS=`numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w`
@@ -48,8 +58,6 @@ else
 		exit 1
 	fi
 fi
-
-mkdir -p ${RESULTS_PATH}
 
 
 #--------------------------start master servers------------------------------------------------------
@@ -121,7 +129,7 @@ if [[ $RUN_EMON == true ]] ; then
         echo "Starting emon... (First, try to stop if emon is running)"
         cmd="${EMON_FOLDER}/emon -stop "
         $cmd
-	cmd="emon -collect-edp -f ${RESULTS_PATH}/emon.dat "
+	cmd="${EMON_FOLDER}/emon -collect-edp -f ${RESULTS_PATH}/single_node-emon.dat "
 	$cmd &
 fi
 
@@ -131,11 +139,22 @@ while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
         sleep 5
 done
 
+echo "Killing existing redis server instances and remove rdb files..."
+killall -9 redis-server
+rm -f ${RDB_PATH}/*.rdb
+
 
 if [[ $RUN_EMON == true ]] ; then
-	cmd="emon -stop "
+	cmd="${EMON_FOLDER}/emon -stop "
 	$cmd &
 fi
+
+#-------------------------- Process Results ------------------ ------------------------------------------
+
+echo "Total Ops/sec"
+total_ops=`cat ${RESULTS_PATH}/benchmark_* | grep Totals | awk -F " " '{total += $2; count++ } END { print total} '`
+echo $total_ops
+echo "Num_servers_$NUM_SERVERS,Total.Ops/sec,$total_ops" > ${RESULTS_PATH}/single_node-total_ops.csv 
 
 #-------------------------- Process Emon ------------------ ------------------------------------------
 
@@ -150,12 +169,6 @@ if [[ $RUN_EMON == true ]] ; then
 	echo "Done post processing EMON..."
 fi
 
-#-------------------------- Process Results ------------------ ------------------------------------------
-
-echo "Total Ops/sec"
-total_ops=`cat ${RESULTS_PATH}/benchmark_* | grep Totals | awk -F " " '{total += $2; count++ } END { print total} '`
-echo $total_ops
-echo $total_ops > ${RESULTS_PATH}/total_ops.log
 
 #done
 

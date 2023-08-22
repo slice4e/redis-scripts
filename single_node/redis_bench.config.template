@@ -1,13 +1,18 @@
-
-# Redis server configs
+########################################################
+# SERVER SIDE configs
+########################################################
 HOME_DIR=/root
-REDIS_PATH=/root/redis-7.2.0
+REDIS_PATH=/root/redis-7.2
+RDB_PATH=/root/redis-7.2
 SERVER_SOCKET=0
 START_PORT=9000
 HOST="127.0.0.1"
 NUM_SERVERS=36 # Each Redis server contributes about 20GB of memory capacity. Verify with top
 
-# Memtier benchmark configs
+########################################################
+# CLIENT SIDE configs
+########################################################
+
 MEMTIER_PATH=/root/memtier_benchmark
 MEMTIER_SOCKET=1
 RESULTS_FOLDER=memtier_result_$(date +"%Y%m%d%H%M")
@@ -21,8 +26,21 @@ MEMTIER_PIPELINE=64
 MEMTIER_CLIENTS=2
 MEMTIER_THREADS=2
 
+#######################
+# Data Collection Tools
+#######################
+
+#svr_info
+RUN_SVR_INFO=false
+SVR_INFO_PATH=/opt/svr-info
+
 #emon
 RUN_EMON=false
-EMON_FOLDER=/opt/intel/emon/bin64  # emon path of the Server and client
+EMON_HOME=/opt/intel/emon  # emon path of the Server and client
+EMON_FOLDER=$EMON_HOME/bin64  # emon path of the Server and client
 EMON_CONFIG_FILE=$HOME_DIR/redis-scripts/pyedp_config.txt
-EMON_POST_SCRIPT=$HOME_DIR/redis-scripts/postscripts/emon_process.sh
+
+########################
+# Shared utility scripts
+########################
+EMON_POST_SCRIPT=$HOME_DIR/redis-scripts/shared-scripts/emon_process.sh
