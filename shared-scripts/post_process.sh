@@ -39,20 +39,26 @@ do
 
         echo -n "$testname $opssec" >> $finalsummaryfile
 
-        PERF_FILE="${testname}-perf.txt"
-        if [ -f "$PERF_FILE" ]; then
-                echo -n " =hyperlink(\"../$PERF_FILE\",\"perf\")" >> $finalsummaryfile
-        fi
+	if [[ $RUN_PERF == true ]]; then
+        	PERF_FILE="${testname}-perf.txt"
+	        if [ -f "$PERF_FILE" ]; then
+        	        echo -n " =hyperlink(\"../$PERF_FILE\",\"perf\")" >> $finalsummaryfile
+        	fi
+	fi
 
-        FLAMEGRAPH_FILE="${testname}.perf-folded.svg"
-        if [ -f "$FLAMEGRAPH_FILE" ]; then
-                echo -n " =hyperlink(\"../$FLAMEGRAPH_FILE\",\"flamegraph\")" >> $finalsummaryfile
-        fi
+	if [[ $RUN_FLAMEGRAPH == true ]]; then
+	        FLAMEGRAPH_FILE="${testname}.perf-folded.svg"
+        	if [ -f "$FLAMEGRAPH_FILE" ]; then
+                	echo -n " =hyperlink(\"../$FLAMEGRAPH_FILE\",\"flamegraph\")" >> $finalsummaryfile
+        	fi
+	fi
 
-        EMON_FILE=`ls emon_processed/${testname}-*-emon-summary.xlsx`
-        if [ -f "$EMON_FILE" ]; then
-                echo -n " =hyperlink(\"../$EMON_FILE\",\"emon\")" >> $finalsummaryfile
-        fi
+	if [[ $RUN_EMON == true ]]; then
+	        EMON_FILE=`ls emon_processed/${testname}-*-emon-summary.xlsx`
+        	if [ -f "$EMON_FILE" ]; then
+                	echo -n " =hyperlink(\"../$EMON_FILE\",\"emon\")" >> $finalsummaryfile
+        	fi
+	fi
 
         printf "\n"  >> $finalsummaryfile
 
