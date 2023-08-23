@@ -173,9 +173,9 @@ if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 	apt install python3-pip -y
 	pip3 install --upgrade pip
 	apt install docker.io -y
-	pip3 install redis-benchmarks-specification
 	python3 -m pip install cryptography==38.0.4
 	pip install pyopenssl --upgrade
+	pip3 install redis-benchmarks-specification --ignore-installed blinker
 fi
 if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 	echo "The prerequisite Redis Benchmarks Specification is not installed. Unable to automatically install it. Failing."
