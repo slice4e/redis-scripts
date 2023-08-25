@@ -36,11 +36,3 @@ else
         SSH_CONNECTED=true
 fi
 
-if [ "$SSH_CONNECTED" != "true" ]; then
-    echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
-    exit 1
-fi
-
-echo "SSH Connection is Successfull!"
-
-

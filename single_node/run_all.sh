@@ -20,6 +20,13 @@ source $config_file
 
 source $SET_SSH_PATH
 
+if [ "$SSH_CONNECTED" != "true" ]; then
+    echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
+    exit 1
+fi
+
+echo "SSH Connection is Successfull!"
+
 
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 
