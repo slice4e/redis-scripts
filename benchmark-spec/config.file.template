@@ -12,6 +12,7 @@ LOGIN_ID=root
 SERVER_IP=x.x.x.x
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
+SET_SSH_PATH=$HOME_DIR/redis-scripts/shared-scripts/set_ssh.sh
 
 #Benchmark
 LOG_PATH="$HOME_DIR/results-$(date +"%Y%m%d%H%M")"
@@ -19,6 +20,7 @@ LOG_PATH="$HOME_DIR/results-$(date +"%Y%m%d%H%M")"
 #irq affinity
 SET_IRQ=false
 IRQ_INTERFACE="eno1"
+SET_IRQ_PATH=$HOME_DIR/redis-scripts/shared-scripts/set_irq.sh
 
 #######################
 # Data Collection Tools

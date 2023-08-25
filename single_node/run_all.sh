@@ -14,9 +14,18 @@ config_file="./redis_bench.config"
 # Check if the file exists
 if [ ! -f "$config_file" ]; then
 	  echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
-	    exit 1
+	  exit 1
 fi
 source $config_file
+
+source $SET_SSH_PATH
+
+if [ "$SSH_CONNECTED" != "true" ]; then
+    echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
+    exit 1
+fi
+
+echo "SSH Connection is Successfull!"
 
 
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
@@ -59,6 +68,11 @@ else
 	fi
 fi
 
+#--------------------------set network interrupts ---------------------------------------------------
+if [[ $SET_IRQ == true ]]; then
+	source $SET_IRQ_PATH $CPUS
+fi
+
 
 #--------------------------start master servers------------------------------------------------------
 instances=1
@@ -91,7 +105,7 @@ for cpu in $MEMTIER_CPUS
 do
 	port=$(($START_PORT + ${instances}))
 	echo -e "starting memtier benchmark $instances on vCPU $cpu"
-	cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $HOST -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/fill_$instances.log"
+	cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $HOST -p $SERVER_IP --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/fill_$instances.log"
 	instances=$((instances + 1))
     	echo -e $cmd
 	$cmd >/dev/null &
@@ -114,7 +128,7 @@ for cpu in $MEMTIER_CPUS
 do
 	port=$(($START_PORT + ${instances}))
 	echo -e "starting memtier benchmark $instances on vCPU $cpu"
-	cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $HOST -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=4:1 --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/benchmark_$instances.log"
+	cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=4:1 --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/benchmark_$instances.log"
 	instances=$((instances + 1))
     	echo -e $cmd
 	$cmd >/dev/null &

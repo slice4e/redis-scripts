@@ -21,43 +21,7 @@ fi
 
 source $config_file
 
-
-#---------------------------------------------------------- SSH Connection --------------------------------------------------------
-SSH_CONNECTED=false
-SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${SERVER_IP}"
-
-echo "Logging in as \"${LOGIN_ID}\" to $SERVER_IP"
-$SSH_COMMAND 'exit'
-
-if [ "$?" -ne 0 ] ; then
-        SSH_CONNECTED=false
-
-        read -p "Couldn't connect to server. Do you want to create an ssh-key for the paswordless login? [Y]: " GenerateKey
-        GenerateKey=${GenerateKey:-Y}
-
-        case $GenerateKey in
-            y|Y)
-                echo "Genarating the key..."
-                ssh-keygen -t rsa -b 4096 -f ${SSH_KEY_PATH}/${SSH_KEY_NAME} -N "" -q -C ${LOGIN_ID}@${SERVER_IP}
-                echo "Copying key to the server..."
-                ssh-copy-id -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}
-
-                echo "Logging in as \"${LOGIN_ID}\" to $SERVER_IP"
-                $SSH_COMMAND 'exit'
-                if [ "$?" -ne 0 ] ; then
-                    SSH_CONNECTED=false
-                else
-                    SSH_CONNECTED=true
-                fi
-            ;;
-            *)
-                echo "Quiting..."
-                exit 1
-            ;;
-        esac
-else
-        SSH_CONNECTED=true
-fi
+source $SET_SSH_PATH
 
 if [ "$SSH_CONNECTED" != "true" ]; then
     echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
@@ -278,23 +242,11 @@ do
             CPU=${CPUs[${instance}-1]}
             PORT=$(($START_PORT + ${instance}))
 
-            if [[ $SET_IRQ == true ]]; then    
-                echo "Assigning IRQ interruptions to CPU $CPU ...."
-                interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}'")
-                for i in $interrupts
-                do
-                        cmd="echo $CPU > /proc/irq/${i:0:-1}/smp_affinity_list"
-                        $SSH_COMMAND $cmd
-                done
+	    #TODO this is not good. it will set all the IRQs to the last cpu if running more than one intance of redis. 
+	    if [[ $SET_IRQ == true ]]; then
+	       source $SET_IRQ_PATH $CPU
+	    fi
 
-                echo "Printing assigned cpu numbers for each interrupts..."
-                interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}'")
-                for i in $interrupts
-                do
-                        cmd="cat /proc/irq/${i:0:-1}/smp_affinity_list"
-                        $SSH_COMMAND $cmd
-                done
-            fi
 
             echo -e "Starting redis server $instance on CPU $CPU."
 

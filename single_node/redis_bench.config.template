@@ -6,8 +6,17 @@ REDIS_PATH=/root/redis-7.2
 RDB_PATH=/root/redis-7.2
 SERVER_SOCKET=0
 START_PORT=9000
-HOST="127.0.0.1"
 NUM_SERVERS=36 # Each Redis server contributes about 20GB of memory capacity. Verify with top
+
+LOGIN_ID=root
+SERVER_IP="127.0.0.1"
+SSH_KEY_PATH=~/.ssh
+SSH_KEY_NAME=id_rsa
+SET_SSH_PATH=$HOME_DIR/redis-scripts/shared-scripts/set_ssh.sh
+
+SET_IRQ=false  #pin IRQ affinity
+IRQ_INTERFACE="eth1"
+SET_IRQ_PATH=$HOME_DIR/redis-scripts/shared-scripts/set_irq.sh
 
 ########################################################
 # CLIENT SIDE configs
