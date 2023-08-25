@@ -162,7 +162,7 @@ if [[ ${RUN_SVR_INFO} == true ]] ; then
 fi
 
 if [[ $RUN_EMON == true ]] ; then
-	if ! command -v "emon" &>/dev/null; then
+	if ! command -v "${EMON_FOLDER}/emon" &>/dev/null; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		pip3 install --upgrade pip

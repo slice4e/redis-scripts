@@ -1,0 +1,62 @@
+##################################################################################
+#                                                                                #
+#   EDP PYTHON SCRIPT CONFIGURATION FILE TEMPLATE                                #
+#   Use this file as a template for creating your configuration file             #
+#   emon -process-pyedp <pyedp_config_file>                                      #
+#                                                                                #
+#                                                                                #
+##################################################################################
+
+#Python path, change it according to the path where python is installed in your system
+PYTHON_PATH="python3"
+
+#EMON data file name, you may need to change if the file name is different
+EMON_DATA=emon.dat
+
+#The metrics definition file - HW platform specific file
+#You don't need to specify this, EMON will use the correct file by default
+#Uncomment this line only if you want to use a custom metric file
+#METRICS=skylake_server-2s.xml
+
+#Excel chart format file - HW platform specific file
+#You don't need to specify this, EMON will use the correct file by default
+#Uncomment this line only if you want to use customer metric file
+#CHART_FORMAT=chart_format_clx_2s.txt
+
+#output file name, you may want to change it
+OUTPUT=summary.xlsx
+
+#Number of threads to process data in parallel. Typically it should equal to the number of logical CPUs in your processing system.
+#PARALLELISM=24
+
+#the average value will be calculated from the %BEGIN% sample to %END% sample.
+#setting %END% to a negative value means the last availabe sample.
+#BEGIN=1
+#END=100000
+#The BEGIN/END could also be a wall clock time in the format of mm/dd/yyyy hh:mm:ss.mmm
+#EMON data must be collected with timestamps (-c parameter) in this case.
+#BEGIN="01/24/2022 17:53:20"
+#END="01/24/2022 17:53:35"
+
+#there are 4 optional views that can be selected
+# --socket-view - generates per-socket metrics
+# --core-view   - generates per-core metrics
+# --thread-view - generates per-thread metrics
+# --uncore-view - generates uncore specific metrics
+#any combination of these options can be specified
+#you may add --no-detail-views option to just generate
+#the summary views and skip detailed views
+#by default system/core/thread views are generated
+VIEW=--socket-view --core-view --thread-view
+
+#Percentile value (integer) to include in the output, this value can be changed
+#Comment out if percentile is not required in the output
+PERCENTILE=95
+
+#set the throughput (Transaction per Second)
+#TPS=10
+
+#EMON by default collects the TSC frequency, please specify the value to override or
+#for some reason the value is missing in the EMON data file
+#TSC frequency in MHz. e.g.1600
+#FREQUENCY=1000
