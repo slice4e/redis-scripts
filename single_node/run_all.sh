@@ -160,7 +160,7 @@ rm -f ${RDB_PATH}/*.rdb
 
 if [[ $RUN_EMON == true ]] ; then
 	cmd="${EMON_FOLDER}/emon -stop "
-	$cmd &
+	$cmd 
 fi
 
 #-------------------------- Process Results ------------------ ------------------------------------------
