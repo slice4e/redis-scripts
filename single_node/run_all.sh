@@ -27,11 +27,10 @@ fi
 
 echo "SSH Connection is Successfull!"
 
+mkdir -p ${RESULTS_PATH}
+cp $config_file ${RESULTS_PATH}
 
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
-
-mkdir -p ${RESULTS_PATH}
-
 if [[ ${RUN_SVR_INFO} == true ]] ; then
 	echo "Capture svr-info from the server."
 	CUR_DIR=`pwd`
