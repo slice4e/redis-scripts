@@ -177,9 +177,11 @@ fi
 
 echo "All prerequisites are installed on the client."
 
+mkdir -p $LOG_PATH
+cp $config_file $LOG_PATH
+
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 
-mkdir -p $LOG_PATH
 
 if [[ ${RUN_SVR_INFO} == true ]] ; then
 	echo "Capture svr-info from the server."
