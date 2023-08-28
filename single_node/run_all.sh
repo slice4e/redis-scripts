@@ -80,7 +80,7 @@ for cpu in $CPUS
 do
 	port=$(($START_PORT + ${instances}))
 	echo -e "starting redis server $instances on vCPU $cpu"
-	cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server --port ${port} --save \"\" "
+	cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --port ${port} --save \"\" "
     	echo -e $cmd
 	$cmd & 
 	instances=$((instances + 1))
@@ -105,7 +105,7 @@ for cpu in $MEMTIER_CPUS
 do
 	port=$(($START_PORT + ${instances}))
 	echo -e "starting memtier benchmark $instances on vCPU $cpu"
-	cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $HOST -p $SERVER_IP --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/fill_$instances.log"
+	cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/fill_$instances.log"
 	instances=$((instances + 1))
     	echo -e $cmd
 	$cmd >/dev/null &
