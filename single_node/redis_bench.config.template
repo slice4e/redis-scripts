@@ -9,15 +9,12 @@ START_PORT=9000
 NUM_SERVERS=36 # Each Redis server contributes about 20GB of memory capacity. Verify with top
 
 LOGIN_ID=root
-SERVER_IP="127.0.0.1"  # replace with the IP address of the server
+SERVER_IP="127.0.0.1"  # replace with the IP address of the server. Using a physical interface is prefered to using localhost. 
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 SET_SSH_PATH=$HOME_DIR/redis-scripts/shared-scripts/set_ssh.sh
 
-# Benchmarking on a single server on localhost vs a physical network interface can lead to different behaviour. 
-# It is better NOT to use localhost, so that we can pin the IRQ interrupts and eliminate potential differences 
-# in workload behaviour 
-SET_IRQ=false  #pin IRQ affinity
+SET_IRQ=false  #set to true to pin IRQ affinity
 IRQ_INTERFACE="eth1"
 SET_IRQ_PATH=$HOME_DIR/redis-scripts/shared-scripts/set_irq.sh
 
