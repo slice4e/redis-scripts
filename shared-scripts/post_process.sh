@@ -9,12 +9,8 @@ echo "Calculating average ops/sec across test runs"
 echo "Test,Avg Ops/sec" >> $summaryfile
 for i in $( ls *.csv)
 do
-    test=${i%-run*.*}
-    suffix=${i#$test-}
-    testnum=${suffix%-cpu*}
-
-    #echo $test
-    #echo $testnum
+    test=${i%-run*.*}  		# take everything prior to -run* 
+    testnum=$(echo $i | sed 's/.*\(run[0-9]\).*/\1/')
 
     if [ $testnum = "run1" ]; then
     	echo -n "${test}," >> $summaryfile

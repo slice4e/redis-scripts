@@ -26,6 +26,10 @@ SET_IRQ_PATH=$HOME_DIR/redis-scripts/shared-scripts/set_irq.sh
 # Data Collection Tools
 #######################
 
+#install pre-reqs
+PREREQS_SCRIPT=$HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
+RUN_BENCH_SPEC=true 
+
 #svr_info
 RUN_SVR_INFO=true
 SVR_INFO_PATH=/opt/svr-info
