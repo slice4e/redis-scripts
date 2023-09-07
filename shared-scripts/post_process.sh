@@ -50,7 +50,7 @@ do
 	fi
 
 	if [[ $RUN_EMON == true ]]; then
-	        EMON_FILE=`ls emon_processed/${testname}-*-emon-summary.xlsx`
+	        EMON_FILE=`ls emon_processed/${testname}-*emon-summary.xlsx`
         	if [ -f "$EMON_FILE" ]; then
                 	echo -n " =hyperlink(\"../$EMON_FILE\",\"emon\")" >> $finalsummaryfile
         	fi
