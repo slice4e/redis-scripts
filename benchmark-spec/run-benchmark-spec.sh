@@ -109,7 +109,7 @@ do
 
             echo -e "Starting redis server $instance on CPU $CPU."
 
-            cmd="numactl -m ${BIND_SOCKET} -N ${BIND_SOCKET} --physcpubind=${CPU} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile server.log  --save \"\""
+            cmd="numactl -m ${BIND_SOCKET} -N ${BIND_SOCKET} --physcpubind=${CPU} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log  --save \"\""
             echo -e $cmd
             $SSH_COMMAND $cmd &
             sleep 1
