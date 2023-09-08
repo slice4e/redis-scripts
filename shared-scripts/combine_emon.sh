@@ -28,3 +28,5 @@ done
 # combine the extracted columns horizontally into the output file
 paste first_column.csv *-temp.csv > "$output_file"
 rm -f *-temp.csv first_column.csv
+
+sed -i s/'\s'//g $output_file 
