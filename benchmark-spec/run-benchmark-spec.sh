@@ -57,7 +57,7 @@ SOCKETS=$($SSH_COMMAND lscpu |grep "Socket(s):"|awk -F ":" '{print $2'}|tr -d '[
 CORES=$($SSH_COMMAND lscpu |grep "Core(s) per socket:"|awk -F ":" '{print $2'}|tr -d '[:space:]')
 THREADS=$($SSH_COMMAND lscpu |grep "Thread(s) per core:"|awk -F ":" '{print $2'}|tr -d '[:space:]')
 
-SERVER_THREAD=$($SSH_COMMAND lscpu |grep "NUMA node${BIND_SOCKET} CPU(s):"| awk '{print $(NF)}'|awk -F ',' '{print $1}'|awk -F '-' '{print $1}')
+SERVER_THREAD=$($SSH_COMMAND lscpu |grep "NUMA node${SERVER_SOCKET} CPU(s):"| awk '{print $(NF)}'|awk -F ',' '{print $1}'|awk -F '-' '{print $1}')
 
 echo $ARCHT
 echo "Sockets: $SOCKETS"
@@ -109,7 +109,7 @@ do
 
             echo -e "Starting redis server $instance on CPU $CPU."
 
-            cmd="numactl -m ${BIND_SOCKET} -N ${BIND_SOCKET} --physcpubind=${CPU} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log  --save \"\""
+            cmd="numactl -m ${SERVER_SOCKET} -N ${SERVER_SOCKET} --physcpubind=${CPU} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log  --save \"\""
             echo -e $cmd
             $SSH_COMMAND $cmd &
             sleep 1
