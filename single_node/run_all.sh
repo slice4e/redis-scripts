@@ -202,7 +202,7 @@ fi
 
 CUR_DIR=`pwd`
 cd ${RESULTS_PATH}
-source $POST_SCRIPT
+source $HOME_DIR/redis-scripts/shared-scripts/post_process.sh
 cd $CUR_DIR
 
 
