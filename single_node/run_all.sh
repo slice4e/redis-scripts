@@ -18,7 +18,7 @@ if [ ! -f "$config_file" ]; then
 fi
 source $config_file
 
-source $SET_SSH_PATH
+source ${HOME_DIR}/redis-scripts/shared-scripts/set_ssh.sh
 
 if [ "$SSH_CONNECTED" != "true" ]; then
     echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
@@ -28,8 +28,9 @@ fi
 echo "SSH Connection is Successfull!"
 
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
-source $PREREQS_SCRIPT
+source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
+source $HOME_DIR//redis-scripts/shared-scripts/check_numa.sh
 
 mkdir -p ${RESULTS_PATH}
 cp $config_file ${RESULTS_PATH}
@@ -73,7 +74,7 @@ fi
 
 #--------------------------set network interrupts ---------------------------------------------------
 if [[ $SET_IRQ == true ]]; then
-	source $SET_IRQ_PATH $CPUS
+	source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh $CPUS
 fi
 
 for (( iteration=1; iteration <= $ITERATION_NUM; iteration++ ))
@@ -194,7 +195,7 @@ if [[ $RUN_EMON == true ]] ; then
 	#dcsomc -n -x alanstu -d ${RESULTS_PATH} -G ${RESULTS_FOLDER}_redis_2lm_${NUM_SERVERS}
 	CUR_DIR=`pwd`
 	cd ${RESULTS_PATH}
-	source $EMON_POST_SCRIPT
+	source $HOME_DIR/redis-scripts/shared-scripts/emon_process.sh
 	cd $CUR_DIR
 	echo "Done post processing EMON..."
 fi
