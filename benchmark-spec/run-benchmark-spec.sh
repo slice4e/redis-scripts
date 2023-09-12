@@ -21,7 +21,7 @@ fi
 
 source $config_file
 
-source $SET_SSH_PATH
+source $HOME_DIR/redis-scripts/shared-scripts/set_ssh.sh
 
 if [ "$SSH_CONNECTED" != "true" ]; then
     echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
@@ -31,8 +31,9 @@ fi
 echo "SSH Connection is Successfull!"
 
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
-source $PREREQS_SCRIPT
+source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
+source $HOME_DIR//redis-scripts/shared-scripts/check_numa.sh
 
 mkdir -p $LOG_PATH
 cp $config_file $LOG_PATH
@@ -103,7 +104,7 @@ do
 
 	    #TODO this is not good. it will set all the IRQs to the last cpu if running more than one intance of redis. 
 	    if [[ $SET_IRQ == true ]]; then
-	       source $SET_IRQ_PATH $CPU
+	       source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh $CPU
 	    fi
 
 
@@ -257,7 +258,7 @@ if [[ $RUN_EMON == true ]]; then
 	echo "Processing EMON results..."
 	CUR_DIR=`pwd`
 	cd ${LOG_PATH}
-	source $EMON_POST_SCRIPT
+	source $HOME_DIR/redis-scripts/shared-scripts/emon_process.sh
 	cd $CUR_DIR
 	echo "Done post processing EMON..."
 
@@ -265,7 +266,7 @@ fi
 
 CUR_DIR=`pwd`
 cd ${LOG_PATH}
-source $POST_SCRIPT
+source $HOME_DIR/redis-scripts/shared-scripts/post_process.sh
 cd $CUR_DIR
 
 
