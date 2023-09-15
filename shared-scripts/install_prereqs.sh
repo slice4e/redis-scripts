@@ -84,8 +84,7 @@ if [[ $RUN_PERF == true ]]; then
 			$SSH_COMMAND apt install linux-tools-common -y
 			$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
 		else
-			$SSH_COMMAND yum install linux-tools-common -y
-			$SSH_COMMAND "yum install linux-tools-`uname -r` -y"
+			$SSH_COMMAND yum install perf -y
 		fi
 		$SSH_COMMAND "echo 0 > /proc/sys/kernel/perf_event_paranoid"
 		$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
