@@ -245,7 +245,8 @@ do
     done
 
     echo "Killing existing redis server instances and remove rdb files..."
-    $SSH_COMMAND 'killall -9 redis-server'
+    KILL_SIGNAL=15
+    $SSH_COMMAND "killall $KILL_SIGNAL redis-server"
     $SSH_COMMAND "rm -f ${RDB_PATH}/*.rdb"
 done
 

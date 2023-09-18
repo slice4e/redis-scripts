@@ -114,7 +114,7 @@ else
 	USE_APT=false
 fi
 
-if ! command -v "memtier_benchmark" &>/dev/null; then
+if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
 	if [[ $USE_APT == true ]]; then
 		apt-get update

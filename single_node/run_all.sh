@@ -162,7 +162,8 @@ do
 	done
 
 	echo "Killing existing redis server instances and remove rdb files..."
-	killall -9 redis-server
+	KILL_SIGNAL=15
+	killall $KILL_SIGNAL redis-server
 	while [ $(ps -ef | grep -c redis-server) -gt 1 ];do
 		echo -e "Waiting for $(($(ps -ef | grep -c redis-server)-1)) to die"
 		sleep 1
