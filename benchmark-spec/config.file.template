@@ -5,6 +5,7 @@
 ITERATION_NUM=3
 HOME_DIR=/root
 CONFIG_FILE=$HOME_DIR/redis-scripts/benchmark-spec/test-suite.config
+MEMTIER_PATH=/root/memtier_benchmark
 
 #SSH
 LOGIN_ID=root
