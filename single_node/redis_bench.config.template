@@ -6,7 +6,7 @@ HOME_DIR=/root
 REDIS_PATH=/root/redis-7.2
 REDIS_BRANCH=7.2   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
 #REDIS_BUILD_FLAGS='REDIS_CFLAGS="-fno-plt" REDIS_LDFLAGS="-fno-plt"'  # if building redis, we can pass build flags
-RDB_PATH=/root/redis-7.2
+RDB_PATH=$REDIS_PATH
 SERVER_SOCKET=0
 START_PORT=9000
 NUM_SERVERS=36 # Each Redis server contributes about 20GB of memory capacity. Verify with top
@@ -26,7 +26,7 @@ IRQ_INTERFACE="eth1"
 MEMTIER_PATH=/root/memtier_benchmark
 MEMTIER_SOCKET=1
 RESULTS_FOLDER=memtier_result_$(date +"%Y%m%d%H%M")
-RESULTS_PATH=/root/results/${RESULTS_FOLDER}
+RESULTS_PATH=$HOME_DIR/results/${RESULTS_FOLDER}
 NUM_FILL_REQ=2000000
 #NUM_FILL_REQ=14000000 # approximately 20GB per instance
 DATA_SIZE_LIST="128:10,256:15,512:20,1024:30,2048:15,4092:10"

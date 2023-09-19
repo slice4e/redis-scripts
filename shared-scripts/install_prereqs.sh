@@ -187,9 +187,8 @@ if [[ $RUN_EMON == true ]] ; then
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		pip3 install --upgrade pip
 		apt install python3-dev -y
-		pip install defusedxml
-		pip install tdigest
-		pip install xlsxwriter
+		pip3 install tdigest
+		pip3 install numpy pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
     		exit 1
 	fi
 fi
