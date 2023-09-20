@@ -60,7 +60,8 @@ if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
 	fi
 fi
 if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
-	echo "The prerequisite lsof is not installed. This command is used to verify that the redis server ports are not in use. We will proceed ... assuming that the ports are not in use. However, if not all redis servers were able to start, check that the ports are open. "
+	echo "The prerequisite lsof is not installed. This command is used to verify that the redis server ports are not in use."
+	exit 1
 fi
 
 if [[ $RUN_SAR == true ]]; then
