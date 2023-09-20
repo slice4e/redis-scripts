@@ -30,7 +30,7 @@ echo "SSH Connection is Successfull!"
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
 source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
-source $HOME_DIR//redis-scripts/shared-scripts/check_numa.sh
+source $HOME_DIR/redis-scripts/shared-scripts/check_numa.sh
 
 mkdir -p ${RESULTS_PATH}
 cp $config_file ${RESULTS_PATH}
@@ -77,6 +77,7 @@ if [[ $SET_IRQ == true ]]; then
 	source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh $CPUS
 fi
 
+mkdir -p ${REDIS_PATH}/log
 for (( iteration=1; iteration <= $ITERATION_NUM; iteration++ ))
 do
 
@@ -88,7 +89,7 @@ do
 	do
 		port=$(($START_PORT + ${instances}))
 		echo -e "starting redis server $instances on vCPU $cpu"
-		cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --port ${port} --save \"\" "
+		cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
 		echo -e $cmd
 		$cmd & 
 		instances=$((instances + 1))
