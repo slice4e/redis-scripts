@@ -6,10 +6,8 @@
 echo "Check pre-requisites on server"
 
 if $SSH_COMMAND command -v "apt" &>/dev/null; then
-	echo "Using apt for installing dependencies"
 	USE_APT=true
 else
-	echo "Using yum for installing dependencies"
 	USE_APT=false
 fi
 
