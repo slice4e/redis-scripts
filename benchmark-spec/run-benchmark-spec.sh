@@ -96,6 +96,7 @@ do
         sleep 10
 
         #---------------------------------------------------------- Start Redis Servers --------------------------------------------------------
+	#TODO - check ports before starting server. 
         SECONDS=0
         for (( instance=1; instance <= $REDIS_NUM; instance++ ))
         do
