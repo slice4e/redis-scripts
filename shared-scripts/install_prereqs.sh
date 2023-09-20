@@ -50,6 +50,19 @@ if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
 	exit 1
 fi
 
+if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
+	echo "The prerequisite lsof is not installed. Attempting to install."
+	if [[ $USE_APT == true ]]; then
+		$SSH_COMMAND apt-get update
+		$SSH_COMMAND apt install lsof -y
+	else
+		$SSH_COMMAND yum install lsof -y
+	fi
+fi
+if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
+	echo "The prerequisite lsof is not installed. This command is used to verify that the redis server ports are not in use. We will proceed ... assuming that the ports are not in use. However, if not all redis servers were able to start, check that the ports are open. "
+fi
+
 if [[ $RUN_SAR == true ]]; then
 	if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
 		echo "The prerequisite sysstat is not installed. Attempting to install."

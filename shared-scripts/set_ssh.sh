@@ -23,6 +23,8 @@ if [ "$?" -ne 0 ] ; then
                 $SSH_COMMAND 'exit'
                 if [ "$?" -ne 0 ] ; then
                     SSH_CONNECTED=false
+			echo "Is root SSH login disabled? We can enable by modifying: /etc/ssh/sshd_config. " 
+			echo "Quiting..."
                 else
                     SSH_CONNECTED=true
                 fi

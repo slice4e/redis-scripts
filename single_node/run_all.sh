@@ -88,11 +88,18 @@ do
 	for cpu in $CPUS
 	do
 		port=$(($START_PORT + ${instances}))
-		echo -e "starting redis server $instances on vCPU $cpu"
-		cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
-		echo -e $cmd
-		$cmd & 
-		instances=$((instances + 1))
+		ret=`lsof -i:$port`
+		if [[ $? == 1 ]]; then
+			echo -e "starting redis server $instances on vCPU $cpu"
+			cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+			echo -e $cmd
+			$cmd & 
+			instances=$((instances + 1))
+		else
+			echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
+			exit 1
+			
+		fi
 
 		if [ $instances -gt $NUM_SERVERS ]
 		then
