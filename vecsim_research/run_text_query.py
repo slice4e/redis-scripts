@@ -24,7 +24,7 @@ q = Query(f'*=>[KNN {topK} @{TEXT_ITEM_KEYWORD_EMBEDDING_FIELD} $vec_param AS ve
 params_dict = {"vec_param": query_vector}
 
 #Execute the query
-results = redis_conn.ft().search(q, query_params = params_dict)
+results = redis_conn.ft("idx:vecsim").search(q, query_params = params_dict)
 
 #Print similar products found
 for product in results.docs:
