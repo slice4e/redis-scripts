@@ -79,7 +79,7 @@ for file in files_in_data:
         if metadata is None:
             metadata = pd.read_parquet(file_path, engine='fastparquet')
         else:
-            metadata = metadata.append(pd.read_parquet(file_path, engine='fastparquet'), ignore_index=True)
+            metadata = pd.concat([metadata, pd.read_parquet(file_path, engine='fastparquet')], join='outer', ignore_index=True)
     elif "img_emb_" in file:
         if img_emb is None:
             img_emb = np.load(file_path)
