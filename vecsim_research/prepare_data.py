@@ -74,21 +74,22 @@ img_emb = None
 text_emb = None
 
 for file in files_in_data:
+    file_path = os.path.join(DATA_DIR, file)
     if "metadata_" in file:
         if metadata is None:
-            metadata = pd.read_parquet(file, engine='fastparquet')
+            metadata = pd.read_parquet(file_path, engine='fastparquet')
         else:
-            metadata = metadata.append(pd.read_parquet(file, engine='fastparquet'), ignore_index=True)
+            metadata = metadata.append(pd.read_parquet(file_path, engine='fastparquet'), ignore_index=True)
     elif "img_emb_" in file:
         if img_emb is None:
-            img_emb = np.load(file)
+            img_emb = np.load(file_path)
         else:
-            img_emb = np.append(img_emb, np.load(file))
+            img_emb = np.append(img_emb, np.load(file_path))
     elif "text_emb_" in file:
         if text_emb is None:
-            text_emb = np.load(file)
+            text_emb = np.load(file_path)
         else:
-            text_emb = np.append(text_emb, np.load(file))
+            text_emb = np.append(text_emb, np.load(file_path))
     else:
         print(f"Ignoring file {file}")
 
