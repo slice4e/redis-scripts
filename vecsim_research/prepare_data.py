@@ -42,7 +42,7 @@ def load_vectors(client:Redis, product_metadata, text_vector_dict, img_vector_di
 
 
 def create_flat_index (redis_conn, text_emb_vector_field_name, img_emb_vector_field_name, number_of_vectors, vector_dimensions=512, distance_metric='L2'):
-    redis_conn.ft("idx:vecsim").create_index([
+    redis_conn.ft().create_index([
         VectorField(text_emb_vector_field_name, "FLAT", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "INITIAL_CAP": number_of_vectors, "BLOCK_SIZE":number_of_vectors }),
         VectorField(img_emb_vector_field_name, "FLAT", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "INITIAL_CAP": number_of_vectors, "BLOCK_SIZE":number_of_vectors }),
         TextField("caption"),
@@ -52,7 +52,7 @@ def create_flat_index (redis_conn, text_emb_vector_field_name, img_emb_vector_fi
 
 
 def create_hnsw_index (redis_conn, text_emb_vector_field_name, img_emb_vector_field_name, number_of_vectors, vector_dimensions=512, distance_metric='L2', M=40, EF=200):
-    redis_conn.ft("idx:vecsim").create_index([
+    redis_conn.ft().create_index([
         VectorField(text_emb_vector_field_name, "HNSW", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "INITIAL_CAP": number_of_vectors, "M": M, "EF_CONSTRUCTION": EF}),
         VectorField(img_emb_vector_field_name, "HNSW", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "INITIAL_CAP": number_of_vectors, "M": M, "EF_CONSTRUCTION": EF}),   
         TextField("caption"),
@@ -84,12 +84,12 @@ for file in files_in_data:
         if img_emb is None:
             img_emb = np.load(file_path)
         else:
-            img_emb = np.append(img_emb, np.load(file_path))
+            img_emb = np.concatenate((img_emb, np.load(file_path)))
     elif "text_emb_" in file:
         if text_emb is None:
             text_emb = np.load(file_path)
         else:
-            text_emb = np.append(text_emb, np.load(file_path))
+            text_emb = np.concatenate((text_emb, np.load(file_path)))
     else:
         print(f"Ignoring file {file}")
 
