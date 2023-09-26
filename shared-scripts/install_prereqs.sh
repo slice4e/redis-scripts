@@ -198,7 +198,11 @@ if [[ $RUN_EMON == true ]] ; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		pip3 install --upgrade pip
-		apt install python3-dev -y
+		if [[ $USE_APT == true ]]; then
+			apt install python3-dev -y
+		else
+			yum install python3-devel -y
+		fi
 		pip3 install tdigest
 		pip3 install numpy pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
     		exit 1
