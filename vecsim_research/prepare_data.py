@@ -156,7 +156,7 @@ def main():
               Total script time: {script_time}
               Preparing data time: {preparing_data_time}
               Creating index time: {create_index_time}
-              Loading vectos time: {loading_time}""")
+              Loading vectors time: {loading_time}""")
 
 if __name__ == "__main__":
     main()

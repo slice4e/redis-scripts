@@ -1,5 +1,6 @@
 import numpy as np
 import argparse
+from time import time
 from redis.commands.search.query import Query
 from redis import Redis
 from sentence_transformers import SentenceTransformer
@@ -37,15 +38,19 @@ def main():
     q = Query(f'*=>[KNN {topK} @{TEXT_ITEM_KEYWORD_EMBEDDING_FIELD} $vec_param AS vector_score]').sort_by('vector_score').paging(0,topK).return_fields('url','caption','primary_key').dialect(2)
     params_dict = {"vec_param": query_vector}
 
+    search_start_time = time()
     #Execute the query
     results = redis_conn.ft().search(q, query_params = params_dict)
-
+    search_end_time = time()
+    search_time = search_end_time - search_start_time
     #Print similar products found
     for product in results.docs:
         print ('***************Item found************')
         print ('url = ' + product.url)
         print ('caption = ' + product.caption)
         print ('primary_key = ' + product.primary_key)
+        
+    print(f"Searching time: {search_time}")
 
 if __name__ == "__main__":
     main()
