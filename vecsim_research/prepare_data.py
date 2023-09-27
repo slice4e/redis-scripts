@@ -44,24 +44,24 @@ def load_vectors(client:Redis, product_metadata, text_vector_dict, img_vector_di
         p.execute()
         i+=1
 
-def create_flat_index(redis_conn, text_emb_vector_field_name, img_emb_vector_field_name, number_of_vectors, vector_dimensions=512, distance_metric='L2'):
+def create_flat_index(redis_conn, text_emb_vector_field_name, img_emb_vector_field_name, vector_dimensions=512, distance_metric='L2'):
     fields = [TextField("caption"),
               TextField("url"),
               TextField("primary_key")]
     if text_emb_vector_field_name is not None:
-        fields.append(VectorField(text_emb_vector_field_name, "FLAT", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "INITIAL_CAP": number_of_vectors, "BLOCK_SIZE":number_of_vectors }))
+        fields.append(VectorField(text_emb_vector_field_name, "FLAT", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric}))
     if img_emb_vector_field_name is not None:
-        fields.append(VectorField(img_emb_vector_field_name, "FLAT", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "INITIAL_CAP": number_of_vectors, "BLOCK_SIZE":number_of_vectors }))
+        fields.append(VectorField(img_emb_vector_field_name, "FLAT", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric}))
     redis_conn.ft().create_index(fields)
 
-def create_hnsw_index(redis_conn, text_emb_vector_field_name, img_emb_vector_field_name, number_of_vectors, vector_dimensions=512, distance_metric='L2', M=40, EF=200):
+def create_hnsw_index(redis_conn, text_emb_vector_field_name, img_emb_vector_field_name, vector_dimensions=512, distance_metric='L2', M=40, EF=200):
     fields = [TextField("caption"),
               TextField("url"),
               TextField("primary_key")]
     if text_emb_vector_field_name is not None:
-        fields.append(VectorField(text_emb_vector_field_name, "HNSW", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "INITIAL_CAP": number_of_vectors, "M": M, "EF_CONSTRUCTION": EF}))
+        fields.append(VectorField(text_emb_vector_field_name, "HNSW", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "M": M, "EF_CONSTRUCTION": EF}))
     if img_emb_vector_field_name is not None:
-        fields.append(VectorField(img_emb_vector_field_name, "HNSW", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "INITIAL_CAP": number_of_vectors, "M": M, "EF_CONSTRUCTION": EF}))
+        fields.append(VectorField(img_emb_vector_field_name, "HNSW", {"TYPE": "FLOAT32", "DIM": vector_dimensions, "DISTANCE_METRIC": distance_metric, "M": M, "EF_CONSTRUCTION": EF}))
     redis_conn.ft().create_index(fields)    
 
 def parse_cmd_args():
@@ -139,10 +139,10 @@ def main():
     create_index_start_time = time()
     if args.hnsw_index:
         index_type = "hnsw"
-        create_hnsw_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, NUMBER_PRODUCTS, EMBEDDING_DIMENSION, 'COSINE', M=40, EF=200)
+        create_hnsw_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, EMBEDDING_DIMENSION, 'COSINE', M=40, EF=200)
     else:
         index_type = "flat"
-        create_flat_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, NUMBER_PRODUCTS, EMBEDDING_DIMENSION, 'COSINE')
+        create_flat_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, EMBEDDING_DIMENSION, 'COSINE')
     create_index_end_time = time()
     create_index_time = create_index_end_time - create_index_start_time
     
