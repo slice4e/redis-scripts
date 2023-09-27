@@ -163,8 +163,12 @@ if [[ $RUN_BENCH_SPEC == true ]] ; then
 			apt install python3-pip -y
 			apt install docker.io -y
 		else
+			yum install -y yum-utils
+			yum install -y yum-utils
+			yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 			yum install python3-pip -y
-			yum install docker.io -y
+			yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+			systemctl start docker
 		fi
 		pip3 install --upgrade pip
 		python3 -m pip install cryptography==38.0.4
