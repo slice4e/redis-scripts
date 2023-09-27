@@ -1,3 +1,11 @@
+# To run this script you need to first create numpy file with image embeddings. 
+# You can do that by using img2dataset and clip-retrieval (https://github.com/rom1504/clip-retrieval)
+# Short example how to use it:
+#  echo http://ecx.images-amazon.com/images/I/31Iq1gu7aVL._SL500_SS160_.jpg >> myimglist.txt
+#  echo https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/PS4-Console-wDS4.jpg/2560px-PS4-Console-wDS4.jpg >> myimglist.txt
+#  img2dataset --url_list=myimglist.txt --output_folder=query_img_folder --thread_count=64 --image_size=256
+#  clip-retrieval inference --input_dataset query_img_folder --output_folder embeddings_folder
+
 import numpy as np
 import argparse
 from time import time
