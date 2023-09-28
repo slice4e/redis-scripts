@@ -14,7 +14,9 @@ do
 
     if [ $testnum = "run1" ]; then
     	echo -n "${test}," >> $summaryfile
-    	cat ${test}*.csv | grep -E "Ops/sec" | awk -F "," '{total += $3; count++}END{ print total/count}' >> $summaryfile
+    	cat ${test}*.csv | grep -E "Ops/sec" | awk -F "," '{total += $3; count++}END{ print total/count}' | tr '\n' >> $summaryfile
+    	echo -n "," >> $summaryfile
+    	cat ${test}*.csv | grep -E "Latency" | awk -F "," '{total += $3; count++}END{ print total/count}' >> $summaryfile
     fi
 
 done
@@ -24,7 +26,7 @@ echo "Calculating average completed"
 
 echo "Aggregating all results into a summary file." 
 x=0
-while IFS=, read -r testname opssec
+while IFS=, read -r testname opssec latency
 do
         if [[ $x == 0 ]]; then
                 #echo "Header line"
@@ -33,7 +35,7 @@ do
                 continue
         fi
 
-        echo -n "$testname $opssec" >> $finalsummaryfile
+        echo -n "$testname $opssec $latency" >> $finalsummaryfile
 
 	if [[ $RUN_PERF == true ]]; then
         	PERF_FILE="${testname}-perf.txt"
