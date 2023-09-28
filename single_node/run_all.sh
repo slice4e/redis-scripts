@@ -145,12 +145,17 @@ do
 	if [ $iteration == 1 ] && [ $AUTOTUNE == true ]; then 
 		mkdir ${RESULTS_PATH}/autotune
 		echo "AUTOTUNING is enabled. Will execute a few runs to tune for 1ms SLA."
+		echo "AUTOTUNING is enabled. Will execute a few runs to tune for 1ms SLA." >> ${RESULTS_PATH}/autotune/autotune.log
 
 		MEMTIER_CLIENTS=1
 		MEMTIER_THREADS=1
 		PREV_MEMTIER_CLIENTS=1
 		PREV_MEMTIER_THREADS=1
 		while [ $TUNING_COMPLETE == false ]; do
+			
+			echo "AUTOTUNING. -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS"
+			echo "AUTOTUNING. -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS" >> ${RESULTS_PATH}/autotune/autotune.log
+
 			instances=1
 			for cpu in $MEMTIER_CPUS
 			do
@@ -174,9 +179,12 @@ do
 			avg_latency=`cat ${RESULTS_PATH}/autotune/benchmark_* | grep Totals | awk -F " " '{total += $5; count++}END{ print total/count}'`
 			echo "Average Latency: " 
 			echo $avg_latency
+			echo "Average Latency: " >> ${RESULTS_PATH}/autotune/autotune.log
+			echo $avg_latency >> ${RESULTS_PATH}/autotune/autotune.log
 			if ((  $(echo "${avg_latency} > 1.0" | bc -l) )); 
 			then
 				echo "We have exceeded the SLA using -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . "
+				echo "We have exceeded the SLA using -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . " >> ${RESULTS_PATH}/autotune/autotune.log
 				if [ $TOGGLE == true ]; then
 
 					MEMTIER_CLIENTS=$PREV_MEMTIER_CLIENTS
@@ -185,6 +193,8 @@ do
 				fi
 				echo "We will use -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . "
 				echo "AUTOTUNING is complete."
+				echo "We will use -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . " >> ${RESULTS_PATH}/autotune/autotune.log
+				echo "AUTOTUNING is complete." >> ${RESULTS_PATH}/autotune/autotune.log
 				TUNING_COMPLETE=true
 
 			else
