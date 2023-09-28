@@ -47,6 +47,17 @@ RUN_BENCH_SPEC=false
 RUN_SVR_INFO=false
 SVR_INFO_PATH=/opt/svr-info
 
+#sar
+RUN_SAR=true
+SAR_DURATION=120
+
+#perf
+RUN_PERF=true
+
+#flame_graph
+RUN_FLAMEGRAPH=true
+flamegraph_folder=/root/FlameGraph
+
 #emon
 RUN_EMON=false
 EMON_HOME=/opt/intel/emon  # emon path of the Server and client
