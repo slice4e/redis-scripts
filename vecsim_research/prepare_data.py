@@ -86,43 +86,22 @@ def main():
     files_in_data = os.listdir(DATA_DIR)
     files_in_data.sort()
 
-    metadata = None
-    img_emb = None
-    text_emb = None
+    indexes = 0
+
+    metadata_files = []
+    img_emb_files = []
+    text_emb_files = []
     
-    start_time = time()
     for file in files_in_data:
         file_path = os.path.join(DATA_DIR, file)
         if "metadata_" in file:
-            if metadata is None:
-                metadata = pd.read_parquet(file_path, engine='fastparquet')
-            else:
-                metadata = pd.merge(metadata, pd.read_parquet(file_path, engine='fastparquet'), how="outer")
+            metadata_files.append(file_path)
         elif "img_emb_" in file:
-            if args.img_emb:
-                if img_emb is None:
-                    img_emb = np.load(file_path)
-                else:
-                    img_emb = np.concatenate((img_emb, np.load(file_path)))
-            else:
-                print(f"Ignoring file {file}")
+            img_emb_files.append(file_path)
         elif "text_emb_" in file:
-            if not args.no_text_emb:
-                if text_emb is None:
-                    text_emb = np.load(file_path)
-                else:
-                    text_emb = np.concatenate((text_emb, np.load(file_path)))
-            else:
-                print(f"Ignoring file {file}")
+            text_emb_files.append(file_path)
         else:
             print(f"Ignoring file {file}")
-
-    metadata["primary_key"] = "Item:" + metadata.index.astype(str)
-    metadata = metadata[["primary_key", "caption", "url"]]
-    product_metadata = metadata.to_dict(orient='index')
-    end_time = time()
-    preparing_data_time = end_time - start_time
-    NUMBER_PRODUCTS=len(product_metadata)
 
     host = 'localhost'
     port = args.port
@@ -132,8 +111,6 @@ def main():
 
     #flush all data
     redis_conn.flushall()
-
-    print ('Loading and Indexing ' +  str(NUMBER_PRODUCTS) + ' products...')
 
     #create flat index & load vectors
     create_index_start_time = time()
@@ -145,16 +122,43 @@ def main():
         create_flat_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, EMBEDDING_DIMENSION, 'COSINE')
     create_index_end_time = time()
     create_index_time = create_index_end_time - create_index_start_time
-    
+
+    num_of_files = len(metadata_files)
     loading_start_time = time()
-    load_vectors(redis_conn, product_metadata, text_emb, img_emb, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD)
+    for num in range(0, num_of_files):
+        debug = "Working on files: "
+        metadata = pd.read_parquet(metadata_files[num], engine='fastparquet')
+        debug = debug + str(metadata_files[num])
+        metadata["primary_key"] = "Item:" + (metadata.index + indexes - 1).astype(str)
+        metadata = metadata[["primary_key", "caption", "url"]]
+        product_metadata = metadata.to_dict(orient='index')
+        NUMBER_PRODUCTS=len(product_metadata)
+
+        if args.img_emb:
+            img_emb = np.load(img_emb_files[num])
+            debug = debug + " " + str(img_emb_files[num])
+        else:
+            img_emb = None
+
+        if not args.no_text_emb:
+            text_emb = np.load(text_emb_files[num])
+            debug = debug + " " + str(text_emb_files[num])
+        else:
+            text_emb = None
+
+        print(debug)
+        print(f"Already loaded {indexes} items")
+        print ('Loading ' +  str(NUMBER_PRODUCTS) + ' items...')
+        indexes = indexes + NUMBER_PRODUCTS  
+        load_vectors(redis_conn, product_metadata, text_emb, img_emb, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD)
+     
     loading_end_time = time()
     loading_time = loading_end_time - loading_start_time
+
     script_time = loading_end_time - script_start_time
 
     print(f"""Index type: {index_type}
               Total script time: {script_time}
-              Preparing data time: {preparing_data_time}
               Creating index time: {create_index_time}
               Loading vectors time: {loading_time}""")
 
