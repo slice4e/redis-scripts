@@ -136,7 +136,81 @@ do
 		echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"
 		sleep 5
 	done
+	
+	#-------------------------- Auto-tune memtier benchmark BENCHMARK----------------------------------------
+	# Run memtier by gradually increasing the load until we violate the SLA. Pick a point, just before that. 
+	
+	TUNING_COMPLETE=false
+	TOGGLE=true
+	if [ $iteration == 1 ] && [ $AUTOTUNE == true ]; then 
+		mkdir ${RESULTS_PATH}/autotune
+		echo "AUTOTUNING is enabled. Will execute a few runs to tune for 1ms SLA."
+		echo "AUTOTUNING is enabled. Will execute a few runs to tune for 1ms SLA." >> ${RESULTS_PATH}/autotune/autotune.log
 
+		MEMTIER_CLIENTS=1
+		MEMTIER_THREADS=1
+		PREV_MEMTIER_CLIENTS=1
+		PREV_MEMTIER_THREADS=1
+		while [ $TUNING_COMPLETE == false ]; do
+			
+			echo "AUTOTUNING. -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS"
+			echo "AUTOTUNING. -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS" >> ${RESULTS_PATH}/autotune/autotune.log
+
+			instances=1
+			for cpu in $MEMTIER_CPUS
+			do
+				port=$(($START_PORT + ${instances}))
+				echo -e "AUTOTUNING. starting memtier benchmark $instances on vCPU $cpu"
+				cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=10 --ratio=4:1 --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/autotune/benchmark_$instances.log"
+				instances=$((instances + 1))
+				echo -e $cmd
+				$cmd >/dev/null &
+
+				if [ $instances -gt $NUM_SERVERS ]
+				then
+					break
+				fi
+			done
+			while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
+				echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"
+				sleep 5
+			done
+
+			avg_latency=`cat ${RESULTS_PATH}/autotune/benchmark_* | grep Totals | awk -F " " '{total += $5; count++}END{ print total/count}'`
+			echo "Average Latency: " 
+			echo $avg_latency
+			echo "Average Latency: " >> ${RESULTS_PATH}/autotune/autotune.log
+			echo $avg_latency >> ${RESULTS_PATH}/autotune/autotune.log
+			if ((  $(echo "${avg_latency} > 1.0" | bc -l) )); 
+			then
+				echo "We have exceeded the SLA using -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . "
+				echo "We have exceeded the SLA using -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . " >> ${RESULTS_PATH}/autotune/autotune.log
+				if [ $TOGGLE == true ]; then
+
+					MEMTIER_CLIENTS=$PREV_MEMTIER_CLIENTS
+				else
+					MEMTIER_THREADS=$PREV_MEMTIER_THREADS
+				fi
+				echo "We will use -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . "
+				echo "AUTOTUNING is complete."
+				echo "We will use -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . " >> ${RESULTS_PATH}/autotune/autotune.log
+				echo "AUTOTUNING is complete." >> ${RESULTS_PATH}/autotune/autotune.log
+				TUNING_COMPLETE=true
+
+			else
+				if [ $TOGGLE == true ]; then
+
+					PREV_MEMTIER_THREADS=$MEMTIER_THREADS
+					MEMTIER_THREADS=$(($MEMTIER_THREADS +1))
+					TOGGLE=false
+				else
+					PREV_MEMTIER_CLIENTS=$MEMTIER_CLIENTS
+					MEMTIER_CLIENTS=$(($MEMTIER_CLIENTS +1))
+					TOGGLE=true
+				fi
+			fi
+		done
+	fi
 
 	#--------------------------start memtier benchmark BENCHMARK ------------------------------------------
 	instances=1
@@ -190,6 +264,10 @@ do
 	total_ops=`cat ${RESULTS_PATH}/run${iteration}/benchmark_* | grep Totals | awk -F " " '{total += $2; count++ } END { print total} '`
 	echo $total_ops
 	echo "Num_servers_$NUM_SERVERS,Total.Ops/sec,$total_ops" > ${RESULTS_PATH}/single_node-run${iteration}.csv 
+	echo "Avg Latency"
+	avg_latency=`cat ${RESULTS_PATH}/run${iteration}/benchmark_* | grep Totals | awk -F " " '{total += $5; count++}END{ print total/count}'`
+	echo $avg_latency
+	echo "Num_servers_$NUM_SERVERS,Avg Latency,$avg_latency" >> ${RESULTS_PATH}/single_node-run${iteration}.csv 
 
 
 done

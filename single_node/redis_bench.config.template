@@ -22,7 +22,7 @@ IRQ_INTERFACE="eth1"
 ########################################################
 # CLIENT SIDE configs
 ########################################################
-
+AUTOTUNE=true
 MEMTIER_PATH=/root/memtier_benchmark
 MEMTIER_SOCKET=1
 RESULTS_FOLDER=memtier_result_$(date +"%Y%m%d%H%M")
