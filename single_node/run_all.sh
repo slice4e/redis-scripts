@@ -20,6 +20,7 @@ source $config_file
 
 source ${HOME_DIR}/redis-scripts/shared-scripts/set_ssh.sh
 
+
 if [ "$SSH_CONNECTED" != "true" ]; then
     echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
     exit 1
@@ -233,9 +234,30 @@ do
 		echo "Starting emon... (First, try to stop if emon is running)"
 		cmd="${EMON_FOLDER}/emon -stop "
 		$cmd
-		cmd="${EMON_FOLDER}/emon -collect-edp -f ${RESULTS_PATH}/single_node-emon.dat "
+		cmd="${EMON_FOLDER}/emon -collect-edp -f ${RESULTS_PATH}/memtier-emon.dat "
 		$cmd &
 	fi
+
+        # Run perf and sar only with the last iteration
+        if [[ $iteration == $ITERATION_NUM ]]; then
+            sleep 5
+	    
+	    if [[ $RUN_PERF == true ]]; then
+            	echo "Starting perf..."
+            	perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null
+            	#perf record -o ${RESULTS_PATH}/run${iteration}-perf-ins.data -a -g -e instructions:ppp -- sleep 30 &> /dev/null
+            	echo "Perf recording complete."
+            	
+	    fi
+
+	    if [[ $RUN_SAR == true ]]; then
+            	echo "Starting sar..."
+	        sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log &
+            	sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log &
+            	sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log &
+            	sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log &
+	    fi
+        fi
 
 
 	while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
@@ -258,16 +280,39 @@ do
 		$cmd 
 	fi
 
+
+        if [[ $iteration == $ITERATION_NUM ]]; then
+
+	    if [[ $RUN_PERF == true ]]; then
+            	echo "Creating perf results..."
+            	perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt
+            	perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt
+            	#perf report -i ${RESULTS_PATH}/run${iteration}-perf-ins.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-ins.txt
+
+	    	if [[ $RUN_FLAMEGRAPH == true ]]; then
+            		echo "Creating flame graphs"
+            		perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded
+            		${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg
+            		rm -f ${RESULTS_PATH}/run${iteration}.perf-folded
+
+	            	#perf script -i ${RESULTS_PATH}/run${iteration}-perf-ins.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-ins-folded
+        	    	#${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-ins-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-ins-folded.svg
+            		#rm -f ${RESULTS_PATH}/run${iteration}.perf-ins-folded
+	    	fi
+	    fi
+
+        fi
+
 	#-------------------------- Process Results ------------------ ------------------------------------------
 
 	echo "Total Ops/sec"
 	total_ops=`cat ${RESULTS_PATH}/run${iteration}/benchmark_* | grep Totals | awk -F " " '{total += $2; count++ } END { print total} '`
 	echo $total_ops
-	echo "Num_servers_$NUM_SERVERS,Total.Ops/sec,$total_ops" > ${RESULTS_PATH}/single_node-run${iteration}.csv 
+	echo "Num_servers_$NUM_SERVERS,Total.Ops/sec,$total_ops" > ${RESULTS_PATH}/memtier-run${iteration}.csv 
 	echo "Avg Latency"
 	avg_latency=`cat ${RESULTS_PATH}/run${iteration}/benchmark_* | grep Totals | awk -F " " '{total += $5; count++}END{ print total/count}'`
 	echo $avg_latency
-	echo "Num_servers_$NUM_SERVERS,Avg Latency,$avg_latency" >> ${RESULTS_PATH}/single_node-run${iteration}.csv 
+	echo "Num_servers_$NUM_SERVERS,Avg Latency,$avg_latency" >> ${RESULTS_PATH}/memtier-run${iteration}.csv 
 
 
 done
