@@ -14,7 +14,7 @@ do
 
     if [ $testnum = "run1" ]; then
     	echo -n "${test}," >> $summaryfile
-    	cat ${test}*.csv | grep -E "Ops/sec" | awk -F "," '{total += $3; count++}END{ print total/count}' | tr '\n' >> $summaryfile
+    	cat ${test}*.csv | grep -E "Ops/sec" | awk -F "," '{total += $3; count++}END{ print total/count}' | tr '\n' '' >> $summaryfile
     	echo -n "," >> $summaryfile
     	cat ${test}*.csv | grep -E "Latency" | awk -F "," '{total += $3; count++}END{ print total/count}' >> $summaryfile
     fi
