@@ -5,7 +5,8 @@ Repository of helper scripts indended to faciliate Redis benchmarking and teleme
 
 ## Usage
 
-Copy the template config file to create your own.  
+Copy the template config file to create your own. 
+Then execute: ./run_all.sh  [my_config_file]  
 
 
 ## Best Known Methods (BKMs) 
