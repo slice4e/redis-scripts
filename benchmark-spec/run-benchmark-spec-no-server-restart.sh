@@ -11,7 +11,11 @@ fi
 #------------------------------------------------------ Script Paramaters ---------------------------------------------------------------
 
 # Read the config file
-config_file="./config.file"
+if [ "$1" != "" ]; then
+	config_file=$1
+else
+	config_file="./config.file"
+fi
 
 # Check if the file exists
 if [ ! -f "$config_file" ]; then
@@ -109,7 +113,7 @@ duration=$SECONDS
 echo "Starting Redis server(s) completed in $(($duration / 60)) minutes and $(($duration % 60)) seconds."
 
 
-readarray -t lines < $CONFIG_FILE
+readarray -t lines < $BENCHSPEC_CONFIG_FILE
 for line in "${lines[@]}"
 do
     IFS=':' read -ra config <<< "$line"

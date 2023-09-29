@@ -76,7 +76,7 @@ if $SSH_COMMAND [ ! -d "$REDIS_PATH" ]; then
     exit 1
 fi
 
-readarray -t lines < $CONFIG_FILE
+readarray -t lines < $BENCHSPEC_CONFIG_FILE
 for line in "${lines[@]}"
 do
     IFS=':' read -ra config <<< "$line"
