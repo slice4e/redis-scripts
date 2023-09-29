@@ -38,14 +38,14 @@ do
         echo -n "$testname $opssec $latency" >> $finalsummaryfile
 
 	if [[ $RUN_PERF == true ]]; then
-        	PERF_FILE="${testname}-perf.txt"
+        	PERF_FILE="${testname}*-perf.txt"
 	        if [ -f "$PERF_FILE" ]; then
         	        echo -n " =hyperlink(\"../$PERF_FILE\",\"perf\")" >> $finalsummaryfile
         	fi
 	fi
 
 	if [[ $RUN_FLAMEGRAPH == true ]]; then
-	        FLAMEGRAPH_FILE="${testname}.perf-folded.svg"
+	        FLAMEGRAPH_FILE="${testname}*.perf-folded.svg"
         	if [ -f "$FLAMEGRAPH_FILE" ]; then
                 	echo -n " =hyperlink(\"../$FLAMEGRAPH_FILE\",\"flamegraph\")" >> $finalsummaryfile
         	fi
