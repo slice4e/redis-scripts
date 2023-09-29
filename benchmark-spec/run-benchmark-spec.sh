@@ -11,7 +11,11 @@ fi
 #------------------------------------------------------ Script Paramaters ---------------------------------------------------------------
 
 # Read the config file
-config_file="./config.file"
+if [ "$1" != "" ]; then
+	config_file=$1
+else
+	config_file="./config.file"
+fi
 
 # Check if the file exists
 if [ ! -f "$config_file" ]; then

@@ -9,7 +9,11 @@ while [ $(ps -e | grep -c redis-server) -gt 1 ];do
 done
 
 # Read the config file
-config_file="./redis_bench.config"
+if [ "$1" != "" ]; then
+	config_file=$1
+else
+	config_file="./redis_bench.config"
+fi
 
 # Check if the file exists
 if [ ! -f "$config_file" ]; then
