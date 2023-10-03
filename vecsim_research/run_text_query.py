@@ -35,7 +35,7 @@ def main():
     query_vector = model.encode(product_query).astype(np.float32).tobytes()
 
     #prepare the query
-    q = Query(f'*=>[KNN {topK} @{TEXT_ITEM_KEYWORD_EMBEDDING_FIELD} $vec_param AS vector_score]').sort_by('vector_score').paging(0,topK).return_fields('url','caption','primary_key').dialect(2)
+    q = Query(f'*=>[KNN {topK} @{TEXT_ITEM_KEYWORD_EMBEDDING_FIELD} $vec_param AS vector_score]').sort_by('vector_score').paging(0,topK).return_fields('url','caption','primary_key').dialect(2).timeout(10000)
     params_dict = {"vec_param": query_vector}
 
     search_start_time = time()
