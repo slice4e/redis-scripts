@@ -39,7 +39,7 @@ def main():
         query_vector = vector.astype(np.float32).tobytes()
 
         #prepare the query
-        q = Query(f'*=>[KNN {topK} @{IMG_ITEM_EMBEDDING_FIELD} $vec_param AS vector_score]').sort_by('vector_score').paging(0,topK).return_fields('url','caption','primary_key').dialect(2).timeout(10000)
+        q = Query(f'*=>[KNN {topK} @{IMG_ITEM_EMBEDDING_FIELD} $vec_param AS vector_score]').sort_by('vector_score').paging(0,topK).return_fields('url','caption','primary_key').dialect(2).timeout(100000)
         params_dict = {"vec_param": query_vector}
 
         search_start_time = time()
