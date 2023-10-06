@@ -8,6 +8,7 @@ from time import time
 from redis import Redis
 from redis.commands.search.field import VectorField
 from redis.commands.search.field import TextField
+from redis.cluster import RedisCluster
 
 def chunk(it, size):
     it = iter(it)
@@ -71,6 +72,7 @@ def parse_cmd_args():
     parser.add_argument("--redis-port", "-p", dest="port", type=str, default="5000", help="Port of redis server")
     parser.add_argument("--img-emb", action="store_true", help="Use if image embeddings are to be included in hash")
     parser.add_argument("--no-text-emb", action="store_true", help="Use of text embeddings are not to be included in hash")
+    parser.add_argument("--cluster", action="store_true", help="Connect to redis cluster instead of redis server")
     args = parser.parse_args()
     return args
 
@@ -105,9 +107,14 @@ def main():
 
     host = 'localhost'
     port = args.port
-    redis_conn = Redis(host=host, port=port)
-    print(redis_conn.ping())
-    print("Connected to Redis")
+    if args.cluster:
+        redis_conn = RedisCluster(host=host, port=port)
+        print(redis_conn.ping())
+        print(f"Connected to Redis cluster {host}:{port}")
+    else:
+        redis_conn = Redis(host=host, port=port)
+        print(redis_conn.ping())
+        print(f"Connected to Redis server {host}:{port}")
 
     #flush all data
     redis_conn.flushall()

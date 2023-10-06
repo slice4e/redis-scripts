@@ -11,11 +11,13 @@ import argparse
 from time import time
 from redis.commands.search.query import Query
 from redis import Redis
+from redis.cluster import RedisCluster
 
 def parse_cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--redis-port", "-p", dest="port", type=str, default="5000", help="Port of redis server")
     parser.add_argument("--query-file", type=str, required=True, help="Path to file with image query embedding to run vecsim search on")
+    parser.add_argument("--cluster", action="store_true", help="Connect to redis cluster instead of redis server")
     args = parser.parse_args()
     return args
 
@@ -26,9 +28,14 @@ def main():
 
     host = 'localhost'
     port = args.port
-    redis_conn = Redis(host=host, port=port)
-    print(redis_conn.ping())
-    print("Connected to Redis")
+    if args.cluster:
+        redis_conn = RedisCluster(host=host, port=port)
+        print(redis_conn.ping())
+        print(f"Connected to Redis cluster {host}:{port}")
+    else:
+        redis_conn = Redis(host=host, port=port)
+        print(redis_conn.ping())
+        print(f"Connected to Redis server {host}:{port}")
 
     topK=5
 
