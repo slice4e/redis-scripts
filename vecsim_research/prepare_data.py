@@ -69,6 +69,8 @@ def parse_cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", type=str, required=True, help="Path to the data directory")
     parser.add_argument("--hnsw-index", action="store_true", help="Create hnsw index instead of flat")
+    parser.add_argument("--no-index", action="store_true", help="Don't create index, just load the data to redis server")
+    parser.add_argument("--no-upload", action="store_true", help="Don't upload the data, just create search index")
     parser.add_argument("--redis-port", "-p", dest="port", type=str, default="5000", help="Port of redis server")
     parser.add_argument("--img-emb", action="store_true", help="Use if image embeddings are to be included in hash")
     parser.add_argument("--no-text-emb", action="store_true", help="Use of text embeddings are not to be included in hash")
@@ -117,52 +119,60 @@ def main():
         print(f"Connected to Redis server {host}:{port}")
 
     #flush all data
-    redis_conn.flushall()
+    if not args.no_upload:
+        redis_conn.flushall()
 
     #create flat index & load vectors
     create_index_start_time = time()
-    if args.hnsw_index:
-        index_type = "hnsw"
-        create_hnsw_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, EMBEDDING_DIMENSION, 'COSINE', M=40, EF=200)
+    if args.no_index:
+        index_type = "None"
     else:
-        index_type = "flat"
-        create_flat_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, EMBEDDING_DIMENSION, 'COSINE')
+        if args.hnsw_index:
+            index_type = "hnsw"
+            create_hnsw_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, EMBEDDING_DIMENSION, 'COSINE', M=40, EF=200)
+        else:
+            index_type = "flat"
+            create_flat_index(redis_conn, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD, EMBEDDING_DIMENSION, 'COSINE')
     create_index_end_time = time()
     create_index_time = create_index_end_time - create_index_start_time
 
-    num_of_files = len(metadata_files)
-    loading_start_time = time()
-    for num in range(0, num_of_files):
-        debug = "Working on files: "
-        metadata = pd.read_parquet(metadata_files[num], engine='fastparquet')
-        debug = debug + str(metadata_files[num])
-        metadata["primary_key"] = "Item:" + (metadata.index + indexes - 1).astype(str)
-        metadata = metadata[["primary_key", "caption", "url"]]
-        product_metadata = metadata.to_dict(orient='index')
-        NUMBER_PRODUCTS=len(product_metadata)
+    if not args.no_upload:
+        num_of_files = len(metadata_files)
+        loading_start_time = time()
+        for num in range(0, num_of_files):
+            debug = "Working on files: "
+            metadata = pd.read_parquet(metadata_files[num], engine='fastparquet')
+            debug = debug + str(metadata_files[num])
+            metadata["primary_key"] = "Item:" + (metadata.index + indexes - 1).astype(str)
+            metadata = metadata[["primary_key", "caption", "url"]]
+            product_metadata = metadata.to_dict(orient='index')
+            NUMBER_PRODUCTS=len(product_metadata)
 
-        if args.img_emb:
-            img_emb = np.load(img_emb_files[num])
-            debug = debug + " " + str(img_emb_files[num])
-        else:
-            img_emb = None
+            if args.img_emb:
+                img_emb = np.load(img_emb_files[num])
+                debug = debug + " " + str(img_emb_files[num])
+            else:
+                img_emb = None
 
-        if not args.no_text_emb:
-            text_emb = np.load(text_emb_files[num])
-            debug = debug + " " + str(text_emb_files[num])
-        else:
-            text_emb = None
+            if not args.no_text_emb:
+                text_emb = np.load(text_emb_files[num])
+                debug = debug + " " + str(text_emb_files[num])
+            else:
+                text_emb = None
 
-        print(debug)
-        print(f"Already loaded {indexes} items")
-        print ('Loading ' +  str(NUMBER_PRODUCTS) + ' items...')
-        indexes = indexes + NUMBER_PRODUCTS  
-        load_vectors(redis_conn, product_metadata, text_emb, img_emb, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD)
-     
-    loading_end_time = time()
-    loading_time = loading_end_time - loading_start_time
-
-    script_time = loading_end_time - script_start_time
+            print(debug)
+            print(f"Already loaded {indexes} items")
+            print ('Loading ' +  str(NUMBER_PRODUCTS) + ' items...')
+            indexes = indexes + NUMBER_PRODUCTS  
+            load_vectors(redis_conn, product_metadata, text_emb, img_emb, TEXT_ITEM_KEYWORD_EMBEDDING_FIELD, IMG_ITEM_EMBEDDING_FIELD)
+        
+        loading_end_time = time()
+        loading_time = loading_end_time - loading_start_time
+    else:
+        loading_time = "None"
+    
+    script_end_time = time()
+    script_time = script_end_time - script_start_time
 
     print(f"""Index type: {index_type}
               Total script time: {script_time}
