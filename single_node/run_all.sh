@@ -1,13 +1,5 @@
 #!/bin/bash
 
-#for NUM_SERVERS in 64 32; do
-
-pkill redis-server
-while [ $(ps -e | grep -c redis-server) -gt 1 ];do
-	echo -e "Waiting for $(($(ps -e | grep -c redis-server))) redis-server(s) to stop"
-        sleep 5
-done
-
 # Read the config file
 if [ "$1" != "" ]; then
 	config_file=$1
@@ -32,10 +24,19 @@ fi
 
 echo "SSH Connection is Successfull!"
 
+
+$SSH_COMMAND pkill redis-server
+while [ `$SSH_COMMAND ps -e | grep -c redis-server` -gt 0 ];do
+	ret=`$SSH_COMMAND ps -e | grep -c redis-server`
+	echo -e "Waiting for $ret redis-server(s) to stop"
+        sleep 5
+done
+
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
 source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
 source $HOME_DIR/redis-scripts/shared-scripts/check_numa.sh
+exit 0
 
 mkdir -p ${RESULTS_PATH}
 cp $config_file ${RESULTS_PATH}
