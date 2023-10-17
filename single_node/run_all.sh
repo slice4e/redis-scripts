@@ -36,7 +36,6 @@ done
 source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
 source $HOME_DIR/redis-scripts/shared-scripts/check_numa.sh
-exit 0
 
 mkdir -p ${RESULTS_PATH}
 cp $config_file ${RESULTS_PATH}
@@ -46,10 +45,11 @@ if [[ ${RUN_SVR_INFO} == true ]] ; then
 	echo "Capture svr-info from the server."
 	CUR_DIR=`pwd`
 	cd ${RESULTS_PATH}
-	${SVR_INFO_PATH}/svr-info
+	${SVR_INFO_PATH}/svr-info -ip $SERVER_IP -user $LOGIN_ID
 	cd $CUR_DIR
 	echo "Done capturing svr-info."
 fi 
+exit 0
 
 
 #---------------------------check cpu configuration------------------------------------------
