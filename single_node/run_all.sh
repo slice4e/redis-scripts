@@ -328,9 +328,12 @@ do
 
 	    	if [[ $RUN_FLAMEGRAPH == true ]]; then
             		echo "Creating flame graphs"
-            		$SSH_COMMAND perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded
-            		$SSH_COMMAND ${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg
-            		$SSH_COMMAND rm -f ${RESULTS_PATH}/run${iteration}.perf-folded
+			cmd="perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded"
+            		$SSH_COMMAND $cmd
+			cmd="${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg"
+            		$SSH_COMMAND $cmd
+			cmd="rm -f ${RESULTS_PATH}/run${iteration}.perf-folded"
+            		$SSH_COMMAND $cmd
 
 	            	#perf script -i ${RESULTS_PATH}/run${iteration}-perf-ins.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-ins-folded
         	    	#${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-ins-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-ins-folded.svg
@@ -340,7 +343,14 @@ do
 
         fi
 
-	#-------------------------- Process Results ------------------ ------------------------------------------
+	#-------------------------- Copy Results from remote server ------------------------------------------------------------
+	echo "Copying data from remote server. " 
+	if [[ ${SERVER_REMOTE} == true ]] ; then
+		scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:${RESULTS_PATH}/* ${RESULTS_PATH}/
+		$SSH_COMMAND "rm -rf ${RESULTS_PATH}"
+	fi
+
+	#-------------------------- Process Results ------------------------------------------------------------
 
 	echo "Total Ops/sec"
 	total_ops=`cat ${RESULTS_PATH}/run${iteration}/benchmark_* | grep Totals | awk -F " " '{total += $2; count++ } END { print total} '`
@@ -350,8 +360,6 @@ do
 	avg_latency=`cat ${RESULTS_PATH}/run${iteration}/benchmark_* | grep Totals | awk -F " " '{total += $5; count++}END{ print total/count}'`
 	echo $avg_latency
 	echo "Num_servers_$NUM_SERVERS,Avg Latency,$avg_latency" >> ${RESULTS_PATH}/memtier-run${iteration}.csv 
-
-exit 0
 
 done
 
