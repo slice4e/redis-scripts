@@ -54,6 +54,7 @@ fi
 
 #---------------------------check cpu configuration------------------------------------------
 if [[ ${SERVER_REMOTE} == true ]] ; then
+	echo "Redis server and memtier benchmark are on different nodes." 
 	NUM_CPUS=$($SSH_COMMAND numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w | tr -d '[:space:]')
 	CPUS=$($SSH_COMMAND numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}' | tr -d '\r')
 	MEMTIER_CPUS=$(numactl --hardware | grep "node ${MEMTIER_SOCKET} cpus" |  awk -F ':' '{print $2}')
@@ -61,10 +62,10 @@ if [[ ${SERVER_REMOTE} == true ]] ; then
 		echo "Use at most $NUM_CPUS Redis servers per socket. " 
 		exit 1
 	fi
-	echo "Redis server and memtier benchmark are on different nodes." 
 else
 	NUM_CPUS=`numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w`
 	if [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
+		echo "Redis server and memtier benchmark are on the same node and on the same socket." 
 		SPLIT_SOCKET=$((NUM_CPUS / 2))
 		if [[ $SPLIT_SOCKET -lt $NUM_SERVERS ]]; then
 			echo "Since we are sharing the socket between Redis and Memtier, use at most $SPLIT_SOCKET Redis servers. " 
@@ -79,6 +80,7 @@ else
 		done
 		MEMTIER_CPUS=$REV_CPUS
 	else
+		echo "Redis server and memtier benchmark are on the same node on different sockets." 
 		CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
 		MEMTIER_CPUS=`numactl --hardware | grep "node ${MEMTIER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
 
@@ -87,7 +89,6 @@ else
 			exit 1
 		fi
 	fi
-	echo "Redis server and memtier benchmark are on the same node." 
 fi
 
 echo "Redis server CPUS: $CPUS" 
