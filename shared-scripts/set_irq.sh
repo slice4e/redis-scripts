@@ -5,7 +5,7 @@
 if [ "$1" != "" ]; then
 
 	echo "Assigning IRQ interruptions to CPUs $@ ...."
-	interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}'")
+	interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}'" | tr -d '\r')
 	for i in $interrupts
 	do
 		cmd="echo $@ > /proc/irq/${i:0:-1}/smp_affinity_list"
@@ -13,7 +13,7 @@ if [ "$1" != "" ]; then
 	done
 
 	echo "Printing assigned cpu numbers for each interrupts..."
-	interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}'")
+	interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}'" | tr -d '\r' )
 	for i in $interrupts
 	do
 		cmd="cat /proc/irq/${i:0:-1}/smp_affinity_list"
