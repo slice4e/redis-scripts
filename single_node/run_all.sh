@@ -348,7 +348,6 @@ do
 	echo "Copying data from remote server. " 
 	if [[ ${SERVER_REMOTE} == true ]] ; then
 		scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:${RESULTS_PATH}/* ${RESULTS_PATH}/
-		$SSH_COMMAND "rm -rf ${RESULTS_PATH}"
 	fi
 
 	#-------------------------- Process Results ------------------------------------------------------------
@@ -363,6 +362,7 @@ do
 	echo "Num_servers_$NUM_SERVERS,Avg Latency,$avg_latency" >> ${RESULTS_PATH}/memtier-run${iteration}.csv 
 
 done
+#$SSH_COMMAND "rm -rf ${RESULTS_PATH}"
 
 #-------------------------- Process Emon ------------------ ------------------------------------------
 
