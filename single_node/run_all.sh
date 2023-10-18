@@ -272,26 +272,27 @@ do
         if [[ $iteration == $ITERATION_NUM ]]; then
             sleep 5
 	    
-	    if [[ $RUN_PERF == true ]]; then
-            	echo "Starting perf..."
-            	cmd="perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
-		$SSH_COMMAND $cmd
-            	#perf record -o ${RESULTS_PATH}/run${iteration}-perf-ins.data -a -g -e instructions:ppp -- sleep 30 &> /dev/null
-            	echo "Perf recording complete."
-            	
-	    fi
-
 	    if [[ $RUN_SAR == true ]]; then
             	echo "Starting sar..."
 	        cmd="sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log"
 		$SSH_COMMAND $cmd &
             	cmd="sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log"
 		$SSH_COMMAND $cmd &
-            	cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log"
-		$SSH_COMMAND $cmd &
-            	cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log"
-		$SSH_COMMAND $cmd &
+            	#cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log"
+		#$SSH_COMMAND $cmd &
+            	#cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log"
+		#$SSH_COMMAND $cmd &
 	    fi
+	    
+	    if [[ $RUN_PERF == true ]]; then
+            	echo "Starting perf..."
+            	cmd="perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
+		$SSH_COMMAND $cmd  
+            	#perf record -o ${RESULTS_PATH}/run${iteration}-perf-ins.data -a -g -e instructions:ppp -- sleep 30 &> /dev/null
+            	echo "Perf recording complete."
+            	
+	    fi
+
         fi
 
 
@@ -303,10 +304,6 @@ do
 	echo "Killing existing redis server instances and remove rdb files..."
 	KILL_SIGNAL=15
 	$SSH_COMMAND killall $KILL_SIGNAL redis-server
-	while [ $(ps -ef | grep -c redis-server) -gt 1 ];do
-		echo -e "Waiting for $(($(ps -ef | grep -c redis-server)-1)) to die"
-		sleep 1
-	done
 	while [ $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') -gt 1 ];do
 		echo -e "Waiting for $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') Redis servers to die"
 		sleep 5
@@ -323,8 +320,10 @@ do
 
 	    if [[ $RUN_PERF == true ]]; then
             	echo "Creating perf results..."
-            	$SSH_COMMAND perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt
-            	$SSH_COMMAND perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt
+		cmd="perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt"
+            	$SSH_COMMAND $cmd
+		cmd="perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt"
+            	$SSH_COMMAND $cmd
             	#perf report -i ${RESULTS_PATH}/run${iteration}-perf-ins.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-ins.txt
 
 	    	if [[ $RUN_FLAMEGRAPH == true ]]; then
