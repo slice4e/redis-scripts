@@ -50,7 +50,7 @@ SVR_INFO_PATH=/opt/svr-info
 
 #sar
 RUN_SAR=false
-SAR_DURATION=120
+SAR_DURATION=$BENCHMARK_DURATION
 
 #perf
 RUN_PERF=false

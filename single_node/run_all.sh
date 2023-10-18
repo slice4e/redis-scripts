@@ -38,6 +38,7 @@ source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 source $HOME_DIR/redis-scripts/shared-scripts/check_numa.sh
 
 mkdir -p ${RESULTS_PATH}
+$SSH_COMMAND mkdir -p ${RESULTS_PATH}
 cp $config_file ${RESULTS_PATH}
 
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
@@ -144,7 +145,6 @@ do
 
 	echo "$($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]' ) redis servers started"
 
-exit 0
 
 	#--------------------------start memtier benchmark FILL ---------------------------------------------
 	instances=1
@@ -263,9 +263,9 @@ exit 0
 	if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then 
 		echo "Starting emon... (First, try to stop if emon is running)"
 		cmd="${EMON_FOLDER}/emon -stop "
-		$cmd
+		$SSH_COMMAND $cmd
 		cmd="${EMON_FOLDER}/emon -collect-edp -f ${RESULTS_PATH}/memtier-emon.dat "
-		$cmd &
+		$SSH_COMMAND $cmd &
 	fi
 
         # Run perf and sar only with the last iteration
@@ -274,7 +274,8 @@ exit 0
 	    
 	    if [[ $RUN_PERF == true ]]; then
             	echo "Starting perf..."
-            	perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null
+            	cmd="perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
+		$SSH_COMMAND $cmd
             	#perf record -o ${RESULTS_PATH}/run${iteration}-perf-ins.data -a -g -e instructions:ppp -- sleep 30 &> /dev/null
             	echo "Perf recording complete."
             	
@@ -282,10 +283,14 @@ exit 0
 
 	    if [[ $RUN_SAR == true ]]; then
             	echo "Starting sar..."
-	        sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log &
-            	sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log &
-            	sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log &
-            	sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log &
+	        cmd="sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log"
+		$SSH_COMMAND $cmd &
+            	cmd="sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log"
+		$SSH_COMMAND $cmd &
+            	cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log"
+		$SSH_COMMAND $cmd &
+            	cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log"
+		$SSH_COMMAND $cmd &
 	    fi
         fi
 
@@ -297,33 +302,36 @@ exit 0
 
 	echo "Killing existing redis server instances and remove rdb files..."
 	KILL_SIGNAL=15
-	killall $KILL_SIGNAL redis-server
+	$SSH_COMMAND killall $KILL_SIGNAL redis-server
 	while [ $(ps -ef | grep -c redis-server) -gt 1 ];do
 		echo -e "Waiting for $(($(ps -ef | grep -c redis-server)-1)) to die"
 		sleep 1
 	done
-	rm -f ${RDB_PATH}/*.rdb
+	while [ $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') -gt 1 ];do
+		echo -e "Waiting for $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') Redis servers to die"
+		sleep 5
+	done
+	$SSH_COMMAND rm -f ${RDB_PATH}/*.rdb
 
 
 	if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then 
 		cmd="${EMON_FOLDER}/emon -stop "
-		$cmd 
+		$SSH_COMMAND $cmd 
 	fi
-
 
         if [[ $iteration == $ITERATION_NUM ]]; then
 
 	    if [[ $RUN_PERF == true ]]; then
             	echo "Creating perf results..."
-            	perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt
-            	perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt
+            	$SSH_COMMAND perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt
+            	$SSH_COMMAND perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt
             	#perf report -i ${RESULTS_PATH}/run${iteration}-perf-ins.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-ins.txt
 
 	    	if [[ $RUN_FLAMEGRAPH == true ]]; then
             		echo "Creating flame graphs"
-            		perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded
-            		${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg
-            		rm -f ${RESULTS_PATH}/run${iteration}.perf-folded
+            		$SSH_COMMAND perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded
+            		$SSH_COMMAND ${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg
+            		$SSH_COMMAND rm -f ${RESULTS_PATH}/run${iteration}.perf-folded
 
 	            	#perf script -i ${RESULTS_PATH}/run${iteration}-perf-ins.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-ins-folded
         	    	#${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-ins-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-ins-folded.svg
@@ -344,6 +352,7 @@ exit 0
 	echo $avg_latency
 	echo "Num_servers_$NUM_SERVERS,Avg Latency,$avg_latency" >> ${RESULTS_PATH}/memtier-run${iteration}.csv 
 
+exit 0
 
 done
 
