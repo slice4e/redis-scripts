@@ -105,9 +105,8 @@ fi
 if [[ $SET_IRQ == true ]]; then
 	source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh $CPUS
 fi
-exit 0
 
-mkdir -p ${REDIS_PATH}/log
+$SSH_COMMAND mkdir -p ${REDIS_PATH}/log
 for (( iteration=1; iteration <= $ITERATION_NUM; iteration++ ))
 do
 
@@ -118,12 +117,13 @@ do
 	for cpu in $CPUS
 	do
 		port=$(($START_PORT + ${instances}))
-		ret=`lsof -i:$port`
-		if [[ $? == 1 ]]; then
+		ret=$($SSH_COMMAND lsof -i:$port)
+		ret_code=$(echo $? | tr -d '[:space:]') 
+		if [[ $ret_code == 1 ]]; then
 			echo -e "starting redis server $instances on vCPU $cpu"
 			cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
 			echo -e $cmd
-			$cmd & 
+			$SSH_COMMAND $cmd & 
 			instances=$((instances + 1))
 		else
 			echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
@@ -137,13 +137,14 @@ do
 		fi
 	done
 
-	while [ $(ps -e | grep -c redis-server) -lt $NUM_SERVERS ];do
+	while [ $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') -lt $NUM_SERVERS ];do
 		echo -e "Waiting for all redis servers to start"
 		sleep 5
 	done
 
-	echo "$(($(ps -e | grep -c redis-server))) redis servers started"
+	echo "$($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]' ) redis servers started"
 
+exit 0
 
 	#--------------------------start memtier benchmark FILL ---------------------------------------------
 	instances=1
