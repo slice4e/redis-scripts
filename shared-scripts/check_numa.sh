@@ -17,7 +17,8 @@ else
 	else
 		IRQ_NUMA_NODE=$($SSH_COMMAND cat $path 2>&1) 
 		#bash_encode $IRQ_NUMA_NODE
-		IRQ_NUMA_NODE=`echo $IRQ_NUMA_NODE | tr -d '\r'`
+		#IRQ_NUMA_NODE=`echo $IRQ_NUMA_NODE | tr -d '\r'`
+		IRQ_NUMA_NODE=`echo $IRQ_NUMA_NODE | tr -d '[:space:]'`
 		#bash_encode $IRQ_NUMA_NODE
 		echo "IRQ_NUMA_NODE: $IRQ_NUMA_NODE"
 		echo "IRQ Pinning: $SET_IRQ" 

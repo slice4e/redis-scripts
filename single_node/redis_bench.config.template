@@ -12,6 +12,7 @@ NUM_SERVERS=36 # Each Redis server contributes about 20GB of memory capacity. Ve
 
 LOGIN_ID=root
 SERVER_IP="127.0.0.1"  # replace with the IP address of the server. Using a physical interface is prefered to using localhost. 
+SERVER_REMOTE=false # The server and memtier client are on different nodes
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 

@@ -49,34 +49,59 @@ if [[ ${RUN_SVR_INFO} == true ]] ; then
 	cd $CUR_DIR
 	echo "Done capturing svr-info."
 fi 
-exit 0
 
 
 #---------------------------check cpu configuration------------------------------------------
-NUM_CPUS=`numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w`
-if [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
-	SPLIT_SOCKET=$((NUM_CPUS / 2))
-	if [[ $SPLIT_SOCKET -lt $NUM_SERVERS ]]; then
-		echo "Since we are sharing the socket between Redis and Memtier, use at most $SPLIT_SOCKET Redis servers. " 
-		exit 1
-	fi
-
-	CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
-	REV_CPUS=""
-	for cpu in $CPUS
-	do
-		REV_CPUS="$cpu $REV_CPUS"
-	done
-	MEMTIER_CPUS=$REV_CPUS
-else
-	CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
-	MEMTIER_CPUS=`numactl --hardware | grep "node ${MEMTIER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
-
+if [[ ${SERVER_REMOTE} == true ]] ; then
+	NUM_CPUS=$($SSH_COMMAND numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w | tr -d '[:space:]')
+	CPUS=$($SSH_COMMAND numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}' | tr -d '\r')
+	MEMTIER_CPUS=$(numactl --hardware | grep "node ${MEMTIER_SOCKET} cpus" |  awk -F ':' '{print $2}')
 	if [[ $NUM_CPUS -lt $NUM_SERVERS ]]; then
 		echo "Use at most $NUM_CPUS Redis servers per socket. " 
 		exit 1
 	fi
+	echo "Redis server and memtier benchmark are on different nodes." 
+else
+	NUM_CPUS=`numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w`
+	if [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
+		SPLIT_SOCKET=$((NUM_CPUS / 2))
+		if [[ $SPLIT_SOCKET -lt $NUM_SERVERS ]]; then
+			echo "Since we are sharing the socket between Redis and Memtier, use at most $SPLIT_SOCKET Redis servers. " 
+			exit 1
+		fi
+
+		CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
+		REV_CPUS=""
+		for cpu in $CPUS
+		do
+			REV_CPUS="$cpu $REV_CPUS"
+		done
+		MEMTIER_CPUS=$REV_CPUS
+	else
+		CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
+		MEMTIER_CPUS=`numactl --hardware | grep "node ${MEMTIER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
+
+		if [[ $NUM_CPUS -lt $NUM_SERVERS ]]; then
+			echo "Use at most $NUM_CPUS Redis servers per socket. " 
+			exit 1
+		fi
+	fi
+	echo "Redis server and memtier benchmark are on the same node." 
 fi
+
+echo "Redis server CPUS: $CPUS" 
+echo "Memtier CPUS: $MEMTIER_CPUS" 
+
+if [ -z "$CPUS" ]; then
+	echo "Error identifying Redis server CPUs."
+	exit 1
+fi
+if [ -z "$MEMTIER_CPUS" ]; then
+	echo "Error identifying memtier server CPUs."
+	exit 1
+fi
+
+exit 0
 
 #--------------------------set network interrupts ---------------------------------------------------
 if [[ $SET_IRQ == true ]]; then
