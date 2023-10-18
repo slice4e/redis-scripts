@@ -101,12 +101,11 @@ if [ -z "$MEMTIER_CPUS" ]; then
 	exit 1
 fi
 
-exit 0
-
 #--------------------------set network interrupts ---------------------------------------------------
 if [[ $SET_IRQ == true ]]; then
 	source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh $CPUS
 fi
+exit 0
 
 mkdir -p ${REDIS_PATH}/log
 for (( iteration=1; iteration <= $ITERATION_NUM; iteration++ ))
