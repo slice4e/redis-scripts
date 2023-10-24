@@ -125,7 +125,14 @@ do
 			echo -e "starting redis server $instances on vCPU $cpu"
 			cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
 			echo -e $cmd
-			$SSH_COMMAND $cmd & 
+
+			#NOTE: Do not start the Redis servers using SSH if they are not remote. 
+			#For some unknown reason that leads to a performace degradation. 
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				$SSH_COMMAND $cmd & 
+			else
+				$cmd &
+			fi
 			instances=$((instances + 1))
 		else
 			echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
