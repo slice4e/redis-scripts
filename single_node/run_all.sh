@@ -22,9 +22,6 @@ if [ "$SSH_CONNECTED" != "true" ]; then
     exit 1
 fi
 
-echo "SSH Connection is Successfull!"
-
-
 $SSH_COMMAND pkill redis-server
 while [ `$SSH_COMMAND ps -e | grep -c redis-server` -gt 0 ];do
 	ret=`$SSH_COMMAND ps -e | grep -c redis-server`
