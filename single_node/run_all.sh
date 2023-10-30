@@ -281,21 +281,31 @@ do
             sleep 5
 	    
 	    if [[ $RUN_SAR == true ]]; then
-            	echo "Starting sar..."
-	        cmd="sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log"
-		$SSH_COMMAND $cmd &
-            	cmd="sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log"
-		$SSH_COMMAND $cmd &
-            	#cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log"
-		#$SSH_COMMAND $cmd &
-            	#cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log"
-		#$SSH_COMMAND $cmd &
+		if [[ ${SERVER_REMOTE} == true ]] ; then
+			echo "Starting sar..."
+			cmd="sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log"
+			$SSH_COMMAND $cmd &
+			cmd="sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log"
+			$SSH_COMMAND $cmd &
+		else
+			echo "Starting sar..."
+			sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log & 
+			sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log & 
+            		#cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log"
+			#$SSH_COMMAND $cmd &
+            		#cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log"
+			#$SSH_COMMAND $cmd &
+		fi
 	    fi
 	    
 	    if [[ $RUN_PERF == true ]]; then
             	echo "Starting perf..."
             	cmd="perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
-		$SSH_COMMAND $cmd  
+		if [[ ${SERVER_REMOTE} == true ]] ; then
+			$SSH_COMMAND $cmd  
+		else
+			$cmd
+		fi
             	#perf record -o ${RESULTS_PATH}/run${iteration}-perf-ins.data -a -g -e instructions:ppp -- sleep 30 &> /dev/null
             	echo "Perf recording complete."
             	
@@ -329,19 +339,39 @@ do
 	    if [[ $RUN_PERF == true ]]; then
             	echo "Creating perf results..."
 		cmd="perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt"
-            	$SSH_COMMAND $cmd
+		if [[ ${SERVER_REMOTE} == true ]] ; then
+            		$SSH_COMMAND $cmd
+		else
+			perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt
+		fi
 		cmd="perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt"
-            	$SSH_COMMAND $cmd
+		if [[ ${SERVER_REMOTE} == true ]] ; then
+            		$SSH_COMMAND $cmd
+		else
+			perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt
+		fi
             	#perf report -i ${RESULTS_PATH}/run${iteration}-perf-ins.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-ins.txt
 
 	    	if [[ $RUN_FLAMEGRAPH == true ]]; then
             		echo "Creating flame graphs"
 			cmd="perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded"
-            		$SSH_COMMAND $cmd
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				$SSH_COMMAND $cmd
+			else
+				perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded
+			fi
 			cmd="${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg"
-            		$SSH_COMMAND $cmd
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				$SSH_COMMAND $cmd
+			else
+				${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg
+			fi
 			cmd="rm -f ${RESULTS_PATH}/run${iteration}.perf-folded"
-            		$SSH_COMMAND $cmd
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				$SSH_COMMAND $cmd
+			else
+				rm -f ${RESULTS_PATH}/run${iteration}.perf-folded
+			fi
 
 	            	#perf script -i ${RESULTS_PATH}/run${iteration}-perf-ins.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-ins-folded
         	    	#${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-ins-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-ins-folded.svg
