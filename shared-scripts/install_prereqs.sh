@@ -122,12 +122,12 @@ if [[ $RUN_EMON == true ]] ; then
 	if ! $SSH_COMMAND command -v "${EMON_FOLDER}/emon" &>/dev/null; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
-		$SSH_COMMAND pip3 install --upgrade pip
 		if [[ $USE_APT == true ]]; then
 			$SSH_COMMAND apt install python3-dev -y
 		else
 			$SSH_COMMAND yum install python3-devel -y
 		fi
+		$SSH_COMMAND pip3 install --upgrade pip
 		$SSH_COMMAND pip3 install tdigest
 		$SSH_COMMAND pip3 install numpy pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
     		exit 1
