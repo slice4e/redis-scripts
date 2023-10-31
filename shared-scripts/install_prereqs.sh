@@ -24,10 +24,18 @@ if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 		$SSH_COMMAND yum install pkg-config -y
 	fi
 	$SSH_COMMAND git clone --recursive https://github.com/redis/redis.git --branch $REDIS_BRANCH $REDIS_PATH
-	$SSH_COMMAND "cd $REDIS_PATH; make $REDIS_BUILD_FLAGS"
-	$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf | sed \"s/bind/#bind/\" > redis.conf.new"
-	$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf.new | sed \"s/protected-mode yes/protected-mode no/\" > redis.conf.new2"
-	$SSH_COMMAND "cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new"
+	if [[ ${SERVER_REMOTE} == true ]] ; then
+		$SSH_COMMAND "cd $REDIS_PATH; make $REDIS_BUILD_FLAGS"
+		$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf | sed \"s/bind/#bind/\" > redis.conf.new"
+		$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf.new | sed \"s/protected-mode yes/protected-mode no/\" > redis.conf.new2"
+		$SSH_COMMAND "cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new"
+	else
+		cd $REDIS_PATH; make $REDIS_BUILD_FLAGS
+		cd $REDIS_PATH; cat redis.conf | sed \"s/bind/#bind/\" > redis.conf.new
+		cd $REDIS_PATH; cat redis.conf.new | sed \"s/protected-mode yes/protected-mode no/\" > redis.conf.new2
+		cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new
+	fi
+
 fi
 if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	echo "Redis is not installed. Unable to automatically install it. Failing."
