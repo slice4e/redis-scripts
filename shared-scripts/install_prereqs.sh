@@ -89,7 +89,7 @@ fi
 if [[ $RUN_FLAMEGRAPH == true ]]; then
 	if ! $SSH_COMMAND command -v "${flamegraph_folder}/flamegraph.pl" &>/dev/null; then
 		echo "The prerequisite FlameGraph is not installed. Attempting to install."
-		$SSH_COMMAND git clone https://github.com/brendangregg/FlameGraph
+		$SSH_COMMAND git clone https://github.com/brendangregg/FlameGraph ${flamegraph_folder}
 		if [[ $USE_APT == false ]]; then
 			$SSH_COMMAND yum install perl-open.noarch -y
 		fi
