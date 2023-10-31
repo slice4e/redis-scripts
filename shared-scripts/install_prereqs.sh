@@ -31,8 +31,8 @@ if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 		$SSH_COMMAND "cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new"
 	else
 		cd $REDIS_PATH; make $REDIS_BUILD_FLAGS
-		cd $REDIS_PATH; cat redis.conf | sed \"s/bind/#bind/\" > redis.conf.new
-		cd $REDIS_PATH; cat redis.conf.new | sed \"s/protected-mode yes/protected-mode no/\" > redis.conf.new2
+		cd $REDIS_PATH; cat redis.conf | sed s/bind/#bind/ > redis.conf.new
+		cd $REDIS_PATH; cat redis.conf.new | sed s/protected-mode yes/protected-mode no/ > redis.conf.new2
 		cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new
 	fi
 
