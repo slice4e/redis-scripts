@@ -124,6 +124,7 @@ if [[ $RUN_EMON == true ]] ; then
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		if [[ $USE_APT == true ]]; then
 			$SSH_COMMAND apt install python3-dev -y
+			$SSH_COMMAND apt install python3-pip -y
 		else
 			$SSH_COMMAND yum install python3-devel -y
 		fi
