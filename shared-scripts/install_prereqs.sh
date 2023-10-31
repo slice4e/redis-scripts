@@ -103,14 +103,26 @@ fi
 if [[ $RUN_PERF == true ]]; then
 	if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
 		echo "The prerequisite Perf is not installed. Attempting to install."
-		if [[ $USE_APT == true ]]; then
-			$SSH_COMMAND apt install linux-tools-common -y
-			$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
+		if [[ ${SERVER_REMOTE} == true ]] ; then
+			if [[ $USE_APT == true ]]; then
+				$SSH_COMMAND apt install linux-tools-common -y
+				$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
+			else
+				$SSH_COMMAND yum install perf -y
+			fi
+			$SSH_COMMAND "echo 0 > /proc/sys/kernel/perf_event_paranoid"
+			$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
 		else
-			$SSH_COMMAND yum install perf -y
+			if [[ $USE_APT == true ]]; then
+				apt install linux-tools-common -y
+				apt install linux-tools-`uname -r` -y
+			else
+				yum install perf -y
+			fi
+			echo 0 > /proc/sys/kernel/perf_event_paranoid
+			echo "kernel.perf_event_paranid = 1" >> /etc/sysctl.conf
 		fi
-		$SSH_COMMAND "echo 0 > /proc/sys/kernel/perf_event_paranoid"
-		$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
+
 	fi
 	if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
 		echo "The prerequisite Perf is not installed. Unable to automatically install it. Failing."
