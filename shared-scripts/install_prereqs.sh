@@ -101,11 +101,9 @@ if [[ $RUN_FLAMEGRAPH == true ]]; then
 fi
 
 if [[ $RUN_PERF == true ]]; then
-	$SSH_COMMAND command -v "perf" &>/dev/null;
-	ret=$?
-	if [[ $ret == 0 ]] ; then
-		echo "The prerequisite Perf is not installed. Attempting to install."
-		if [[ ${SERVER_REMOTE} == true ]] ; then
+	if [[ ${SERVER_REMOTE} == true ]] ; then
+		if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
+			echo "The prerequisite Perf is not installed. Attempting to install."
 			if [[ $USE_APT == true ]]; then
 				$SSH_COMMAND apt install linux-tools-common -y
 				$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
@@ -114,7 +112,9 @@ if [[ $RUN_PERF == true ]]; then
 			fi
 			$SSH_COMMAND "echo 0 > /proc/sys/kernel/perf_event_paranoid"
 			$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
-		else
+		fi
+	else
+		if ! command -v "perf" &>/dev/null; then
 			if [[ $USE_APT == true ]]; then
 				apt install linux-tools-common -y
 				apt install linux-tools-`uname -r` -y
@@ -124,11 +124,18 @@ if [[ $RUN_PERF == true ]]; then
 			echo 0 > /proc/sys/kernel/perf_event_paranoid
 			echo "kernel.perf_event_paranid = 1" >> /etc/sysctl.conf
 		fi
-
 	fi
-	if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
-		echo "The prerequisite Perf is not installed. Unable to automatically install it. Failing."
-		exit 1
+
+	if [[ ${SERVER_REMOTE} == true ]] ; then
+		if ! $SSH_COMMAND command -v "perf" &>/dev/null; then 
+			echo "The prerequisite Perf is not installed. Unable to automatically install it. Failing."
+			exit 1
+		fi
+	else
+		if ! command -v "perf" &>/dev/null; then
+			echo "The prerequisite Perf is not installed. Unable to automatically install it. Failing."
+			exit 1
+		fi
 	fi
 fi
 

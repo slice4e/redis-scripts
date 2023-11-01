@@ -45,7 +45,11 @@ if [[ ${RUN_SVR_INFO} == true ]] ; then
 	echo "Capture svr-info from the server."
 	CUR_DIR=`pwd`
 	cd ${RESULTS_PATH}
-	${SVR_INFO_PATH}/svr-info -ip $SERVER_IP -user $LOGIN_ID
+	if [[ ${SERVER_REMOTE} == true ]] ; then
+		${SVR_INFO_PATH}/svr-info -ip $SERVER_IP -user $LOGIN_ID
+	else
+		${SVR_INFO_PATH}/svr-info 
+	fi
 	cd $CUR_DIR
 	echo "Done capturing svr-info."
 fi 
