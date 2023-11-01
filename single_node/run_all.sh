@@ -40,6 +40,14 @@ source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
 source $HOME_DIR/redis-scripts/shared-scripts/check_numa.sh
 
+#---------------------------------------------------------- Disable Huge Pages -------------------------------------------------------
+# This is very important. Without disabling huge pages, we can get into a difficult to reproduce situation of bad performance. 
+if [[ ${SERVER_REMOTE} == true ]] ; then
+	$SSH_COMMAND echo never >  /sys/kernel/mm/transparent_hugepage/enabled
+else
+	echo never >  /sys/kernel/mm/transparent_hugepage/enabled
+fi
+
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 if [[ ${RUN_SVR_INFO} == true ]] ; then
 	echo "Capture svr-info from the server."
