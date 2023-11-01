@@ -29,14 +29,16 @@ while [ `$SSH_COMMAND ps -e | grep -c redis-server` -gt 0 ];do
         sleep 5
 done
 
+mkdir -p ${RESULTS_PATH}
+if [[ ${SERVER_REMOTE} == true ]] ; then
+	$SSH_COMMAND mkdir -p ${RESULTS_PATH}
+fi
+cp $config_file ${RESULTS_PATH}
+
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
 source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
 source $HOME_DIR/redis-scripts/shared-scripts/check_numa.sh
-
-mkdir -p ${RESULTS_PATH}
-$SSH_COMMAND mkdir -p ${RESULTS_PATH}
-cp $config_file ${RESULTS_PATH}
 
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 if [[ ${RUN_SVR_INFO} == true ]] ; then
@@ -393,8 +395,8 @@ do
 done
 
 #-------------------------- Copy Results from remote server ------------------------------------------------------------
-echo "Copying data from remote server. " 
 if [[ ${SERVER_REMOTE} == true ]] ; then
+	echo "Copying data from remote server. " 
 	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:${RESULTS_PATH}/* ${RESULTS_PATH}/
 	#$SSH_COMMAND "rm -rf ${RESULTS_PATH}"
 fi

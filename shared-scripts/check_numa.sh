@@ -25,6 +25,7 @@ else
 
 		if [[ $IRQ_NUMA_NODE != $SERVER_SOCKET ]] ; then
 			echo "WARNING: The Redis server is running on a different numa node than the network interface." 
+			echo "WARNING: The Redis server is running on a different numa node than the network interface." >> ${RESULTS_PATH}/WARNING.txt
 		else
 			echo "The Redis server is running on the same numa node as the network interface." 
 		fi
