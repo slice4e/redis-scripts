@@ -101,7 +101,9 @@ if [[ $RUN_FLAMEGRAPH == true ]]; then
 fi
 
 if [[ $RUN_PERF == true ]]; then
-	if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
+	$SSH_COMMAND command -v "perf" &>/dev/null;
+	ret=$?
+	if [[ $ret == 0 ]] ; then
 		echo "The prerequisite Perf is not installed. Attempting to install."
 		if [[ ${SERVER_REMOTE} == true ]] ; then
 			if [[ $USE_APT == true ]]; then
