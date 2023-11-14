@@ -180,7 +180,7 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then
 	CUR_DIR=`pwd`
 	MEMTIER_BASE_PATH=`dirname $MEMTIER_PATH`
 	cd $MEMTIER_BASE_PATH
-	git clone https://github.com/RedisLabs/memtier_benchmark.git
+	git clone https://github.com/RedisLabs/memtier_benchmark.git --branch $MEMTIER_BRANCH
 	cd $MEMTIER_PATH
 	autoreconf -ivf
 	./configure
