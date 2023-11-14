@@ -137,7 +137,7 @@ fi
 
 #--------------------------set network interrupts ---------------------------------------------------
 if [[ $SET_IRQ == true ]]; then
-	source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh $CPUS
+	source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh
 fi
 
 $SSH_COMMAND mkdir -p ${REDIS_PATH}/log

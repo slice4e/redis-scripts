@@ -122,9 +122,9 @@ do
             PORT=$(($START_PORT + ${instance}))
 
 	    #TODO this is not good. it will set all the IRQs to the last cpu if running more than one intance of redis. 
-	    if [[ $SET_IRQ == true ]]; then
-	       source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh $CPU
-	    fi
+	    #if [[ $SET_IRQ == true ]]; then
+	    #   source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh $CPU
+	    #fi
 
 
             echo -e "Starting redis server $instance on CPU $CPU."

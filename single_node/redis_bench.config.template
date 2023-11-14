@@ -17,7 +17,8 @@ SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 
 SET_IRQ=false  #set to true to pin IRQ affinity
-IRQ_INTERFACE="eth1"
+IRQ_INTERFACE="eno1"	# The network interface of the redis server
+IRQ_INTERFACE_MEMTIER="eno1" # The network interface of memtier client (if remote from server) 
 
 ########################################################
 # CLIENT SIDE configs
