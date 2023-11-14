@@ -5,20 +5,26 @@
 if [[ ${SERVER_REMOTE} == true ]] ; then
 	if [ "$1" != "" ]; then
 
+		echo "Stopping the OS IRQ balancer: "
+		status=$($SSH_COMMAND "systemctl status irqbalance.service")
+		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
+		status=$($SSH_COMMAND "systemctl stop irqbalance.service")
+		status=$($SSH_COMMAND "systemctl status irqbalance.service")
+		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
+
 		echo "Assigning IRQ interruptions to CPUs $@ ...."
-		interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}'" | tr -d '\r')
+		interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}' | tr -d '\r' | tr -d '\n' ")
 		for i in $interrupts
 		do
 			cmd="echo $@ > /proc/irq/${i}/smp_affinity_list"
 			$($SSH_COMMAND $cmd)
 		done
 
-		echo "Printing assigned cpu numbers for each interrupts..."
-		interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print \$1}'" | tr -d '\r' )
 		for i in $interrupts
 		do
 			cmd="cat /proc/irq/${i}/smp_affinity_list"
-			$($SSH_COMMAND $cmd)
+			status=$($SSH_COMMAND $cmd) 
+			echo $status >> ${RESULTS_PATH}/irq_status.txt
 		done
 
 	else
@@ -26,6 +32,12 @@ if [[ ${SERVER_REMOTE} == true ]] ; then
 	fi
 else
 	if [ "$1" != "" ]; then
+		echo "Stopping the OS IRQ balancer: "
+		status=$(systemctl status irqbalance.service)
+		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
+		status=$(systemctl stop irqbalance.service)
+		status=$(systemctl status irqbalance.service)
+		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
 
 		echo "Assigning IRQ interruptions to CPUs $@ ...."
 		interrupts=$(cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print $1}')
@@ -34,11 +46,9 @@ else
 			echo $@ > /proc/irq/${i}/smp_affinity_list
 		done
 
-		echo "Printing assigned cpu numbers for each interrupts..."
-		interrupts=$(cat /proc/interrupts | grep $IRQ_INTERFACE | awk -F ':' '{print $1}')
 		for i in $interrupts
 		do
-			cat /proc/irq/${i}/smp_affinity_list
+			cat /proc/irq/${i}/smp_affinity_list >> ${RESULTS_PATH}/irq_status.txt
 		done
 
 	else
