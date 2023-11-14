@@ -42,6 +42,14 @@ source $HOME_DIR//redis-scripts/shared-scripts/check_numa.sh
 mkdir -p $LOG_PATH
 cp $config_file $LOG_PATH
 
+#---------------------------------------------------------- Disable Huge Pages -------------------------------------------------------
+# This is very important. Without disabling huge pages, we can get into a difficult to reproduce situation of bad performance. 
+echo "Current huge pages policy" 
+$SSH_COMMAND cat /sys/kernel/mm/transparent_hugepage/enabled
+echo "Setting Transparent Huge Pages policy to never." 
+$SSH_COMMAND "echo never >  /sys/kernel/mm/transparent_hugepage/enabled"
+$SSH_COMMAND cat /sys/kernel/mm/transparent_hugepage/enabled
+
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 
 
