@@ -56,6 +56,19 @@ else
 	cat /sys/kernel/mm/transparent_hugepage/enabled
 fi
 
+#---------------------------------------------------------- Enable Memory Overcommit ------------------------------------------------
+if [[ ${SERVER_REMOTE} == true ]] ; then
+	echo "Current memory overcommit setting" 
+	$SSH_COMMAND sysctl vm.overcommit_memory
+	echo "Enable memory overcommit" 
+	$SSH_COMMAND "sysctl vm.overcommit_memory=1"
+else
+	echo "Current memory overcommit setting" 
+	sysctl vm.overcommit_memory
+	echo "Enable memory overcommit" 
+	sysctl vm.overcommit_memory=1
+fi
+
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 if [[ ${RUN_SVR_INFO} == true ]] ; then
 	echo "Capture svr-info from the server."

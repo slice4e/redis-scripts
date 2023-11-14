@@ -50,6 +50,12 @@ echo "Setting Transparent Huge Pages policy to never."
 $SSH_COMMAND "echo never >  /sys/kernel/mm/transparent_hugepage/enabled"
 $SSH_COMMAND cat /sys/kernel/mm/transparent_hugepage/enabled
 
+#---------------------------------------------------------- Enable Memory Overcommit ------------------------------------------------
+echo "Current memory overcommit setting" 
+$SSH_COMMAND sysctl vm.overcommit_memory
+echo "Enable memory overcommit" 
+$SSH_COMMAND "sysctl vm.overcommit_memory=1"
+
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 
 
