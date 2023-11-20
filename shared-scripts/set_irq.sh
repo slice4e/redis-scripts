@@ -72,4 +72,3 @@ else
 	IRQ_SET_INTERFACE=$IRQ_INTERFACE
 	set_irq $CPUS
 fi
-exit 0
