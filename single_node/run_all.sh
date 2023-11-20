@@ -153,9 +153,18 @@ do
 		port=$(($START_PORT + ${instances}))
 		ret=$($SSH_COMMAND lsof -i:$port)
 		ret_code=$(echo $? | tr -d '[:space:]') 
+		
+		#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+		cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+		if [[ ${SERVER_REMOTE} == true ]] ; then
+			cpu_numa_node=$($SSH_COMMAND $cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]')  
+		else
+			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]" )
+		fi
+
 		if [[ $ret_code == 1 ]]; then
 			echo -e "starting redis server $instances on vCPU $cpu"
-			cmd="numactl -m ${SERVER_SOCKET} taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+			cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
 			echo -e $cmd
 
 			#NOTE: Do not start the Redis servers using SSH if they are not remote. 
@@ -192,7 +201,12 @@ do
 	do
 		port=$(($START_PORT + ${instances}))
 		echo -e "starting memtier benchmark $instances on vCPU $cpu"
-		cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+		
+		#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+		cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+		cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+
+		cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
 		instances=$((instances + 1))
 		echo -e $cmd
 		$cmd >/dev/null &
@@ -232,7 +246,12 @@ do
 			do
 				port=$(($START_PORT + ${instances}))
 				echo -e "AUTOTUNING. starting memtier benchmark $instances on vCPU $cpu"
-				cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=10 --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/autotune/benchmark_$instances.log"
+		
+				#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+				cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+				cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+
+				cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=10 --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/autotune/benchmark_$instances.log"
 				instances=$((instances + 1))
 				echo -e $cmd
 				$cmd >/dev/null &
@@ -289,7 +308,12 @@ do
 	do
 		port=$(($START_PORT + ${instances}))
 		echo -e "starting memtier benchmark $instances on vCPU $cpu"
-		cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+
+		#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+		cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+		cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+
+		cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
 		instances=$((instances + 1))
 		echo -e $cmd
 		$cmd >/dev/null &
