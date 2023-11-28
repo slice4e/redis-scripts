@@ -71,9 +71,9 @@ def parse_cmd_args():
     parser.add_argument("--hnsw-index", action="store_true", help="Create hnsw index instead of flat")
     parser.add_argument("--no-index", action="store_true", help="Don't create index, just load the data to redis server")
     parser.add_argument("--no-upload", action="store_true", help="Don't upload the data, just create search index")
-    parser.add_argument("--redis-port", "-p", dest="port", type=str, default="5000", help="Port of redis server")
+    parser.add_argument("--redis-port", "-p", dest="port", type=str, default="6379", help="Port of redis server")
     parser.add_argument("--img-emb", action="store_true", help="Use if image embeddings are to be included in hash")
-    parser.add_argument("--no-text-emb", action="store_true", help="Use of text embeddings are not to be included in hash")
+    parser.add_argument("--no-text-emb", action="store_true", help="Use if text embeddings are not to be included in hash")
     parser.add_argument("--cluster", action="store_true", help="Connect to redis cluster instead of redis server")
     args = parser.parse_args()
     return args
