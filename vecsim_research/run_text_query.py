@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 
 def parse_cmd_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--redis-port", "-p", dest="port", type=str, default="5000", help="Port of redis server")
+    parser.add_argument("--redis-port", "-p", dest="port", type=str, default="6379", help="Port of redis server")
     parser.add_argument("--query", type=str, help="Query to run vecsim search on")
     parser.add_argument("--cluster", action="store_true", help="Connect to redis cluster instead of redis server")
     args = parser.parse_args()
