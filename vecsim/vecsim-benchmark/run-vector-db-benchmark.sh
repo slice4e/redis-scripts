@@ -55,9 +55,37 @@ if [[ ! -d "$REDIS_PATH" ]]; then
     echo "Redis directory not found. Please be sure redis istalled to the path: $REDIS_PATH"
     exit 1
 fi
-if [[ ! -e $REDISEARCH_PATH/bin/linux-x64-release/search/redisearch.so ]]; then
+
+REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search/redisearch.so
+
+if [[ ! -e $REDISEARCH_LIB ]]; then
     # TODO: Add redisearch building
-    echo "redisearch.so library not found. Please be sure redisearch library is in path: $REDISEARCH_PATH/bin/linux-x64-release/search/redisearch.so"
+    echo "redisearch.so library not found. Please be sure redisearch library is in path: $REDISEARCH_LIB"
     exit 1
 fi
 
+#---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------
+
+echo "Killing existing redis server instances and remove rdb files..."
+killall -9 redis-server
+rm -f ${REDIS_PATH}/*.rdb
+sleep 10
+
+cmd="numactl -m ${SERVER_SOCKET} -N ${SERVER_SOCKET} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\""
+
+echo -e $cmd
+$cmd &
+
+Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h localhost -p ${PORT} ping )
+echo "Waiting for redis server to be ready..."
+while [[ $Redis_Ping != *"PONG"* ]]; do
+    sleep 1
+    Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h localhost -p ${PORT} ping )
+    echo -ne "."
+done
+
+
+#-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
+
+#TODO: Add possibility in config to customize engine/dataset
+REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-16-ef-128 --datasets laion-img-emb-512-1M-cosine --host localhost
