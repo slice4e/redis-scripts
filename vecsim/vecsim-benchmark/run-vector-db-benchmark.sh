@@ -7,7 +7,7 @@ if [ "$(id -u)" -ne 0 ]; then
 	    exit 1
 fi
 
-#------------------------------------------------------ load config file ---------------------------------------------------------------
+#------------------------------------------------------ load config and variables file ---------------------------------------------------------------
 # Read the config file
 if [ "$1" != "" ]; then
 	config_file=$1
@@ -22,6 +22,14 @@ if [ ! -f "$config_file" ]; then
 fi
 
 source $config_file
+
+if [[ ! -e "./variables.file" ]]; then
+    # TODO: Add redisearch building
+    echo "Variables file does not exist."
+    exit 1
+fi
+
+source "./variables.file"
 
 #------------------------------- check if vector-db-benchmark directory exists if not pull it from github -------------------------------------------
 
@@ -88,4 +96,4 @@ done
 #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
 
 #TODO: Add possibility in config to customize engine/dataset
-REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-16-ef-128 --datasets laion-img-emb-512-1M-cosine --host localhost
+REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION --datasets ${DATASET_DICT[$DATASET_SIZE]} --host localhost
