@@ -59,17 +59,30 @@ fi
 #----------------------------------- Check if Redis and RediSearch module exists if not prepare them ------------------------------------------------
 
 if [[ ! -d "$REDIS_PATH" ]]; then
-    # TODO: Add redis installation
-    echo "Redis directory not found. Please be sure redis istalled to the path: $REDIS_PATH"
-    exit 1
+    echo "Redis not found in $REDIS_PATH, downloading it ..."
+    git clone https://github.com/redis/redis $REDIS_PATH
+    cd $REDIS_PATH
+    git checkout $REDIS_BRANCH
+    make
+    cd -
 fi
 
 REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search/redisearch.so
 
 if [[ ! -e $REDISEARCH_LIB ]]; then
-    # TODO: Add redisearch building
-    echo "redisearch.so library not found. Please be sure redisearch library is in path: $REDISEARCH_LIB"
-    exit 1
+    echo "Rediseach library not found in $REDISEARCH_LIB"
+
+    if [[ ! -d "$REDISEARCH_PATH" ]]; then
+        echo "Rediseach not found in $REDIS_PATH"
+        git clone https://github.com/RediSearch/RediSearch $REDISEARCH_PATH
+        cd $REDISEARCH_PATH
+        git checkout $REDISEARCH_BRANCH
+        git submodule update --init --recursive
+    fi
+
+    cd $REDISEARCH_PATH
+    $REDISEARCH_PATH/sbin/setup bash -l
+    make build
 fi
 
 #---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------
@@ -95,5 +108,4 @@ done
 
 #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
 
-#TODO: Add possibility in config to customize engine/dataset
 REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION --datasets ${DATASET_DICT[$DATASET_SIZE]} --host localhost
