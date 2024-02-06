@@ -28,7 +28,7 @@ CLUSTER_REPLICAS=1
 ##########################
 # Choose dataset size for benchmarking vector db, please choose from: 1M, 10M, 20M, 40M, 100M, 200M, 400M
 
-DATASET_SIZE = "1M"
+DATASET_SIZE="1M"
 
 # Choose the parameters of Redis index:
 # M -> Number of maximum allowed outgoing edges for each node in the graph in each layer. on layer zero the maximal number of outgoing edges will be 2M
