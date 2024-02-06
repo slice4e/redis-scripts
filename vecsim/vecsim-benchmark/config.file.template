@@ -15,6 +15,13 @@ PORT=9000
 REDISEARCH_PATH=$HOME_PATH/redisearch
 REDISEARCH_BRANCH=v2.8.11   #this branch will be installed in case Redisearch is not already installed in REDISEARCH_PATH
 
+##########################
+# Redis cluster settings #
+##########################
+REDIS_CLUSTER=0   # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
+CLUSTER_NODES=6
+CLUSTER_REPLICAS=1
+
 
 ##########################
 # Benchmark settings #

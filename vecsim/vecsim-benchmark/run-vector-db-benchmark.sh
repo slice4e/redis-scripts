@@ -67,7 +67,12 @@ if [[ ! -d "$REDIS_PATH" ]]; then
     cd -
 fi
 
-REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search/redisearch.so
+if [ "$REDIS_CLUSTER" -eq 1 ]; then
+    REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/coord-oss/module-oss.so
+else
+    REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search/redisearch.so
+fi
+
 
 if [[ ! -e $REDISEARCH_LIB ]]; then
     echo "Rediseach library not found in $REDISEARCH_LIB"
@@ -80,22 +85,50 @@ if [[ ! -e $REDISEARCH_LIB ]]; then
         git submodule update --init --recursive
     fi
 
-    cd $REDISEARCH_PATH
-    $REDISEARCH_PATH/sbin/setup bash -l
-    make build
+    if [ "$REDIS_CLUSTER" -eq 1 ]; then
+        cd $REDISEARCH_PATH
+        $REDISEARCH_PATH/sbin/setup bash -l
+        make build COORD=oss MT=1
+    else
+        cd $REDISEARCH_PATH
+        $REDISEARCH_PATH/sbin/setup bash -l
+        make build
+    fi
 fi
 
 #---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------
 
 echo "Killing existing redis server instances and remove rdb files..."
 killall -9 redis-server
-rm -f ${REDIS_PATH}/*.rdb
+
+if [ "$REDIS_CLUSTER" -eq 1 ]; then
+    cd $REDIS_PATH/utils/create-cluster
+    REDISCLUSTER_SCRIPT=$REDIS_PATH/utils/create-cluster/create-cluster
+    $REDISCLUSTER_SCRIPT stop
+    $REDISCLUSTER_SCRIPT clean
+    cd -
+else
+    rm -f ${REDIS_PATH}/*.rdb
+fi
+
 sleep 10
 
-cmd="numactl -m ${SERVER_SOCKET} -N ${SERVER_SOCKET} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\""
+if [ "$REDIS_CLUSTER" -eq 1 ]; then
+    cd $REDIS_PATH/utils/create-cluster
+    REDISCLUSTER_CONFIG=$REDIS_PATH/utils/create-cluster/config.sh
+    echo "PORT=$((PORT-1))" > $REDISCLUSTER_CONFIG
+    echo "NODES=$CLUSTER_NODES" >> $REDISCLUSTER_CONFIG
+    echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG
+    echo "ADDITIONAL_OPTIONS='--loadmodule $REDISEARCH_LIB'" >> $REDISCLUSTER_CONFIG
+    $REDISCLUSTER_SCRIPT start
+    $REDISCLUSTER_SCRIPT create
+    cd -
+else
+    cmd="numactl -m ${SERVER_SOCKET} -N ${SERVER_SOCKET} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\""
+    echo -e $cmd
+    $cmd &
+fi
 
-echo -e $cmd
-$cmd &
 
 Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h localhost -p ${PORT} ping )
 echo "Waiting for redis server to be ready..."
@@ -108,4 +141,4 @@ done
 
 #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
 
-REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION --datasets ${DATASET_DICT[$DATASET_SIZE]} --host localhost
+REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION --datasets ${DATASET_DICT[$DATASET_SIZE]} --host localhost
