@@ -121,7 +121,7 @@ if [ "$REDIS_CLUSTER" -eq 1 ]; then
     echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG
     echo "ADDITIONAL_OPTIONS='--loadmodule $REDISEARCH_LIB'" >> $REDISCLUSTER_CONFIG
     $REDISCLUSTER_SCRIPT start
-    $REDISCLUSTER_SCRIPT create
+    echo "yes" | $REDISCLUSTER_SCRIPT create
     cd -
 else
     cmd="numactl -m ${SERVER_SOCKET} -N ${SERVER_SOCKET} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\""
