@@ -1,0 +1,19 @@
+
+
+# Install redis enteprise on all nodes
+./install-RE.sh
+
+# Setup cluster (node 1 will create and 2nd to last will join)
+./setup-cluster.sh
+
+# Get Latest RediSearch
+./get-search.sh
+
+# Delete all modules from cluster
+./clean-modules.sh
+
+# Upload the latest search module to the cluster
+./upload-search.sh
+
+# Change create-db.py 
+# SHARD_COUNT
