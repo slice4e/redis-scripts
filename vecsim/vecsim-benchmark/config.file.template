@@ -1,0 +1,40 @@
+PYTHON_PATH=/usr/bin/python3
+HOME_PATH=/root
+VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
+SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip setup of redis and uploading the data -> run benchmark on existing redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
+
+##########################
+# Redis settings #
+##########################
+
+REDIS_PATH=$HOME_PATH/redis
+REDIS_BRANCH=7.2   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+#REDIS_BUILD_FLAGS='REDIS_CFLAGS="-fno-plt" REDIS_LDFLAGS="-fno-plt"'  # if building redis, we can pass build flags
+SERVER_SOCKET=0
+PORT=9000
+
+REDISEARCH_PATH=$HOME_PATH/redisearch
+REDISEARCH_BRANCH=v2.8.11   #this branch will be installed in case Redisearch is not already installed in REDISEARCH_PATH
+
+##########################
+# Redis cluster settings #
+##########################
+REDIS_CLUSTER=0   # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
+CLUSTER_NODES=6
+CLUSTER_REPLICAS=1
+
+
+##########################
+# Benchmark settings #
+##########################
+# Choose dataset size for benchmarking vector db, please choose from: 1M, 10M, 20M, 40M, 100M, 200M, 400M
+
+DATASET_SIZE="1M"
+
+# Choose the parameters of Redis index:
+# M -> Number of maximum allowed outgoing edges for each node in the graph in each layer. on layer zero the maximal number of outgoing edges will be 2M
+# EF_CONSTRUCTION -> Number of maximum allowed potential outgoing edges candidates for each node in the graph, during the graph building.
+# Available combinations: M16 EF128, M32 EF 128, M32 EF256, M32 EF512, M64 EF256, M64 EF512
+
+M=32
+EF_CONSTRUCTION=256

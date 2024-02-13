@@ -1,0 +1,9 @@
+declare -A DATASET_DICT
+
+DATASET_DICT["1M"]="laion-img-emb-512-1M-cosine"
+DATASET_DICT["10M"]="laion-img-emb-512-10M-cosine"
+DATASET_DICT["20M"]="laion-img-emb-512-20M-cosine"
+DATASET_DICT["40M"]="laion-img-emb-512-40M-cosine"
+DATASET_DICT["100M"]="laion-img-emb-512-100M-cosine"
+DATASET_DICT["200M"]="laion-img-emb-512-200M-cosine"
+DATASET_DICT["400M"]="laion-img-emb-512-400M-cosine"
