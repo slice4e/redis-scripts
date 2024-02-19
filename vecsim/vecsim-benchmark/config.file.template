@@ -17,6 +17,15 @@ REDISEARCH_PATH=$HOME_PATH/redisearch
 REDISEARCH_BRANCH=v2.8.11   #this branch will be installed in case Redisearch is not already installed in REDISEARCH_PATH
 
 ##########################
+# SSH Settings #
+##########################
+SERVER_REMOTE=false
+LOGIN_ID=root
+SERVER_IP=1.2.3.4
+SSH_KEY_PATH=~/.ssh
+SSH_KEY_NAME=id_rsa
+
+##########################
 # Redis cluster settings #
 ##########################
 REDIS_CLUSTER=1   # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
@@ -39,5 +48,7 @@ DATASET_SIZE="1M"
 M=32
 EF_CONSTRUCTION=256
 
+CREATE_DYNAMICALLY=0 # Set value of this variable to 1 to create custom benchmark scenario (from M, EF_CONSTRUCTION, EF_SEARCH and PARALLEL)
 # Number of parallel clients
 PARALLEL=8
+EF_SEARCH=128

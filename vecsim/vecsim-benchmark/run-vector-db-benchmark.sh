@@ -1,7 +1,6 @@
 #!/bin/bash
-
+set -x
 #------------------------------------------------------ check if user is sudo or root ---------------------------------------------------------------
-
 if [ "$(id -u)" -ne 0 ]; then
 	  echo "This script must be run as root."
 	    exit 1
@@ -31,6 +30,19 @@ fi
 
 source "./variables.file"
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SOURCE_SCRIPT=$(dirname $(dirname "$SCRIPT_DIR"))/shared-scripts/set_ssh.sh
+
+source $SOURCE_SCRIPT
+
+if [[ ${SERVER_REMOTE} == true ]]; then
+    TARGET=$SERVER_IP
+    source "./remote.sh"
+else
+    TARGET="localhost"
+    source "./local.sh"
+fi
+
 #------------------------------- check if vector-db-benchmark directory exists if not pull it from github -------------------------------------------
 
 if [[ ! -d $VECTORDB_BENCHMARK_PATH ]]; then
@@ -56,111 +68,36 @@ else
     exit 1
 fi
 
-#----------------------------------- Check if Redis and RediSearch module exists if not prepare them ------------------------------------------------
-if [ "$SKIP_UPLOAD" -eq 1 ]; then
-    ADDITIONAL_FLAGS="--skip-upload"
-else
-    ADDITIONAL_FLAGS=""
-    if [[ ! -d "$REDIS_PATH" ]]; then
-        echo "Redis not found in $REDIS_PATH, downloading it ..."
-        git clone https://github.com/redis/redis $REDIS_PATH
-        cd $REDIS_PATH
-        git checkout $REDIS_BRANCH
-        make
-        cd -
-    fi
-
-    if [ "$REDIS_CLUSTER" -eq 1 ]; then
-        REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/coord-oss/module-oss.so
-    else
-        REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search/redisearch.so
-    fi
-
-
-    if [[ ! -e $REDISEARCH_LIB ]]; then
-        echo "Rediseach library not found in $REDISEARCH_LIB"
-
-        if [[ ! -d "$REDISEARCH_PATH" ]]; then
-            echo "Rediseach not found in $REDIS_PATH"
-            git clone https://github.com/RediSearch/RediSearch $REDISEARCH_PATH
-            cd $REDISEARCH_PATH
-            git checkout $REDISEARCH_BRANCH
-            git submodule update --init --recursive
-        fi
-
-        if [ "$REDIS_CLUSTER" -eq 1 ]; then
-            cd $REDISEARCH_PATH
-            $REDISEARCH_PATH/sbin/setup bash -l
-            make build COORD=oss MT=1
-        else
-            cd $REDISEARCH_PATH
-            $REDISEARCH_PATH/sbin/setup bash -l
-            make build
-        fi
-    fi
-
-    #---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------
-
-    echo "Killing existing redis server instances and remove rdb files..."
-    killall -9 redis-server
-
-    if [ "$REDIS_CLUSTER" -eq 1 ]; then
-        cd $REDIS_PATH/utils/create-cluster
-        REDISCLUSTER_SCRIPT=$REDIS_PATH/utils/create-cluster/create-cluster
-        $REDISCLUSTER_SCRIPT stop
-        $REDISCLUSTER_SCRIPT clean
-        cd -
-    else
-        rm -f ${REDIS_PATH}/*.rdb
-    fi
-
-    sleep 5
-
-    if [ "$REDIS_CLUSTER" -eq 1 ]; then
-        cd $REDIS_PATH/utils/create-cluster
-        REDISCLUSTER_CONFIG=$REDIS_PATH/utils/create-cluster/config.sh
-        echo "PORT=$((PORT-1))" > $REDISCLUSTER_CONFIG
-        echo "NODES=$CLUSTER_NODES" >> $REDISCLUSTER_CONFIG
-        echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG
-        echo "ADDITIONAL_OPTIONS='--loadmodule $REDISEARCH_LIB'" >> $REDISCLUSTER_CONFIG
-        $REDISCLUSTER_SCRIPT start
-        echo "yes" | $REDISCLUSTER_SCRIPT create
-        cd -
-    else
-        cmd="numactl -m ${SERVER_SOCKET} -N ${SERVER_SOCKET} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\""
-        echo -e $cmd
-        $cmd &
-    fi
-fi
-
-Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h localhost -p ${PORT} ping )
+Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping )
 echo "Waiting for redis server to be ready..."
 while [[ $Redis_Ping != *"PONG"* ]]; do
     sleep 1
-    Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h localhost -p ${PORT} ping )
+    Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping )
     echo -ne "."
 done
 
+if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
     #---------------------------------------------- Dynamically Generate a vector db benchmark configuation file -----------------------------------------------
 
-OUT="[
-	{\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
-	\"engine\": \"redis\",
-	\"connection_params\": {},
-	\"collection_params\": {
-	},
-	\"search_params\": [
-		{ \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": 128 } }
-	],
-	\"upload_params\": { \"parallel\": 100, \"batch_size\": 100 }
-}]" 
+    OUT="[
+        {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
+        \"engine\": \"redis\",
+        \"connection_params\": {},
+        \"collection_params\": {
+            \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} }
+        },
+        \"search_params\": [
+            { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH} } }
+        ],
+        \"upload_params\": { \"parallel\": 100, \"batch_size\": 100 }
+    }]" 
 
-# This is very hacky - overwriting the original config files. Would be better to augment the original config files. 
-echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-large-scale.json
-echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-single-node.json
+    # This is very hacky - overwriting the original config files. Would be better to augment the original config files. 
+    echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
 
+    #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
 
-
-#-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
-
-REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION-parallel-${PARALLEL} --datasets ${DATASET_DICT[$DATASET_SIZE]} --host localhost --no-skip-if-exists $ADDITIONAL_FLAGS
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION-parallel-$PARALLEL --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists $ADDITIONAL_FLAGS
+else
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists $ADDITIONAL_FLAGS
+fi
