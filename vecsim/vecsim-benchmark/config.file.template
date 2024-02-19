@@ -17,6 +17,15 @@ REDISEARCH_PATH=$HOME_PATH/redisearch
 REDISEARCH_BRANCH=v2.8.11   #this branch will be installed in case Redisearch is not already installed in REDISEARCH_PATH
 
 ##########################
+# SSH Settings #
+##########################
+SERVER_REMOTE=false
+LOGIN_ID=root
+SERVER_IP=1.2.3.4
+SSH_KEY_PATH=~/.ssh
+SSH_KEY_NAME=id_rsa
+
+##########################
 # Redis cluster settings #
 ##########################
 REDIS_CLUSTER=1   # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
