@@ -35,13 +35,12 @@ else
     #---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------
 
     echo "Killing existing redis server instances and remove rdb files..."
-    killall -9 redis-server
+    $SSH_COMMAND "killall -9 redis-server"
 
     if [ "$REDIS_CLUSTER" -eq 1 ]; then
         REDISCLUSTER_SCRIPT=$REDIS_PATH/utils/create-cluster/create-cluster
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT stop && $REDISCLUSTER_SCRIPT clean && cd -"
     else
-        $SSH_COMMAND "killall -9 redis-server"
         $SSH_COMMAND "rm -f ${REDIS_PATH}/*.rdb"
     fi
 

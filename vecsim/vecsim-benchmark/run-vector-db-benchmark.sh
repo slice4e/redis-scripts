@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 #------------------------------------------------------ check if user is sudo or root ---------------------------------------------------------------
 if [ "$(id -u)" -ne 0 ]; then
 	  echo "This script must be run as root."
@@ -75,25 +76,28 @@ while [[ $Redis_Ping != *"PONG"* ]]; do
     echo -ne "."
 done
 
+if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
+    #---------------------------------------------- Dynamically Generate a vector db benchmark configuation file -----------------------------------------------
 
-#---------------------------------------------- Dynamically Generate a vector db benchmark configuation file -----------------------------------------------
+    OUT="[
+        {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
+        \"engine\": \"redis\",
+        \"connection_params\": {},
+        \"collection_params\": {
+            \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} }
+        },
+        \"search_params\": [
+            { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH} } }
+        ],
+        \"upload_params\": { \"parallel\": 100, \"batch_size\": 100 }
+    }]" 
 
-OUT="[
-	{\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
-	\"engine\": \"redis\",
-	\"connection_params\": {},
-	\"collection_params\": {
-	},
-	\"search_params\": [
-		{ \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": 128 } }
-	],
-	\"upload_params\": { \"parallel\": 100, \"batch_size\": 100 }
-}]" 
+    # This is very hacky - overwriting the original config files. Would be better to augment the original config files. 
+    echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
 
-# This is very hacky - overwriting the original config files. Would be better to augment the original config files. 
-echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-large-scale.json
-echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-single-node.json
+    #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
 
-#-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
-
-REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists $ADDITIONAL_FLAGS
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION-parallel-$PARALLEL --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists $ADDITIONAL_FLAGS
+else
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists $ADDITIONAL_FLAGS
+fi

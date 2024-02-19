@@ -48,5 +48,7 @@ DATASET_SIZE="1M"
 M=32
 EF_CONSTRUCTION=256
 
+CREATE_DYNAMICALLY=0 # Set value of this variable to 1 to create custom benchmark scenario (from M, EF_CONSTRUCTION, EF_SEARCH and PARALLEL)
 # Number of parallel clients
 PARALLEL=8
+EF_SEARCH=128
