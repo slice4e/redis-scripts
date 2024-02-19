@@ -91,8 +91,7 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
         ],
         \"upload_params\": { \"parallel\": 100, \"batch_size\": 100 }
     }]" 
-
-    # This is very hacky - overwriting the original config files. Would be better to augment the original config files. 
+ 
     echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
 
     #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
