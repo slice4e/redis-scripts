@@ -54,7 +54,7 @@ else
         $SSH_COMMAND "echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "TIMEOUT=$CLUSTER_TIMEOUT" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "CLUSTER_HOST=$TARGET" >> $REDISCLUSTER_CONFIG"
-        $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--loadmodule \"$REDISEARCH_LIB\" --protected-mode no'\" >> \"$REDISCLUSTER_CONFIG\""
+        $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--save \"\" --loadmodule \"$REDISEARCH_LIB\" --protected-mode no'\" >> \"$REDISCLUSTER_CONFIG\""
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT start && echo "yes" | $REDISCLUSTER_SCRIPT create && cd -"
         sleep 5
     else

@@ -65,7 +65,7 @@ else
         echo "NODES=$CLUSTER_NODES" >> $REDISCLUSTER_CONFIG
         echo "TIMEOUT=$CLUSTER_TIMEOUT" >> $REDISCLUSTER_CONFIG
         echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG
-        echo "ADDITIONAL_OPTIONS='--loadmodule $REDISEARCH_LIB'" >> $REDISCLUSTER_CONFIG
+        echo "ADDITIONAL_OPTIONS='--save \"\" --loadmodule $REDISEARCH_LIB'" >> $REDISCLUSTER_CONFIG
         $REDISCLUSTER_SCRIPT start
         echo "yes" | $REDISCLUSTER_SCRIPT create
         cd -

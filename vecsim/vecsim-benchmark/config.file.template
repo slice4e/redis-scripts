@@ -38,6 +38,7 @@ CLUSTER_TIMEOUT=15000
 # Benchmark settings #
 ##########################
 # Choose dataset size for benchmarking vector db, please choose from: 1M, 10M, 20M, 40M, 100M, 200M, 400M
+# We consume roughtly 6GB of memory capacity per M vectors. 
 
 DATASET_SIZE="1M"
 
@@ -49,7 +50,23 @@ DATASET_SIZE="1M"
 M=32
 EF_CONSTRUCTION=256
 
-CREATE_DYNAMICALLY=0 # Set value of this variable to 1 to create custom benchmark scenario (from M, EF_CONSTRUCTION, EF_SEARCH and PARALLEL)
+CREATE_DYNAMICALLY=1 # Set value of this variable to 1 to create custom benchmark scenario (from M, EF_CONSTRUCTION, EF_SEARCH and PARALLEL)
 # Number of parallel clients
 PARALLEL=8
 EF_SEARCH=128
+
+
+##########################
+# Notes                  #
+##########################
+# EF in search params is HNSW ef_search parameter, it controls the number of edges that is explored by algorithm in every level of the graph. 
+# The higher ef_search the more the graph will be explored by HNSW and the ‘better’ nearest neighbors should be returned (better precision) but at the cost of search time. 
+# Parameter ‘K’ is responsible for how many vectors we want HNSW to return. 
+# Vector-db-benchmark sets ‘K’ parameter to the number of searched nearest neighbors during ground-truth generation. 
+# In our case vector-db-benchmark sets K to 100 and HNSW returns 100 approximate nearest neighbors 
+# because for every test_vector we searched for 100 nearest neighbors in train_vector dataset during ground-truth generation. 
+# Then vector-db-benchmark compares returned vectors from HNSW search and the vectors found during ground-truth generation and based on their intersection it calculates precision.
+
+
+
+
