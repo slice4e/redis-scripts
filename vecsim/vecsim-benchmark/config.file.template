@@ -31,7 +31,7 @@ SSH_KEY_NAME=id_rsa
 REDIS_CLUSTER=1   # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
 CLUSTER_NODES=24
 CLUSTER_REPLICAS=0
-CLUSTER_TIMEOUT=15000
+CLUSTER_TIMEOUT=50000
 
 
 ##########################
