@@ -19,7 +19,7 @@ REDISEARCH_BRANCH=v2.8.11   #this branch will be installed in case Redisearch is
 ##########################
 # SSH Settings #
 ##########################
-SERVER_REMOTE=false
+SERVER_REMOTE=false     # If used with cluster this is the node on which cluster will be created
 LOGIN_ID=root
 SERVER_IP=1.2.3.4
 SSH_KEY_PATH=~/.ssh
@@ -28,7 +28,10 @@ SSH_KEY_NAME=id_rsa
 ##########################
 # Redis cluster settings #
 ##########################
-REDIS_CLUSTER=1   # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
+REDIS_CLUSTER=1                # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
+CLUSTER_MULTIPLE_SERVERS=0     # Set value of this variable to 1 to use IP's from CLUSTER_SERVERS
+CLUSTER_SERVERS=("1.2.3.4" "2.3.4.5" "3.4.5.6")
+# CLUSTER_SERVERS_NODES=("20" "20" "20")          # This variable defines how many nodes will be created on each servers # TODO: make this variable work
 CLUSTER_NODES=24
 CLUSTER_REPLICAS=0
 CLUSTER_TIMEOUT=50000

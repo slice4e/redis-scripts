@@ -32,11 +32,24 @@ source "./variables.file"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SOURCE_SCRIPT=$(dirname $(dirname "$SCRIPT_DIR"))/shared-scripts/set_ssh.sh
 
-source $SOURCE_SCRIPT
+if [ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]; then
+    CLUSTER_MASTER=$SERVER_IP
+    for server in "${CLUSTER_SERVERS[@]}"; do
+        SERVER_IP=$server
+        source $SOURCE_SCRIPT
+    done
+else
+    source $SOURCE_SCRIPT
+fi
 
 if [[ ${SERVER_REMOTE} == true ]]; then
-    TARGET=$SERVER_IP
-    source "./remote.sh"
+    if [ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]; then
+        TARGET=$CLUSTER_MASTER
+        source "./remote_multiple_servers.sh"
+    else
+        TARGET=$SERVER_IP
+        source "./remote.sh"
+    fi
 else
     TARGET="localhost"
     source "./local.sh"
