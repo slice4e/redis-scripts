@@ -3,7 +3,8 @@ if [ "$SKIP_UPLOAD" -eq 1 ]; then
     ADDITIONAL_FLAGS="--skip-upload"
 else
     ADDITIONAL_FLAGS=""
-    for server in "${CLUSTER_SERVERS[@]}"; 
+    for server in "${CLUSTER_SERVERS[@]}";
+    do
         SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${server}"
         if $SSH_COMMAND [ ! -d "$REDIS_PATH" ]; then
             echo "Redis not found in $REDIS_PATH, downloading it ..."
@@ -30,6 +31,7 @@ else
     #---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------
 
     for server in "${CLUSTER_SERVERS[@]}";
+    do
         SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${server}" 
         echo "Killing existing redis server instances and remove rdb files..."
         $SSH_COMMAND "killall -9 redis-server"
@@ -47,19 +49,20 @@ else
         $SSH_COMMAND "echo "NODES=$CLUSTER_NODES" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "TIMEOUT=$CLUSTER_TIMEOUT" >> $REDISCLUSTER_CONFIG"
-        $SSH_COMMAND "echo "CLUSTER_HOST=$TARGET" >> $REDISCLUSTER_CONFIG"
+        $SSH_COMMAND "echo "CLUSTER_HOST=$server" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--save \"\" --loadmodule \"$REDISEARCH_LIB\" --protected-mode no'\" >> \"$REDISCLUSTER_CONFIG\""
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT start"
     done
     sleep 2
     SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${CLUSTER_MASTER}"
-    ENDPORT=$((PORT+CLUSTER_NODES))
+    ENDPORT=$((PORT+CLUSTER_NODES-1))
     STARTPORT=$PORT
     HOSTS=""
     while [ $((STARTPORT < ENDPORT)) != "0" ]; do
         for server in "${CLUSTER_SERVERS[@]}";
-            STARTPORT=$((STARTPORT+1))
+        do
             HOSTS="$HOSTS $server:$STARTPORT"
+            STARTPORT=$((STARTPORT+1))
         done
     done
     $SSH_COMMAND "echo "yes" | $REDIS_PATH/src/redis-cli --cluster create $HOSTS --cluster-replicas $CLUSTER_REPLICAS"
