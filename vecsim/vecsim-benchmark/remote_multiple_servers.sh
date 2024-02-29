@@ -62,8 +62,8 @@ else
         for server in "${CLUSTER_SERVERS[@]}";
         do
             HOSTS="$HOSTS $server:$STARTPORT"
-            STARTPORT=$((STARTPORT+1))
         done
+        STARTPORT=$((STARTPORT+1))
     done
     $SSH_COMMAND "echo "yes" | $REDIS_PATH/src/redis-cli --cluster create $HOSTS --cluster-replicas $CLUSTER_REPLICAS"
 fi
