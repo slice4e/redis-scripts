@@ -104,8 +104,21 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
     echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
 
     #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
-
-    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION-parallel-$PARALLEL --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists $ADDITIONAL_FLAGS
+    ENGINE_APPEND="-parallel-$PARALLEL"
 else
-    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists $ADDITIONAL_FLAGS
+    ENGINE_APPEND=""
 fi
+
+# STAGE DOWNLOAD
+DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/laion-img-emb-512/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
+if [[ ! -e $DATASET_PATH ]]; then
+    wget -O $DATASET_PATH http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
+fi
+
+# STAGE UPLOAD
+if [ ! "$SKIP_UPLOAD" -eq 1 ]; then
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
+fi
+
+# STAGE RUN
+REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-upload
