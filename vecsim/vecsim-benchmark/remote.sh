@@ -1,5 +1,5 @@
 #----------------------------------- Check if Redis and RediSearch module exists if not prepare them ------------------------------------------------
-if [ ! "$SKIP_UPLOAD" -eq 1 ]; then
+if [ ! "$SKIP_SETUP" -eq 1 ]; then
     if $SSH_COMMAND [ ! -d "$REDIS_PATH" ]; then
         echo "Redis not found in $REDIS_PATH, downloading it ..."
         $SSH_COMMAND "git clone https://github.com/redis/redis $REDIS_PATH"

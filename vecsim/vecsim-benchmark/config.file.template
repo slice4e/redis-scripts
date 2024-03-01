@@ -1,7 +1,8 @@
 PYTHON_PATH=/usr/bin/python3
 HOME_PATH=/root
 VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
-SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip setup of redis and uploading the data -> run benchmark on existing redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
+SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip uploading the data -> run benchmark on existing redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
+SKIP_SETUP=0      # Set SKIP_SETUP to 1 to skip setup of redis
 
 ##########################
 # Redis settings #
