@@ -1,8 +1,5 @@
 #----------------------------------- Check if Redis and RediSearch module exists if not prepare them ------------------------------------------------
-if [ "$SKIP_UPLOAD" -eq 1 ]; then
-    ADDITIONAL_FLAGS="--skip-upload"
-else
-    ADDITIONAL_FLAGS=""
+if [ ! "$SKIP_SETUP" -eq 1 ]; then
     for server in "${CLUSTER_SERVERS[@]}";
     do
         SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${server}"
