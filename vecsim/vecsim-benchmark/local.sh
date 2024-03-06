@@ -44,8 +44,9 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
     killall -9 redis-server
 
     if [ "$REDIS_CLUSTER" -eq 1 ]; then
+        REDISCLUSTER_SCRIPT=$REDIS_PATH/utils/create-cluster/create-cluster-numa
+        cp ./create-cluster-numa $REDISCLUSTER_SCRIPT
         cd $REDIS_PATH/utils/create-cluster
-        REDISCLUSTER_SCRIPT=$REDIS_PATH/utils/create-cluster/create-cluster
         $REDISCLUSTER_SCRIPT stop
         $REDISCLUSTER_SCRIPT clean
         cd -
@@ -62,6 +63,8 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         echo "NODES=$CLUSTER_NODES" >> $REDISCLUSTER_CONFIG
         echo "TIMEOUT=$CLUSTER_TIMEOUT" >> $REDISCLUSTER_CONFIG
         echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG
+        echo "USE_NUMACTL=1" >> $REDISCLUSTER_CONFIG
+        echo "SERVER_SOCKET=$SERVER_SOCKET" >> $REDISCLUSTER_CONFIG
         echo "ADDITIONAL_OPTIONS='--save \"\" --loadmodule $REDISEARCH_LIB'" >> $REDISCLUSTER_CONFIG
         $REDISCLUSTER_SCRIPT start
         echo "yes" | $REDISCLUSTER_SCRIPT create
