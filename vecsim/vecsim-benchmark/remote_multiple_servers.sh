@@ -3,6 +3,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
     for server in "${CLUSTER_SERVERS[@]}";
     do
         SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${server}"
+        $SSH_COMMAND apt-get install -y numactl
         if $SSH_COMMAND [ ! -d "$REDIS_PATH" ]; then
             echo "Redis not found in $REDIS_PATH, downloading it ..."
             $SSH_COMMAND "git clone https://github.com/redis/redis $REDIS_PATH"
@@ -34,7 +35,8 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         $SSH_COMMAND "killall -9 redis-server"
 
         if [ "$REDIS_CLUSTER" -eq 1 ]; then
-            REDISCLUSTER_SCRIPT=$REDIS_PATH/utils/create-cluster/create-cluster
+            REDISCLUSTER_SCRIPT=$REDIS_PATH/utils/create-cluster/create-cluster-numa
+            scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ./create-cluster-numa ${LOGIN_ID}@${server}:$REDISCLUSTER_SCRIPT
             $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT stop && $REDISCLUSTER_SCRIPT clean && cd -"
         else
             $SSH_COMMAND "rm -f ${REDIS_PATH}/*.rdb"
@@ -47,6 +49,8 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         $SSH_COMMAND "echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "TIMEOUT=$CLUSTER_TIMEOUT" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "CLUSTER_HOST=$server" >> $REDISCLUSTER_CONFIG"
+        $SSH_COMMAND "echo "USE_NUMACTL=1" >> $REDISCLUSTER_CONFIG"
+        $SSH_COMMAND "echo "SERVER_SOCKET=$SERVER_SOCKET" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--save \"\" --loadmodule \"$REDISEARCH_LIB\" --protected-mode no'\" >> \"$REDISCLUSTER_CONFIG\""
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT start"
     done
