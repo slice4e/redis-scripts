@@ -3,6 +3,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
     for server in "${CLUSTER_SERVERS[@]}";
     do
         SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${server}"
+        $SSH_COMMAND apt-get install -y numactl
         if $SSH_COMMAND [ ! -d "$REDIS_PATH" ]; then
             echo "Redis not found in $REDIS_PATH, downloading it ..."
             $SSH_COMMAND "git clone https://github.com/redis/redis $REDIS_PATH"

@@ -1,5 +1,6 @@
 #----------------------------------- Check if Redis and RediSearch module exists if not prepare them ------------------------------------------------
 if [ ! "$SKIP_SETUP" -eq 1 ]; then
+    apt-get install -y numactl
     if [[ ! -d "$REDIS_PATH" ]]; then
         echo "Redis not found in $REDIS_PATH, downloading it ..."
         git clone https://github.com/redis/redis $REDIS_PATH
