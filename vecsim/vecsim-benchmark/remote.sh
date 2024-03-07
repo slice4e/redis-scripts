@@ -37,7 +37,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
 
     if [ "$REDIS_CLUSTER" -eq 1 ]; then
         REDISCLUSTER_SCRIPT=$REDIS_PATH/utils/create-cluster/create-cluster-numa
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ./create-cluster-numa ${LOGIN_ID}@${server}:$REDISCLUSTER_SCRIPT
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ./create-cluster-numa ${LOGIN_ID}@${TARGET}:$REDISCLUSTER_SCRIPT
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT stop && $REDISCLUSTER_SCRIPT clean && cd -"
     else
         $SSH_COMMAND "rm -f ${REDIS_PATH}/*.rdb"
