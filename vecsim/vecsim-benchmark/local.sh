@@ -66,7 +66,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG
         echo "USE_NUMACTL=1" >> $REDISCLUSTER_CONFIG
         echo "SERVER_SOCKET=$SERVER_SOCKET" >> $REDISCLUSTER_CONFIG
-        echo "ADDITIONAL_OPTIONS='--save \"\" --loadmodule $REDISEARCH_LIB'" >> $REDISCLUSTER_CONFIG
+        echo "ADDITIONAL_OPTIONS='--save \"\" --loadmodule $REDISEARCH_LIB --appendonly no'" >> $REDISCLUSTER_CONFIG
         $REDISCLUSTER_SCRIPT start
         echo "yes" | $REDISCLUSTER_SCRIPT create
         cd -
