@@ -39,11 +39,13 @@ then
         PORT=$((PORT+1))
         echo "Starting $PORT"
         if [ "$USE_NUMACTL" -eq 1 ]; then
-            numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $BIN_PATH/redis-server --port $PORT --protected-mode $PROTECTED_MODE --cluster-enabled yes --cluster-config-file nodes-${PORT}.conf --cluster-node-timeout $TIMEOUT --appendonly yes --appendfilename appendonly-${PORT}.aof --appenddirname appendonlydir-${PORT} --dbfilename dump-${PORT}.rdb --logfile ${PORT}.log --daemonize yes ${ADDITIONAL_OPTIONS}
+            numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $BIN_PATH/redis-server --port $PORT --protected-mode $PROTECTED_MODE --cluster-enabled yes --cluster-config-file nodes-${PORT}.conf --cluster-node-timeout $TIMEOUT --logfile ${PORT}.log --daemonize yes ${ADDITIONAL_OPTIONS}
             iter_var=$((iter_var+1))
             if [ "$iter_var" -eq "$nodes_array_len" ]; then
                 iter_var=0
             fi
+            # numactl --localalloc --physcpubind=${CPU} $BIN_PATH/redis-server --port $PORT --protected-mode $PROTECTED_MODE --cluster-enabled yes --cluster-config-file nodes-${PORT}.conf --cluster-node-timeout $TIMEOUT --logfile ${PORT}.log --daemonize yes ${ADDITIONAL_OPTIONS}
+            # CPU=$((CPU+1))
         else
             $BIN_PATH/redis-server --port $PORT --protected-mode $PROTECTED_MODE --cluster-enabled yes --cluster-config-file nodes-${PORT}.conf --cluster-node-timeout $TIMEOUT --appendonly yes --appendfilename appendonly-${PORT}.aof --appenddirname appendonlydir-${PORT} --dbfilename dump-${PORT}.rdb --logfile ${PORT}.log --daemonize yes ${ADDITIONAL_OPTIONS}
         fi
