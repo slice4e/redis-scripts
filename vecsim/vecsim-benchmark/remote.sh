@@ -53,8 +53,8 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         $SSH_COMMAND "echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "TIMEOUT=$CLUSTER_TIMEOUT" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "CLUSTER_HOST=$TARGET" >> $REDISCLUSTER_CONFIG"
-        $SSH_COMMAND "echo "USE_NUMACTL=1" >> $REDISCLUSTER_CONFIG"
-        $SSH_COMMAND "echo "SERVER_SOCKET=$SERVER_SOCKET" >> $REDISCLUSTER_CONFIG"
+        $SSH_COMMAND "echo "USE_NUMACTL=$USE_NUMACTL" >> $REDISCLUSTER_CONFIG"
+        $SSH_COMMAND "echo "NUMA_NODES=$NUMA_NODES" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--save \"\" --loadmodule \"$REDISEARCH_LIB\" --protected-mode no --appendonly no'\" >> \"$REDISCLUSTER_CONFIG\""
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT start && echo "yes" | $REDISCLUSTER_SCRIPT create && cd -"
         sleep 5
