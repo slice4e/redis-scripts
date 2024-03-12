@@ -157,7 +157,7 @@ do
 		#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
 		cmd="ls /sys/devices/system/cpu/cpu${cpu}"
 		if [[ ${SERVER_REMOTE} == true ]] ; then
-			cpu_numa_node=$($SSH_COMMAND $cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]')  
+			cpu_numa_node=$($SSH_COMMAND "$cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]'")  
 		else
 			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]" )
 		fi
