@@ -71,7 +71,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         echo "yes" | $REDISCLUSTER_SCRIPT create
         cd -
     else
-        cmd="numactl -m ${SERVER_SOCKET} -N ${SERVER_SOCKET} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\""
+        cmd="numactl -m ${NUMA_NODES} -N ${NUMA_NODES} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\""
         echo -e $cmd
         $cmd &
     fi

@@ -116,7 +116,7 @@ if [[ ! -e $DATASET_PATH ]]; then
 fi
 
 # STAGE UPLOAD
-if [ ! "$SKIP_UPLOAD" -eq 1 ]; then
+if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
     REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
 fi
 
