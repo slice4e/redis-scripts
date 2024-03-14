@@ -69,6 +69,15 @@ EF_SEARCH=128
 # In our case vector-db-benchmark sets K to 100 and HNSW returns 100 approximate nearest neighbors 
 # because for every test_vector we searched for 100 nearest neighbors in train_vector dataset during ground-truth generation. 
 # Then vector-db-benchmark compares returned vectors from HNSW search and the vectors found during ground-truth generation and based on their intersection it calculates precision.
+#
+# When we split the graph into multiple shards (cluster nodes) we are going to searh each shard for the 100 nearest neighbors. 
+# After each shard returns 100 nearest neighbors, a reduce step aggregates the results from all the shards and respond to the client with a final 100 neighbors. 
+# Thus, sharding the graph results in a proportional increase in the number of work we do in order to produce a response. In addition, the precision improves with sharding, 
+# since we are examinining more of the graph. 
+# 
+# The response to the client consists of the id's of the 100 nearest neighbors. 
+
+
 
 
 
