@@ -66,7 +66,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         echo "REPLICAS=$CLUSTER_REPLICAS" >> $REDISCLUSTER_CONFIG
         echo "USE_NUMACTL=$USE_NUMACTL" >> $REDISCLUSTER_CONFIG
         echo "NUMA_NODES=$NUMA_NODES" >> $REDISCLUSTER_CONFIG
-        echo "ADDITIONAL_OPTIONS='--save \"\" --loadmodule $REDISEARCH_LIB --appendonly no'" >> $REDISCLUSTER_CONFIG
+        echo "ADDITIONAL_OPTIONS='--save \"\" --loadmodule $REDISEARCH_LIB --protected-mode no --appendonly no'" >> $REDISCLUSTER_CONFIG
         $REDISCLUSTER_SCRIPT start
         echo "yes" | $REDISCLUSTER_SCRIPT create
         cd -
