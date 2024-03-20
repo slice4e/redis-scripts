@@ -6,6 +6,15 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         $SSH_COMMAND "git clone https://github.com/redis/redis $REDIS_PATH"
         $SSH_COMMAND "cd $REDIS_PATH && git checkout $REDIS_BRANCH && make && cd -"
     fi
+    #install redis locally as well, since we are using redis-cli
+    if [[ ! -d "$REDIS_PATH" ]]; then
+        echo "Redis not found in $REDIS_PATH, downloading it ..."
+        git clone https://github.com/redis/redis $REDIS_PATH
+        cd $REDIS_PATH
+        git checkout $REDIS_BRANCH
+        make
+        cd -
+    fi
 
     if [ "$REDIS_CLUSTER" -eq 1 ]; then
         REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/coord-oss/module-oss.so
