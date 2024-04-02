@@ -27,6 +27,13 @@ SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 
 ##########################
+# EMON Settings #
+##########################
+RUN_EMON=false
+EMON_HOME=/opt/intel/emon  # emon path of the Server and client
+EMON_FOLDER=$EMON_HOME/bin64  # emon path of the Server and client
+
+##########################
 # Redis cluster settings #
 ##########################
 REDIS_CLUSTER=1                # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
