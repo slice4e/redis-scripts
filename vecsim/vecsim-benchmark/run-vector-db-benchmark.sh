@@ -129,7 +129,8 @@ if [[ ${RUN_EMON} == true ]]; then
     echo "Starting emon... (First, try to stop if emon is running)"
     if [[ ${SERVER_REMOTE} == false ]]; then
         ${EMON_FOLDER}/emon -stop
-        ${EMON_FOLDER}/emon -collect-edp -f redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat $
+        cmd="${EMON_FOLDER}/emon -collect-edp -f redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat"
+        $cmd $
     fi
     if [[ ${SERVER_REMOTE} == true ]]; then
         $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
