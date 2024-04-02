@@ -125,4 +125,26 @@ if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
 fi
 
 # STAGE RUN
+if [[ ${RUN_EMON} == true ]]; then
+    echo "Starting emon... (First, try to stop if emon is running)"
+    if [[ ${SERVER_REMOTE} == false ]]; then
+        ${EMON_FOLDER}/emon -stop
+        ${EMON_FOLDER}/emon -collect-edp -f redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat $
+    fi
+    if [[ ${SERVER_REMOTE} == true ]]; then
+        $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
+        $SSH_COMMAND "${EMON_FOLDER}/emon -collect-edp -f redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat $"
+    fi
+fi
+
 REPETITIONS=1 REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-upload
+
+if [[ ${RUN_EMON} == true ]]; then
+    echo "Stopping emon..."
+    if [[ ${SERVER_REMOTE} == false ]]; then
+        ${EMON_FOLDER}/emon -stop
+    fi
+    if [[ ${SERVER_REMOTE} == true ]]; then
+        $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
+    fi
+fi
