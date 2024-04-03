@@ -144,6 +144,7 @@ if [[ ${RUN_EMON} == true ]]; then
     echo "Stopping emon..."
     if [[ ${SERVER_REMOTE} == false ]]; then
         ${EMON_FOLDER}/emon -stop
+        source ../../shared-scripts/emon_process.sh
     fi
     if [[ ${SERVER_REMOTE} == true ]]; then
         $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
