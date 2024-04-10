@@ -125,4 +125,31 @@ if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
 fi
 
 # STAGE RUN
+if [[ ${RUN_EMON} == true ]]; then
+    echo "Starting emon... (First, try to stop if emon is running)"
+    if [[ ${SERVER_REMOTE} == false ]]; then
+        ${EMON_FOLDER}/emon -stop
+        (${EMON_FOLDER}/emon -collect-edp -f redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat) &
+    fi
+    if [[ ${SERVER_REMOTE} == true ]]; then
+        $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
+        cmd="${EMON_FOLDER}/emon -collect-edp -f ${HOME_PATH}/redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat"
+        nohup $SSH_COMMAND "$cmd &" &
+    fi
+fi
+
 REPETITIONS=1 REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-upload
+
+if [[ ${RUN_EMON} == true ]]; then
+    echo "Stopping emon..."
+    if [[ ${SERVER_REMOTE} == false ]]; then
+        ${EMON_FOLDER}/emon -stop
+        source ../../shared-scripts/emon_process.sh
+    fi
+    if [[ ${SERVER_REMOTE} == true ]]; then
+        $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ../../shared-scripts/emon_process.sh ${LOGIN_ID}@${TARGET}:${HOME_PATH}/emon_process.sh
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${EMON_CONFIG_FILE} ${LOGIN_ID}@${TARGET}:${HOME_PATH}/pyedp_config.txt
+        $SSH_COMMAND "cd ${HOME_PATH} && EMON_CONFIG_FILE=$HOME_PATH/pyedp_config.txt RUN_EMON=true EMON_HOME=$EMON_HOME bash ${HOME_PATH}/emon_process.sh"
+    fi
+fi
