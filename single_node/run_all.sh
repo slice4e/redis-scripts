@@ -35,6 +35,11 @@ if [[ ${SERVER_REMOTE} == true ]] ; then
 fi
 cp $config_file ${RESULTS_PATH}
 
+if [ $PIN == "sub-numa" ]; then
+    IFS=',' read -ra nodes_array <<< "$NUMA_NODES"
+    nodes_array_len=${#nodes_array[@]}
+fi
+
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
 source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
@@ -148,44 +153,71 @@ do
 
 	#--------------------------start master servers------------------------------------------------------
 	instances=1
-	for cpu in $CPUS
-	do
-		port=$(($START_PORT + ${instances}))
-		ret=$($SSH_COMMAND lsof -i:$port)
-		ret_code=$(echo $? | tr -d '[:space:]') 
-		
-		#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-		cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-		if [[ ${SERVER_REMOTE} == true ]] ; then
-			cpu_numa_node=$($SSH_COMMAND "$cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]'")  
-		else
-			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]" )
-		fi
+    if [ ${PIN} == "cpu" ]; then
+        for cpu in $CPUS
+            do
+                port=$(($START_PORT + ${instances}))
+                ret=$($SSH_COMMAND lsof -i:$port)
+                ret_code=$(echo $? | tr -d '[:space:]') 
+                
+                #In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+                cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+                if [[ ${SERVER_REMOTE} == true ]] ; then
+                    cpu_numa_node=$($SSH_COMMAND "$cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]'")  
+                else
+                    cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]" )
+                fi
 
-		if [[ $ret_code == 1 ]]; then
-			echo -e "starting redis server $instances on vCPU $cpu"
-			cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
-			echo -e $cmd
+                if [[ $ret_code == 1 ]]; then
+                    echo -e "starting redis server $instances on vCPU $cpu"
+                    cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+                    echo -e $cmd
 
-			#NOTE: Do not start the Redis servers using SSH if they are not remote. 
-			#For some unknown reason that leads to a performace degradation. 
-			if [[ ${SERVER_REMOTE} == true ]] ; then
-				$SSH_COMMAND $cmd & 
-			else
-				$cmd &
-			fi
-			instances=$((instances + 1))
-		else
-			echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
-			exit 1
-			
-		fi
+                    #NOTE: Do not start the Redis servers using SSH if they are not remote. 
+                    #For some unknown reason that leads to a performace degradation. 
+                    if [[ ${SERVER_REMOTE} == true ]] ; then
+                        $SSH_COMMAND $cmd & 
+                    else
+                        $cmd &
+                    fi
+                    instances=$((instances + 1))
+                else
+                    echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
+                    exit 1      
+                fi
 
-		if [ $instances -gt $NUM_SERVERS ]
-		then
-			break
-		fi
-	done
+                if [ $instances -gt $NUM_SERVERS ]
+                then
+                    break
+                fi
+            done
+    elif [ ${PIN} == "sub-numa" ]; then
+        iter_var=0
+        while [ "$instances" -le $NUM_SERVERS ]; do
+            port=$(($START_PORT + ${instances}))
+            ret=$($SSH_COMMAND lsof -i:$port)
+            ret_code=$(echo $? | tr -d '[:space:]') 
+            if [[ $ret_code == 1 ]]; then
+                echo -e "starting redis server $instances on sub-numa ${nodes_array[$iter_var]}"
+                cmd="numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+                echo -e $cmd
+                if [[ ${SERVER_REMOTE} == true ]] ; then
+                    $SSH_COMMAND $cmd & 
+                else
+                    $cmd &
+                fi
+                iter_var=$((iter_var+1))
+            else
+                echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
+                exit 1   
+            fi
+            if [ "$iter_var" -eq "$nodes_array_len" ]; then
+                iter_var=0
+            fi
+            ((instances++))
+        done
+
+    fi
 
 	while [ $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') -lt $NUM_SERVERS ];do
 		echo -e "Waiting for all redis servers to start"
