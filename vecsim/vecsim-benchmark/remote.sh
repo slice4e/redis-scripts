@@ -68,8 +68,15 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT start && echo "yes" | $REDISCLUSTER_SCRIPT create && cd -"
         sleep 5
     else
-        cmd="numactl -m ${NUMA_NODES} -N ${NUMA_NODES} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB"
-        echo -e $cmd
-        nohup $SSH_COMMAND "$cmd &" &
+	if [ "$USE_NUMACTL" -eq 1 ]; then
+        	cmd="numactl -m ${NUMA_NODES} -N ${NUMA_NODES} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB"
+        	echo -e $cmd
+        	nohup $SSH_COMMAND "$cmd &" &
+	else
+        	cmd="$REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB"
+        	echo -e $cmd
+        	nohup $SSH_COMMAND "$cmd &" &
+
+	fi
     fi
 fi
