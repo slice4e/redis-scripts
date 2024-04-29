@@ -75,7 +75,7 @@ fi
 # Installing python packages with root is not the best way to do it TODO: Figure out how to change it
 if [[ -x "$PYTHON_PATH" ]]; then
     "$PYTHON_PATH" -m pip install poetry
-    "$PYTHON_PATH" -m pip install -r requirements-vdb.txt
+    "$PYTHON_PATH" -m pip install -r ./requirements-vdb.txt
 else
     echo "Invalid PYTHON_PATH: $PYTHON_PATH"
     exit 1
