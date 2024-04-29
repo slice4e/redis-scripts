@@ -69,11 +69,11 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         sleep 5
     else
 	if [ "$USE_NUMACTL" -eq 1 ]; then
-        	cmd="numactl -m ${NUMA_NODES} -N ${NUMA_NODES} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB"
+        	cmd="numactl -m ${NUMA_NODES} -N ${NUMA_NODES} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\" --appendonly no"
         	echo -e $cmd
         	nohup $SSH_COMMAND "$cmd &" &
 	else
-        	cmd="$REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB"
+        	cmd="$REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\" --appendonly no"
         	echo -e $cmd
         	nohup $SSH_COMMAND "$cmd &" &
 
