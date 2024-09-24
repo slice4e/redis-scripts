@@ -44,6 +44,19 @@ CLUSTER_NODES=24
 CLUSTER_REPLICAS=0
 CLUSTER_TIMEOUT=50000
 
+##########################
+# Redis Enterprise settings #
+##########################
+REDIS_ENTERPRISE=0            # Set value of this variable to 1 to run Redis Enterprise instead of open source
+LICENSE_PATH=$HOME_DIR/license.txt
+RE_SERVERS=("1.2.3.4" "2.3.4.5" "3.4.5.6") # List of servers that will run RE cluster, first server will be used as master
+CLUSTER_MASTER=1.2.3.4 # Ip of cluster master it also need to be listed in RE_SERVERS variable
+RE_URL=https://s3.amazonaws.com/redis-enterprise-software-downloads/7.4.2/redislabs-7.4.2-104-focal-amd64.tar
+REDISEARCH_URL=https://s3.amazonaws.com/benchmarks.redislabs/internal-tasks/intel/laion-1b/redisearch.Linux-ubuntu20.04-x86_64.2.10.4.zip
+RE_USERNAME=readmin@intel.com
+RE_PASSWORD=readmin
+SHARD_COUNT=20
+WORKER_THREADS=5
 
 ##########################
 # Benchmark settings #
