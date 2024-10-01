@@ -18,8 +18,12 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
     # Join all the other nodes to RE cluster
     for server in "${RE_SERVERS[@]}";
     do
-        SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${server}"
-        $SSH_COMMAND /opt/redislabs/bin/rladmin cluster join nodes $CLUSTER_MASTER username $RE_USERNAME password $RE_PASSWORD addr $server
+        if [[ "$server" == "$cluster_master" ]]; then
+            echo "Skipping cluster master"
+        else
+            SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${server}"
+            $SSH_COMMAND /opt/redislabs/bin/rladmin cluster join nodes $CLUSTER_MASTER username $RE_USERNAME password $RE_PASSWORD addr $server
+        fi
     done
 
     # Setup database
