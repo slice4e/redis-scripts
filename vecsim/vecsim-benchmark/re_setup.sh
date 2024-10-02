@@ -1,17 +1,23 @@
 if [ ! "$SKIP_SETUP" -eq 1 ]; then
     set -x
+    RE_INSTALLER_PATH=$HOME_PATH/RE_installer
     # Download RE on each node
     for server in "${RE_SERVERS[@]}";
     do
         SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${server}"
-        $SSH_COMMAND wget $RE_URL -O $HOME_PATH/redis.tar
-        $SSH_COMMAND "mkdir $HOME_PATH/RE_installer && tar -xvf $HOME_PATH/redis.tar -C $HOME_PATH/RE_installer"
-        $SSH_COMMAND $HOME_PATH/RE_installer/install.sh -y
+        if $SSH_COMMAND [ ! -d "$RE_INSTALLER_PATH" ]; then
+            $SSH_COMMAND wget $RE_URL -O $HOME_PATH/redis.tar
+            $SSH_COMMAND "mkdir $RE_INSTALLER_PATH && tar -xvf $HOME_PATH/redis.tar -C $RE_INSTALLER_PATH"
+        fi
+        $SSH_COMMAND "cd $RE_INSTALLER_PATH && ./install.sh -y"
     done
 
     # Download RediSearch on master node and create cluster
     SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${CLUSTER_MASTER}"
-    $SSH_COMMAND wget $REDISEARCH_URL -O $HOME_PATH/redisearch.zip
+    REDISEARCH_ENTERPRISE_PATH=$HOME_PATH/redisearch.zip
+    if $SSH_COMMAND [ ! -e "$REDISEARCH_ENTERPRISE_PATH" ]; then
+        $SSH_COMMAND wget $REDISEARCH_URL -O $HOME_PATH/redisearch.zip
+    fi
     $SSH_COMMAND /opt/redislabs/bin/rladmin cluster create name intel-demo addr "$CLUSTER_MASTER" username $RE_USERNAME password $RE_PASSWORD license_file $LICENSE_PATH
     $SSH_COMMAND curl -L -k -u "$RE_USERNAME:$RE_PASSWORD" -X POST -F "module=@$HOME_PATH/redisearch.zip" https://localhost:9443/v1/modules
 
