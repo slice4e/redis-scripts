@@ -26,16 +26,19 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
             cd $REDISEARCH_PATH
             git checkout $REDISEARCH_BRANCH
             git submodule update --init --recursive
+            cd -
         fi
 
         if [ "$REDIS_CLUSTER" -eq 1 ]; then
             cd $REDISEARCH_PATH
             $REDISEARCH_PATH/sbin/setup bash -l
             make build COORD=oss MT=1
+            cd -
         else
             cd $REDISEARCH_PATH
             $REDISEARCH_PATH/sbin/setup bash -l
             make build
+            cd -
         fi
     fi
 
