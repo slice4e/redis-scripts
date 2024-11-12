@@ -16,12 +16,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         cd -
     fi
 
-    if [ "$REDIS_CLUSTER" -eq 1 ]; then
-        REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/coord-oss/module-oss.so
-    else
-        REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search/redisearch.so
-    fi
-
+    REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search-community/redisearch.so
 
     if $SSH_COMMAND [ ! -e \"$REDISEARCH_LIB\" ]; then
         echo "Rediseach library not found in $REDISEARCH_LIB"
@@ -64,7 +59,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         $SSH_COMMAND "echo "CLUSTER_HOST=$TARGET" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "USE_NUMACTL=$USE_NUMACTL" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "NUMA_NODES=$NUMA_NODES" >> $REDISCLUSTER_CONFIG"
-        $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--save \"\" --loadmodule \"$REDISEARCH_LIB\" --protected-mode no --appendonly no'\" >> \"$REDISCLUSTER_CONFIG\""
+        $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--save \"\" --loadmodule \"$REDISEARCH_LIB\" WORKERS 4 --protected-mode no --appendonly no'\" >> \"$REDISCLUSTER_CONFIG\""
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT start && echo "yes" | $REDISCLUSTER_SCRIPT create && cd -"
         sleep 5
     else

@@ -15,7 +15,7 @@ NUMA_NODES=0,1      # Provide numa nodes after semicolon
 PORT=9000
 
 REDISEARCH_PATH=$HOME_PATH/redisearch
-REDISEARCH_BRANCH=v2.8.11   #this branch will be installed in case Redisearch is not already installed in REDISEARCH_PATH
+REDISEARCH_BRANCH=master   #this branch will be installed in case Redisearch is not already installed in REDISEARCH_PATH
 
 ##########################
 # SSH Settings #
