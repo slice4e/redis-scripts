@@ -14,8 +14,8 @@ USE_NUMACTL=1
 NUMA_NODES=0,1      # Provide numa nodes after semicolon
 PORT=9000
 
-REDISEARCH_PATH=$HOME_PATH/redisearch
-REDISEARCH_BRANCH=8.0   #this branch will be installed in case Redisearch is not already installed in REDISEARCH_PATH
+# Boost in needed by Redisearch. It will be downloaded if not present in this path. 
+BOOST_PATH=$HOME_PATH/boost_1_82_0
 
 ##########################
 # SSH Settings #
