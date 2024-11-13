@@ -14,8 +14,12 @@ USE_NUMACTL=1
 NUMA_NODES=0,1      # Provide numa nodes after semicolon
 PORT=9000
 
-# Boost in needed by Redisearch. It will be downloaded if not present in this path. 
+##########################
+# Redisearch settings #
+##########################
+# Boost in needed by Redisearch
 BOOST_PATH=$HOME_PATH/boost_1_82_0
+REDISEARCH_WORKERS=1
 
 ##########################
 # SSH Settings #
