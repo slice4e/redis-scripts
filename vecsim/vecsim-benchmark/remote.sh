@@ -16,22 +16,17 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         cd -
     fi
 
-    REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search-community/redisearch.so
+    if $SSH_COMMAND [[ ! -d "$BOOST_PATH" ]]; then
+        echo "BOOST not found in $BOOST_PATH, downloading it ..."
+        $SSH_COMMAND "cd $HOME_PATH && wget https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz " 
+        $SSH_COMMAND "cd $HOME_PATH && tar -xvzf boost_1_82_0.tar.gz && cd - " 
+    fi
+
+    REDISEARCH_LIB=$REDIS_PATH/modules/redisearch/src/bin/linux-x64-release/search-community/redisearch.so
 
     if $SSH_COMMAND [ ! -e \"$REDISEARCH_LIB\" ]; then
         echo "Rediseach library not found in $REDISEARCH_LIB"
-
-        if $SSH_COMMAND [ ! -d \"$REDISEARCH_PATH\" ]; then
-            echo "Rediseach not found in $REDISEARCH_PATH"
-            $SSH_COMMAND "git clone https://github.com/RediSearch/RediSearch $REDISEARCH_PATH"
-            $SSH_COMMAND "cd $REDISEARCH_PATH && git checkout $REDISEARCH_BRANCH && git submodule update --init --recursive"
-        fi
-
-        if [ "$REDIS_CLUSTER" -eq 1 ]; then
-            $SSH_COMMAND "cd $REDISEARCH_PATH && $REDISEARCH_PATH/sbin/setup bash -l && make build COORD=oss MT=1"
-        else
-            $SSH_COMMAND "cd $REDISEARCH_PATH && $REDISEARCH_PATH/sbin/setup bash -l && make build"
-        fi
+	$SSH_COMMAND "cd $REDIS_PATH/modules/redisearch && BOOST_DIR=$BOOST_PATH make && cd - "
     fi
 
     #---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------
