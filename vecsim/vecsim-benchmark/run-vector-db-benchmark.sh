@@ -103,16 +103,17 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
     #---------------------------------------------- Dynamically Generate a vector db benchmark configuation file -----------------------------------------------
 
     OUT="[
-        {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
+        {\"name\": \"redis-svs-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
         \"engine\": \"redis\",
         \"connection_params\": {},
         \"collection_params\": {
-            \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} }
+            \"algorithm\": \"svs\",
+            \"svs_config\": { \"NUM_THREADS\": 1, \"GRAPH_DEGREE\": ${EF_CONSTRUCTION}, \"WINDOW_SIZE\": 200 }
         },
         \"search_params\": [
-            { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH} } }
+            { \"parallel\": ${PARALLEL}, \"algorithm\": \"svs\" }
         ],
-        \"upload_params\": { \"parallel\": 100, \"batch_size\": 100 }
+        \"upload_params\": { \"parallel\": 16 }
     }]" 
  
     echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
