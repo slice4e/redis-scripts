@@ -21,20 +21,28 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
 
     REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search-community/redisearch.so
 
-    if [ ! -e \"$REDISEARCH_LIB\" ]; then
+    if [[ ! -e $REDISEARCH_LIB ]]; then
         echo "Rediseach library not found in $REDISEARCH_LIB"
 
-        if [ ! -d \"$REDISEARCH_PATH\" ]; then
+        if [[ ! -d "$REDISEARCH_PATH" ]]; then
             echo "Rediseach not found in $REDISEARCH_PATH"
-	    #git clone https://github.com/intel-sandbox/redisearch-svs.git $REDISEARCH_PATH
-	    cd $REDISEARCH_PATH
-	    #git submodule update --init --recursive
-	    cd - 
+            git clone https://github.com/intel-sandbox/redisearch-svs.git $REDISEARCH_PATH
+            cd $REDISEARCH_PATH
+            git submodule update --init --recursive
+            cd - 
         fi
 
-        cd $REDISEARCH_PATH
-	$REDISEARCH_PATH/sbin/setup bash -l
-	BOOST_DIR=$BOOST_PATH make build COORD=oss MT=1
+        if [ "$REDIS_CLUSTER" -eq 1 ]; then
+            cd $REDISEARCH_PATH
+            $REDISEARCH_PATH/sbin/setup bash -l
+            make build COORD=oss MT=1
+            cd -
+        else
+            cd $REDISEARCH_PATH
+            $REDISEARCH_PATH/sbin/setup bash -l
+            make build
+            cd -
+        fi
 
     fi
 

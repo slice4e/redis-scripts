@@ -103,7 +103,7 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
     #---------------------------------------------- Dynamically Generate a vector db benchmark configuation file -----------------------------------------------
 
     OUT="[
-        {\"name\": \"redis-svs-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
+        {\"name\": \"redis-svs-DEGREE-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
         \"engine\": \"redis\",
         \"connection_params\": {},
         \"collection_params\": {
@@ -132,7 +132,7 @@ fi
 
 # STAGE UPLOAD
 if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
-    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-svs-DEGREE-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
 fi
 
 # STAGE RUN
@@ -149,7 +149,7 @@ if [[ ${RUN_EMON} == true ]]; then
     fi
 fi
 
-REPETITIONS=1 REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-upload
+REPETITIONS=1 REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-svs-DEGREE-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-upload
 
 if [[ ${RUN_EMON} == true ]]; then
     echo "Stopping emon..."
