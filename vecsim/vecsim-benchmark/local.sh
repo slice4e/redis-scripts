@@ -11,14 +11,6 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         cd -
     fi
 
-    if [[ ! -d "$BOOST_PATH" ]]; then
-        echo "BOOST not found in $BOOST_PATH, downloading it ..."
-	cd $HOME_PATH
-        wget https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz
-	tar -xvzf boost_1_82_0.tar.gz
-	cd - 
-    fi
-
     REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search-community/redisearch.so
 
     if [[ ! -e $REDISEARCH_LIB ]]; then
@@ -29,6 +21,15 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
             git clone https://github.com/intel-sandbox/redisearch-svs.git $REDISEARCH_PATH
             cd $REDISEARCH_PATH
             git submodule update --init --recursive
+            cd - 
+        fi
+
+        if [[ ! -d "$BOOST_PATH" ]]; then
+            echo "BOOST not found in $BOOST_PATH, downloading it ..."
+            cd $HOME_PATH
+            wget https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz
+            tar -xvzf boost_1_82_0.tar.gz
+            mv boost_1_82_0 $BOOST_PATH
             cd - 
         fi
 
