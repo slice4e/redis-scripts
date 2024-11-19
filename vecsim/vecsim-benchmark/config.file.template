@@ -18,9 +18,9 @@ PORT=9000
 # Redisearch settings #
 ##########################
 # Boost in needed by Redisearch
-BOOST_PATH=$HOME_PATH/boost_1_82_0
 REDISEARCH_WORKERS=1
 REDISEARCH_PATH=$HOME_PATH/redisearch
+BOOST_PATH=$REDISEARCH_PATH/.install/boost
 
 ##########################
 # SSH Settings #
