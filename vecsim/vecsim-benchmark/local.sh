@@ -7,7 +7,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         git clone https://github.com/redis/redis $REDIS_PATH
         cd $REDIS_PATH
         git checkout $REDIS_BRANCH
-        make
+        make -j REDIS_CFLAGS="-g -fno-omit-frame-pointer"
         cd -
     fi
 
@@ -19,12 +19,12 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
 	cd - 
     fi
 
-    REDISEARCH_LIB=$REDIS_PATH/modules/redisearch/src/bin/linux-x64-release/search-community/redisearch.so
+    REDISEARCH_LIB=$REDIS_PATH/modules/redisearch/src/bin/linux-x64-release-profile/search-community/redisearch.so
 
     if [[ ! -d "$REDISEARCH_LIB " ]]; then
         echo "Redisearch not found in $REDISEARCH_LIB, downloading it ..."
 	cd $REDIS_PATH/modules/redisearch
-	BOOST_DIR=$BOOST_PATH make	
+	BOOST_DIR=$BOOST_PATH PROFILE=1 make	
         cd -
     fi
 
