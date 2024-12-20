@@ -71,12 +71,12 @@ if [[ ! -d $VECTORDB_BENCHMARK_PATH ]]; then
     echo "Couldn't find Vector DB Benchmark in $VECTORDB_BENCHMARK_PATH, cloning it now ..."
     git clone -b update.redisearch https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH"
     cd "$VECTORDB_BENCHMARK_PATH"
-    git checkout db1896d602f30198cca217fec5052a21712617b7
+    git checkout a47d6d39ac1e6af7baa2b0dc7015d348b6caaea3
     cd -
 else
     cd "$VECTORDB_BENCHMARK_PATH" || exit
     git pull origin update.redisearch
-    git checkout db1896d602f30198cca217fec5052a21712617b7
+    git checkout a47d6d39ac1e6af7baa2b0dc7015d348b6caaea3
     cd -
 fi
 
@@ -108,7 +108,7 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
         \"connection_params\": {},
         \"collection_params\": {
             \"algorithm\": \"svs\",
-            \"svs_config\": { \"NUM_THREADS\": 1, \"GRAPH_DEGREE\": ${EF_CONSTRUCTION}, \"WINDOW_SIZE\": 200 }
+            \"svs_config\": { \"NUM_THREADS\": 1, \"GRAPH_DEGREE\": ${EF_CONSTRUCTION}, \"WS_CONSTRUCTION\": 200 }
         },
         \"search_params\": [
             { \"parallel\": ${PARALLEL}, \"algorithm\": \"svs\" }
