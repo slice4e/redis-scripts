@@ -3,6 +3,9 @@ import os
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.chart import BarChart, Reference
+
 
 paths = []
 path = os.getcwd()
@@ -58,7 +61,29 @@ df_rps = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['graph_degre
 df_uploading_time = pd.DataFrame.from_dict(settings, orient='index')[['uploading_time']]
 df_used_memory = pd.DataFrame.from_dict(settings, orient='index')[['used_memory']]
 
-excel_path = "summary/results.xlsx"
+
+quantization_values = df_max_rps['quantization'].unique()
+parallel_values = df_max_rps['parallel'].unique()
+closest_precision_rps = []
+
+for quant in quantization_values:
+    for parallel in parallel_values:
+        df_quant_parallel = df_max_rps[(df_max_rps['quantization'] == quant) & (df_max_rps['parallel'] == parallel)]
+        if not df_quant_parallel.empty:
+            df_quant_parallel['precision_diff'] = abs(df_quant_parallel['precision'] - 0.95)
+            closest_row = df_quant_parallel.loc[df_quant_parallel['precision_diff'].idxmin()]
+            closest_precision_rps.append({
+                'quantization': quant,
+                'parallel': parallel,
+                'precision': closest_row['precision'],
+                'rps': closest_row['rps']
+            })
+
+df_closest_precision_rps = pd.DataFrame(closest_precision_rps)
+df_rps_pivot = df_closest_precision_rps.pivot(index='parallel', columns='quantization', values='rps')
+df_precision_pivot = df_closest_precision_rps.pivot(index='parallel', columns='quantization', values='precision')
+
+excel_path = "summary/test-results.xlsx"
 with pd.ExcelWriter(excel_path) as writer:
     df_total_time.to_excel(writer, sheet_name="Total Time")
     df_mean_time.to_excel(writer, sheet_name="Mean Time")
@@ -66,6 +91,32 @@ with pd.ExcelWriter(excel_path) as writer:
     df_rps.to_excel(writer, sheet_name="RPS")
     df_uploading_time.to_excel(writer, sheet_name="Uploading Time")
     df_used_memory.to_excel(writer, sheet_name="Used Memory")
+
+    worksheet = writer.book.create_sheet("Precision 95")
+    worksheet.title = "Precision 95"
+    
+    worksheet.cell(row=1, column=1, value="RPS")
+    for r in dataframe_to_rows(df_rps_pivot, index=True, header=True):
+        worksheet.append(r)
+    
+    start_row = df_rps_pivot.shape[0] + 5
+    worksheet.cell(row=start_row, column=1, value="Precision")
+    for r in dataframe_to_rows(df_precision_pivot, index=True, header=True):
+        worksheet.append(r)
+
+    # Add Bar chart to the sheet
+    chart = BarChart()
+    chart.title = "RPS @ ~95%"
+    chart.x_axis.title = "Parallel"
+    chart.y_axis.title = "RPS"
+
+    data = Reference(worksheet, min_col=2, min_row=2, max_row=df_rps_pivot.shape[0] + 3, max_col=df_rps_pivot.shape[1] + 1)
+    categories = Reference(worksheet, min_col=1, min_row=2, max_row=df_rps_pivot.shape[0] + 3)
+    chart.add_data(data, titles_from_data=True)
+    chart.set_categories(categories)
+    chart.shape = 4
+    worksheet.add_chart(chart, "E2")
+
 
 wb = load_workbook(excel_path)
 fill_green = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
