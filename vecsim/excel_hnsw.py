@@ -26,10 +26,10 @@ def highlight_cells(ws, top_n, reverse=False):
 def create_excel_for_top(df_max_rps, top):
     df_max_rps = df_max_rps[df_max_rps["top"] == top]
     # Create dataframe for each table
-    df_total_time = df_max_rps.pivot(index=['parallel', 'ef_search'], columns=['top', 'M',  'ef_construction'], values='total_time')
-    df_mean_time = df_max_rps.pivot(index=['parallel', 'ef_search'], columns=['top', 'M', 'ef_construction'], values='mean_time')
-    df_precision = df_max_rps.pivot(index=['parallel', 'ef_search'], columns=['top', 'M', 'ef_construction'], values='precision')
-    df_rps = df_max_rps.pivot(index=['parallel', 'ef_search'], columns=['top', 'M', 'ef_construction', ], values='rps')
+    df_total_time = df_max_rps.pivot(index=['parallel', 'ef_search'], columns=['data_type', 'top', 'M',  'ef_construction'], values='total_time')
+    df_mean_time = df_max_rps.pivot(index=['parallel', 'ef_search'], columns=['data_type', 'top', 'M', 'ef_construction'], values='mean_time')
+    df_precision = df_max_rps.pivot(index=['parallel', 'ef_search'], columns=['data_type', 'top', 'M', 'ef_construction'], values='precision')
+    df_rps = df_max_rps.pivot(index=['parallel', 'ef_search'], columns=['data_type', 'top', 'M', 'ef_construction', ], values='rps')
 
     # Create DataFrame for used_mem and uploading_Time
     df_uploading_time = pd.DataFrame.from_dict(settings, orient='index')[['uploading_time']]
@@ -100,6 +100,7 @@ for file in files:
             data = json.load(f)
             result = {}
             experiment_name = data["params"]["experiment"]
+            result["data_type"] = data["params"]["search_params"].get("data_type", "FLOAT32")
             result["parallel"] = data["params"]["parallel"]
             result["ef_search"] = data["params"]["search_params"]["ef"]
             result["top"] = data["params"].get("top", 100)
@@ -119,7 +120,7 @@ with open(result_json_path, "w") as f:
 df = pd.DataFrame(results)
 
 # Take the highest rps from each table
-idx = df.groupby(['parallel', 'ef_search', 'top', 'M', 'ef_construction'])['rps'].idxmax()
+idx = df.groupby(['parallel', 'ef_search', 'data_type', 'top', 'M', 'ef_construction'])['rps'].idxmax()
 df_max_rps = df.loc[idx]
 
 create_excel_for_top(df_max_rps, 10)

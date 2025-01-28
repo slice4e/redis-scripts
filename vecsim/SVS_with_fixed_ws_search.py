@@ -26,10 +26,10 @@ def highlight_cells(ws, top_n, reverse=False):
 
 def create_excel_for_top(df_max_rps, top):
     df_max_rps = df_max_rps[df_max_rps["top"] == top]
-    df_total_time = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'], values='total_time')
-    df_mean_time = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'], values='mean_time')
-    df_precision = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'], values='precision')
-    df_rps = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction', ], values='rps')
+    df_total_time = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['data_type', 'graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'], values='total_time')
+    df_mean_time = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['data_type', 'graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'], values='mean_time')
+    df_precision = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['data_type', 'graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'], values='precision')
+    df_rps = df_max_rps.pivot(index=['parallel', 'ws_search'], columns=['data_type', 'graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction', ], values='rps')
 
     df_uploading_time = pd.DataFrame.from_dict(settings, orient='index')[['uploading_time']]
     df_used_memory = pd.DataFrame.from_dict(settings, orient='index')[['used_memory']]
@@ -151,6 +151,7 @@ for file in files:
             experiment_name = data["params"]["experiment"]
             result["parallel"] = data["params"]["parallel"]
             result["top"] = data["params"].get("top", 100)
+            result["data_type"] = data["params"]["search_params"].get("data_type", "FLOAT32")
             result["total_time"] = data["results"]["total_time"]
             result["mean_time"] = data["results"]["mean_time"]
             result["precision"] = data["results"]["mean_precisions"]
@@ -169,7 +170,7 @@ with open(result_json_path, "w") as f:
 
 df = pd.DataFrame(results)
 
-idx = df.groupby(['parallel', 'ws_search', 'graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'])['rps'].idxmax()
+idx = df.groupby(['parallel', 'ws_search', 'data_type', 'graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'])['rps'].idxmax()
 df_max_rps = df.loc[idx]
 create_excel_for_top(df_max_rps, 10)
 create_excel_for_top(df_max_rps, 100)
