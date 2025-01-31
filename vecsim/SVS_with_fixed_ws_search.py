@@ -127,12 +127,13 @@ def create_excel_for_top(df_max_rps, top):
 
 paths = []
 path = os.getcwd()
-files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+files = [f for f in os.listdir(path) if (os.path.isfile(os.path.join(path, f))) and (f.endswith('.json')) ]
 settings = {}
 results = []
 for file in files:
-    if "upload" in file:
+    if "upload"  in file:
         with open(os.path.join(path, file)) as f:
+            print(file) 
             data = json.load(f)
             experiment_name = data["params"]["experiment"]
             configuration = {}
@@ -143,9 +144,11 @@ for file in files:
             configuration["uploading_time"] = data["results"]["total_time"]
             configuration["used_memory"] = data["results"]["memory_usage"]["used_memory"][0]
             settings[experiment_name] = configuration
+
 for file in files:
     if not "upload" in file:
         with open(os.path.join(path, file)) as f:
+            print(file) 
             data = json.load(f)
             result = {}
             experiment_name = data["params"]["experiment"]
@@ -164,6 +167,7 @@ for file in files:
             results.append(result)
 
 result_json_path = os.path.join(path, "summary/results.json")
+os.makedirs(os.path.dirname(result_json_path), exist_ok=True)
 with open(result_json_path, "w") as f:
     json.dump(results, f)
 
@@ -173,5 +177,5 @@ df = pd.DataFrame(results)
 idx = df.groupby(['parallel', 'ws_search', 'data_type', 'graph_degree', 'num_threads', 'top', 'quantization', 'ws_construction'])['rps'].idxmax()
 df_max_rps = df.loc[idx]
 create_excel_for_top(df_max_rps, 10)
-create_excel_for_top(df_max_rps, 100)
+#create_excel_for_top(df_max_rps, 100)
 
