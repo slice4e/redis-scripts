@@ -11,7 +11,8 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         cd -
     fi
 
-    REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search-community/redisearch.so
+    #REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release/search-community/redisearch.so
+    REDISEARCH_LIB=$REDISEARCH_PATH/bin/linux-x64-release-profile/search-community/redisearch.so
 
     if [[ ! -e $REDISEARCH_LIB ]]; then
         echo "Rediseach library not found in $REDISEARCH_LIB"

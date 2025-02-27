@@ -72,10 +72,12 @@ WORKER_THREADS=5
 DATASET_SIZE="1M"
 
 # Choose the parameters of Redis index:
+# ALGO: \"svs\", \"svs_tiered\", \"hnsw\"
 # M -> Number of maximum allowed outgoing edges for each node in the graph in each layer. on layer zero the maximal number of outgoing edges will be 2M
 # EF_CONSTRUCTION -> Number of maximum allowed potential outgoing edges candidates for each node in the graph, during the graph building.
 # Available combinations: M16 EF128, M32 EF 128, M32 EF256, M32 EF512, M64 EF256, M64 EF512
 
+ALGO=\"svs_tiered\"
 M=32
 EF_CONSTRUCTION=256
 
