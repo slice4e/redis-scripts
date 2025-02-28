@@ -108,14 +108,15 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
         \"connection_params\": {},
         \"collection_params\": {
             \"algorithm\": \"${ALGO}\",
-            \"svs_config\": { \"NUM_THREADS\": 1, \"GRAPH_DEGREE\": ${M}, \"WS_CONSTRUCTION\": ${EF_CONSTRUCTION} }
+	    \"data_type\": \"FLOAT32\",
+	    \"${ALGO}_config\": { \"NUM_THREADS\": 16, \"GRAPH_DEGREE\": ${M}, \"WS_CONSTRUCTION\": ${EF_CONSTRUCTION}, \"QUANTIZATION\": ${QUANT} }
         },
         \"search_params\": [
             	{ \"parallel\": ${PARALLEL}, \"algorithm\": \"${ALGO}\", \"top\": 10, 
 	   		\"search_params\": { \"WS_SEARCH\": ${EF_SEARCH}, \"data_type\": \"FLOAT32\"}
   	 	}
         ],
-        \"upload_params\": { \"parallel\": 16 }
+        \"upload_params\": { \"parallel\": 128, \"data_type\": \"FLOAT32\", \"algorithm\": \"${ALGO}\" }
     }]" 
  
     echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
