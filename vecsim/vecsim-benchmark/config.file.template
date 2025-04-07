@@ -9,13 +9,17 @@ SKIP_SETUP=0      # Set SKIP_SETUP to 1 to skip setup of redis
 ##########################
 
 REDIS_PATH=$HOME_PATH/redis
-REDIS_BRANCH=7.2   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+REDIS_BRANCH=8.0   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
 USE_NUMACTL=1
 NUMA_NODES=0,1      # Provide numa nodes after semicolon
 PORT=9000
 
-REDISEARCH_PATH=$HOME_PATH/redisearch
-REDISEARCH_BRANCH=v2.8.11   #this branch will be installed in case Redisearch is not already installed in REDISEARCH_PATH
+##########################
+# Redisearch settings #
+##########################
+# Boost in needed by Redisearch
+BOOST_PATH=$HOME_PATH/boost_1_82_0
+REDISEARCH_WORKERS=1
 
 ##########################
 # SSH Settings #
@@ -32,7 +36,7 @@ SSH_KEY_NAME=id_rsa
 RUN_EMON=false
 EMON_HOME=/opt/intel/emon  # emon path of the Server and client
 EMON_FOLDER=$EMON_HOME/bin64  # emon path of the Server and client
-EMON_CONFIG_FILE=$HOME_DIR/redis-scripts/pyedp_config.txt
+EMON_CONFIG_FILE=$HOME_PATH/redis-scripts/pyedp_config.txt
 
 ##########################
 # Redis cluster settings #
@@ -48,7 +52,7 @@ CLUSTER_TIMEOUT=50000
 # Redis Enterprise settings #
 ##########################
 REDIS_ENTERPRISE=0            # Set value of this variable to 1 to run Redis Enterprise instead of open source
-LICENSE_PATH=$HOME_DIR/license.txt
+LICENSE_PATH=$HOME_PATH/license.txt
 RE_SERVERS=("1.2.3.4" "2.3.4.5" "3.4.5.6") # List of servers that will run RE cluster, first server will be used as master
 CLUSTER_MASTER=1.2.3.4 # Ip of cluster master it also need to be listed in RE_SERVERS variable
 RE_URL=https://s3.amazonaws.com/redis-enterprise-software-downloads/7.4.2/redislabs-7.4.2-104-focal-amd64.tar
