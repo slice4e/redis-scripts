@@ -1,3 +1,28 @@
+##########################
+# General benchmarking methodology
+# 
+# Redis recommends about 25 GB of data per shard, to satisfy performance and high-availablility requirements. 
+# Each shard can utilize at most REDISEARCH_WORKERS=16 parallel workers.
+#
+# Example 1: Saturate 128 vCPUs.  
+# To saturate 128 vCPUs, we needs REDISEARCH_WORKERS=16 and 8 shards. 
+# In addition, since we expect about 25GB of data per shard, we need about 200GB of data. 
+# Since since we consume approximately 6GB of memory capacity per M vectors, we need at least 33M vectors. 
+# The closest vector-db-bencnmark supports is 40M vectors. Thus, we can configure our benchmark with 
+# 8 shards, 16 workers per shard and 40M vectors. 
+#
+# Example 2: Benchmark a large dataset with 200M vectors
+# Since we consume approximately 6GB of memory capacity per M vectors, we can expect 200M vectors to consume about 1.2TB of data. 
+# Since Redis recommends about 25GB per shard, we need to create 48 shards. 
+# For best performance, we can utilize REDISEARCH_WORKERS=16 per shard. 
+# Thus, we need 16 workers * 48 shards = 768 vCPUs. 
+# In this case, we could utilize a cluster of 4 machines with 192 vCPUs each. 
+#
+# In all cases, when we compare performance results (RPS), we need to compare at the same precision. 
+# When increasing the number of shards, precision will increase, since each shard responds with top K results. 
+##########################
+
+
 PYTHON_PATH=/usr/bin/python3
 HOME_PATH=/root
 VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
