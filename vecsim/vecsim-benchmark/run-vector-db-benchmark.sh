@@ -71,12 +71,12 @@ if [[ ! -d $VECTORDB_BENCHMARK_PATH ]]; then
     echo "Couldn't find Vector DB Benchmark in $VECTORDB_BENCHMARK_PATH, cloning it now ..."
     git clone -b update.redisearch https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH"
     cd "$VECTORDB_BENCHMARK_PATH"
-    git checkout 1dcb421556448a285aaf84022302183749c459b7
+#    git checkout 1dcb421556448a285aaf84022302183749c459b7
     cd -
 else
     cd "$VECTORDB_BENCHMARK_PATH" || exit
     git pull origin update.redisearch
-    git checkout 1dcb421556448a285aaf84022302183749c459b7
+#    git checkout 1dcb421556448a285aaf84022302183749c459b7
     cd -
 fi
 
