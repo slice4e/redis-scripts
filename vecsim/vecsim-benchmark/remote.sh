@@ -16,17 +16,11 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         cd -
     fi
 
-    if $SSH_COMMAND [[ ! -d "$BOOST_PATH" ]]; then
-        echo "BOOST not found in $BOOST_PATH, downloading it ..."
-        $SSH_COMMAND "cd $HOME_PATH && wget https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz " 
-        $SSH_COMMAND "cd $HOME_PATH && tar -xvzf boost_1_82_0.tar.gz && cd - " 
-    fi
-
     REDISEARCH_LIB=$REDIS_PATH/modules/redisearch/src/bin/linux-x64-release/search-community/redisearch.so
 
     if $SSH_COMMAND [ ! -e \"$REDISEARCH_LIB\" ]; then
         echo "Rediseach library not found in $REDISEARCH_LIB"
-	$SSH_COMMAND "cd $REDIS_PATH/modules/redisearch && BOOST_DIR=$BOOST_PATH make && cd - "
+	$SSH_COMMAND "cd $REDIS_PATH/modules/redisearch && make && cd - "
     fi
 
     #---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------

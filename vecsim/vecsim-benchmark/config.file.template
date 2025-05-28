@@ -43,7 +43,6 @@ PORT=9000
 # Redisearch settings #
 ##########################
 # Boost in needed by Redisearch
-BOOST_PATH=$HOME_PATH/boost_1_82_0
 REDISEARCH_WORKERS=1
 
 ##########################
