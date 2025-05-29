@@ -103,22 +103,23 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
     #---------------------------------------------- Dynamically Generate a vector db benchmark configuation file -----------------------------------------------
 
     OUT="[
-        {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}\",
+        {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}-${DATA_TYPE}\",
         \"engine\": \"redis\",
         \"connection_params\": {},
         \"collection_params\": {
+            \"data_type\": \"${DATA_TYPE}\",
             \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} }
         },
         \"search_params\": [
-            { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH} } }
+            { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH}, \"data_type\": \"${DATA_TYPE}\" } }
         ],
-        \"upload_params\": { \"parallel\": 100, \"batch_size\": 100 }
+        \"upload_params\": { \"parallel\": 100, \"batch_size\": 100, \"data_type\": \"${DATA_TYPE}\" }
     }]" 
  
     echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
 
     #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
-    ENGINE_APPEND="-parallel-$PARALLEL"
+    ENGINE_APPEND="-parallel-$PARALLEL-${DATA_TYPE}"
 else
     ENGINE_APPEND=""
 fi

@@ -106,6 +106,7 @@ CREATE_DYNAMICALLY=1 # Set value of this variable to 1 to create custom benchmar
 # Number of parallel clients
 PARALLEL=8
 EF_SEARCH=128
+DATA_TYPE=FLOAT16
 
 
 ##########################
