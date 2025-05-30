@@ -102,6 +102,27 @@ done
 if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
     #---------------------------------------------- Dynamically Generate a vector db benchmark configuation file -----------------------------------------------
 
+    # Check if EF_SEARCH has "," in it, if so, we will create multiple search params
+    if [[ "$EF_SEARCH" == *,* ]]; then
+        SEARCH_PARAMS_JSON="["
+        IFS=',' read -ra EF_LIST <<< "$EF_SEARCH"
+        for idx in "${!EF_LIST[@]}"; do
+            ef_val="${EF_LIST[$idx]}"
+            SEARCH_PARAMS_JSON+="
+                { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${ef_val}, \"data_type\": \"${DATA_TYPE}\" } }"
+            # Add comma if not the last element
+            if [[ $idx -lt $((${#EF_LIST[@]}-1)) ]]; then
+                SEARCH_PARAMS_JSON+=","
+            fi
+        done
+        SEARCH_PARAMS_JSON+="
+            ]"
+    else
+        SEARCH_PARAMS_JSON="[
+                { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH}, \"data_type\": \"${DATA_TYPE}\" } }
+            ]"
+    fi
+
     OUT="[
         {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}-${DATA_TYPE}\",
         \"engine\": \"redis\",
@@ -110,13 +131,11 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
             \"data_type\": \"${DATA_TYPE}\",
             \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} }
         },
-        \"search_params\": [
-            { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH}, \"data_type\": \"${DATA_TYPE}\" } }
-        ],
+        \"search_params\": $SEARCH_PARAMS_JSON,
         \"upload_params\": { \"parallel\": 128, \"data_type\": \"${DATA_TYPE}\" }
     }]" 
  
-    echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
+    echo "$OUT" > "$VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json"
 
     #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
     ENGINE_APPEND="-parallel-$PARALLEL-${DATA_TYPE}"

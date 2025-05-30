@@ -105,6 +105,7 @@ M=32
 EF_CONSTRUCTION=256
 
 CREATE_DYNAMICALLY=1 # Set value of this variable to 1 to create custom benchmark scenario (from M, EF_CONSTRUCTION, EF_SEARCH and PARALLEL)
+# You can provide multiple EF_SEARCH to run search on more than one configuration for example: EF_SEARCH=90,100,110
 # Number of parallel clients
 PARALLEL=8
 EF_SEARCH=128
