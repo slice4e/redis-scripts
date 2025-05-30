@@ -113,7 +113,7 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
         \"search_params\": [
             { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH}, \"data_type\": \"${DATA_TYPE}\" } }
         ],
-        \"upload_params\": { \"parallel\": 100, \"batch_size\": 100, \"data_type\": \"${DATA_TYPE}\" }
+        \"upload_params\": { \"parallel\": 128, \"data_type\": \"${DATA_TYPE}\" }
     }]" 
  
     echo $OUT > $VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json
@@ -149,7 +149,7 @@ if [[ ${RUN_EMON} == true ]]; then
     fi
 fi
 
-REPETITIONS=1 REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-upload
+REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
 
 if [[ ${RUN_EMON} == true ]]; then
     echo "Stopping emon..."

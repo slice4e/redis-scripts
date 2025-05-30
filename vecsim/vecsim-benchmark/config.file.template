@@ -93,6 +93,8 @@ WORKER_THREADS=5
 # We consume roughtly 6GB of memory capacity per M vectors. 
 
 DATASET_SIZE="1M"
+REPETITIONS=1
+QUERIES=10000
 
 # Choose the parameters of Redis index:
 # M -> Number of maximum allowed outgoing edges for each node in the graph in each layer. on layer zero the maximal number of outgoing edges will be 2M
