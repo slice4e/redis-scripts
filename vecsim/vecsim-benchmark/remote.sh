@@ -18,9 +18,16 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
 
     REDISEARCH_LIB=$REDIS_PATH/modules/redisearch/src/bin/linux-x64-release/search-community/redisearch.so
 
-    if $SSH_COMMAND [ ! -e \"$REDISEARCH_LIB\" ]; then
-        echo "Rediseach library not found in $REDISEARCH_LIB"
-	$SSH_COMMAND "cd $REDIS_PATH/modules/redisearch && make && cd - "
+    if [[ "$VECTOR_SEARCH" != "vectorsets" ]]; then
+        if $SSH_COMMAND [ ! -f "$REDISEARCH_LIB" ]; then
+            echo "Redisearch not found in $REDISEARCH_LIB, downloading it ..."
+            $SSH_COMMAND "cd $REDIS_PATH/modules/redisearch && make"
+        fi
+    fi
+
+    LOADMODULE_OPTION=""
+    if [[ "$VECTOR_SEARCH" != "vectorsets" ]]; then
+        LOADMODULE_OPTION="--loadmodule $REDISEARCH_LIB WORKERS $REDISEARCH_WORKERS"
     fi
 
     #---------------------------------------------- Run Redis Instance with Redisearch module ----------------------------------------------------------
@@ -48,16 +55,16 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         $SSH_COMMAND "echo "CLUSTER_HOST=$TARGET" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "USE_NUMACTL=$USE_NUMACTL" >> $REDISCLUSTER_CONFIG"
         $SSH_COMMAND "echo "NUMA_NODES=$NUMA_NODES" >> $REDISCLUSTER_CONFIG"
-        $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--save \"\" --loadmodule \"$REDISEARCH_LIB\" WORKERS 4 --protected-mode no --appendonly no'\" >> \"$REDISCLUSTER_CONFIG\""
+        $SSH_COMMAND "echo \"ADDITIONAL_OPTIONS='--save \"\" --protected-mode no --appendonly no $LOADMODULE_OPTION'\" >> \"$REDISCLUSTER_CONFIG\""
         $SSH_COMMAND "cd $REDIS_PATH/utils/create-cluster && $REDISCLUSTER_SCRIPT start && echo "yes" | $REDISCLUSTER_SCRIPT create && cd -"
         sleep 5
     else
 	if [ "$USE_NUMACTL" -eq 1 ]; then
-        	cmd="numactl -m ${NUMA_NODES} -N ${NUMA_NODES} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\" --appendonly no"
+        	cmd="numactl -m ${NUMA_NODES} -N ${NUMA_NODES} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --save \"\" --appendonly no $LOADMODULE_OPTION"
         	echo -e $cmd
         	nohup $SSH_COMMAND "$cmd &" &
 	else
-        	cmd="$REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --loadmodule $REDISEARCH_LIB --save \"\" --appendonly no"
+        	cmd="$REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --bind $TARGET --protected-mode no --logfile $REDIS_PATH/server.log --save \"\" --appendonly no $LOADMODULE_OPTION"
         	echo -e $cmd
         	nohup $SSH_COMMAND "$cmd &" &
 

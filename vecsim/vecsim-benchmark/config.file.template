@@ -36,6 +36,7 @@ SKIP_SETUP=0      # Set SKIP_SETUP to 1 to skip setup of redis
 REDIS_PATH=$HOME_PATH/redis
 REDIS_BRANCH=8.0   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
 USE_NUMACTL=1
+VECTOR_SEARCH=redisearch     # set this to either redisearch for benchmarking redisearch vector search or vectorsets for benchmarking vectorsets
 NUMA_NODES=0,1      # Provide numa nodes after semicolon
 PORT=9000
 
