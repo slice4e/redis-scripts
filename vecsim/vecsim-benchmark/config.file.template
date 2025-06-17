@@ -91,7 +91,8 @@ WORKER_THREADS=5
 ##########################
 # Choose dataset size for benchmarking vector db, please choose from: 1M, 10M, 20M, 40M, 100M, 200M, 400M
 # We consume roughtly 6GB of memory capacity per M vectors. 
-
+USE_NUMACTL_CLIENT=0
+NUMA_NODES_CLIENT=0,1
 DATASET_SIZE="1M"
 REPETITIONS=1
 QUERIES=10000

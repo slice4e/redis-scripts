@@ -143,6 +143,14 @@ else
     ENGINE_APPEND=""
 fi
 
+# NUMA PREFIX
+if [ "$USE_NUMACTL_CLIENT" -eq 1 ]; then
+    NUMACTL_PREFIX="numactl -N $NUMA_NODES_CLIENT -m $NUMA_NODES_CLIENT"
+else
+    NUMACTL_PREFIX=""
+fi
+
+
 # STAGE DOWNLOAD
 DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/laion-img-emb-512/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
 if [[ ! -e $DATASET_PATH ]]; then
@@ -151,7 +159,7 @@ fi
 
 # STAGE UPLOAD
 if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
-    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
 fi
 
 # STAGE RUN
@@ -168,7 +176,7 @@ if [[ ${RUN_EMON} == true ]]; then
     fi
 fi
 
-REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
+REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
 
 if [[ ${RUN_EMON} == true ]]; then
     echo "Stopping emon..."
