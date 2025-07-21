@@ -154,8 +154,12 @@ fi
 
 # STAGE DOWNLOAD
 DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/laion-img-emb-512/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
+
+# Ensure the parent directory exists
+mkdir -p "$(dirname "$DATASET_PATH")"
+
 if [[ ! -e $DATASET_PATH ]]; then
-    wget -O $DATASET_PATH http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
+    wget -q -O $DATASET_PATH http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
 fi
 
 # STAGE UPLOAD

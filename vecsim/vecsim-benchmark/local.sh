@@ -7,6 +7,7 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
         git clone https://github.com/redis/redis $REDIS_PATH
         cd $REDIS_PATH
         git checkout $REDIS_BRANCH
+	export BUILD_TLS=yes BUILD_WITH_MODULES=yes INSTALL_RUST_TOOLCHAIN=yes DISABLE_WERRORS=yes
         make -j REDIS_CFLAGS="-g -fno-omit-frame-pointer"
         cd -
     fi
