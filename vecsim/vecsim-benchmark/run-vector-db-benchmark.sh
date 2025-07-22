@@ -123,18 +123,27 @@ if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
             ]"
     fi
 
-    OUT="[
-        {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}-${DATA_TYPE}\",
-        \"engine\": \"redis\",
-        \"connection_params\": {},
-        \"collection_params\": {
+    if [[ "$VECTOR_SEARCH" == "vectorsets" ]]; then
+        COLLECTION_PARAMS="{}"
+        UPLOAD_PARAMS="{ \"parallel\": 128, \"data_type\": \"${DATA_TYPE}\", \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} } }"
+        ENGINE_NAME="vectorsets"
+    else
+        COLLECTION_PARAMS="{
             \"data_type\": \"${DATA_TYPE}\",
             \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} }
-        },
+        }"
+        UPLOAD_PARAMS="{ \"parallel\": 128, \"data_type\": \"${DATA_TYPE}\" }"
+        ENGINE_NAME="redis"
+    fi
+
+    OUT="[
+        {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}-${DATA_TYPE}\",
+        \"engine\": \"${ENGINE_NAME}\",
+        \"connection_params\": {},
+        \"collection_params\": $COLLECTION_PARAMS,
         \"search_params\": $SEARCH_PARAMS_JSON,
-        \"upload_params\": { \"parallel\": 128, \"data_type\": \"${DATA_TYPE}\" }
+        \"upload_params\": $UPLOAD_PARAMS
     }]" 
- 
     echo "$OUT" > "$VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json"
 
     #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
@@ -153,8 +162,12 @@ fi
 
 # STAGE DOWNLOAD
 DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/laion-img-emb-512/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
+
+# Ensure the parent directory exists
+mkdir -p "$(dirname "$DATASET_PATH")"
+
 if [[ ! -e $DATASET_PATH ]]; then
-    wget -O $DATASET_PATH http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
+    wget -q -O $DATASET_PATH http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
 fi
 
 # STAGE UPLOAD
