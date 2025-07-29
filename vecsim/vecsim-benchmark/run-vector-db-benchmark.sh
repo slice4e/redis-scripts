@@ -1,9 +1,4 @@
 #!/bin/bash
-#------------------------------------------------------ check if user is sudo or root ---------------------------------------------------------------
-if [ "$(id -u)" -ne 0 ]; then
-	  echo "This script must be run as root."
-	    exit 1
-fi
 
 #------------------------------------------------------ load config and variables file ---------------------------------------------------------------
 # Read the config file
@@ -82,10 +77,10 @@ fi
 
 #------------------------------- install python requirements for vector-db-benchmark ----------------------------------------------------------------
 
-# Installing python packages with root is not the best way to do it TODO: Figure out how to change it
+# Installing python packages for user (not requiring root privileges)
 if [[ -x "$PYTHON_PATH" ]]; then
-    "$PYTHON_PATH" -m pip install poetry
-    "$PYTHON_PATH" -m pip install -r $SCRIPT_DIR/requirements-vdb.txt
+    "$PYTHON_PATH" -m pip install --user poetry
+    "$PYTHON_PATH" -m pip install --user -r $SCRIPT_DIR/requirements-vdb.txt
 else
     echo "Invalid PYTHON_PATH: $PYTHON_PATH"
     exit 1

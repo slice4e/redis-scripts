@@ -1,6 +1,14 @@
 #----------------------------------- Check if Redis and RediSearch module exists if not prepare them ------------------------------------------------
 if [ ! "$SKIP_SETUP" -eq 1 ]; then
-    apt-get install -y numactl
+    # Check if numactl is available, install if running as root or warn if not available
+    if ! command -v numactl >/dev/null 2>&1; then
+        if [ "$EUID" -eq 0 ]; then
+            sudo apt-get install -y numactl
+        else
+            echo "Warning: numactl is not installed. You may need to install it manually with: sudo apt-get install numactl"
+            echo "Continuing without numactl..."
+        fi
+    fi
 
     if [[ ! -d "$REDIS_PATH" ]]; then
         echo "Redis not found in $REDIS_PATH, downloading it ..."

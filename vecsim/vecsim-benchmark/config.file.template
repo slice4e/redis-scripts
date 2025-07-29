@@ -24,7 +24,7 @@
 
 
 PYTHON_PATH=/usr/bin/python3
-HOME_PATH=/root
+HOME_PATH=$HOME
 VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
 SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip uploading the data -> run benchmark on existing redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
 SKIP_SETUP=0      # Set SKIP_SETUP to 1 to skip setup of redis
@@ -36,14 +36,13 @@ SKIP_SETUP=0      # Set SKIP_SETUP to 1 to skip setup of redis
 REDIS_PATH=$HOME_PATH/redis
 REDIS_BRANCH=8.0   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
 USE_NUMACTL=1
-VECTOR_SEARCH=redisearch     # set this to either redisearch for benchmarking redisearch vector search or vectorsets for benchmarking vectorsets
+VECTOR_SEARCH=redisearch     # set this to either redisearch or vectorsets 
 NUMA_NODES=0,1      # Provide numa nodes after semicolon
 PORT=9000
 
 ##########################
 # Redisearch settings #
 ##########################
-# Boost in needed by Redisearch
 REDISEARCH_WORKERS=1
 
 ##########################
