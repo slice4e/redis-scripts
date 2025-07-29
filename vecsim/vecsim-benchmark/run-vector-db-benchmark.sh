@@ -47,15 +47,15 @@ else
     if [[ ${SERVER_REMOTE} == true ]]; then
         if [ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]; then
             TARGET=$CLUSTER_MASTER
-            source "./remote_multiple_servers.sh"
         else
             TARGET=$SERVER_IP
-            source "./remote.sh"
         fi
     else
         TARGET="localhost"
-        source "./local.sh"
     fi
+    
+    # Use unified Redis setup script
+    source "./redis_setup.sh"
 fi
 
 
@@ -77,13 +77,35 @@ fi
 
 #------------------------------- install python requirements for vector-db-benchmark ----------------------------------------------------------------
 
-# Installing python packages for user (not requiring root privileges)
-if [[ -x "$PYTHON_PATH" ]]; then
-    "$PYTHON_PATH" -m pip install --user poetry
-    "$PYTHON_PATH" -m pip install --user -r $SCRIPT_DIR/requirements-vdb.txt
+# Set up Python virtual environment path
+VENV_PATH="$HOME_PATH/venv-redis-benchmark"
+
+# Create virtual environment if it doesn't exist locally
+if [[ ! -d "$VENV_PATH" ]]; then
+    echo "Creating Python virtual environment at $VENV_PATH..."
+    python3 -m venv "$VENV_PATH"
+fi
+
+# Use Python from virtual environment
+VENV_PYTHON="$VENV_PATH/bin/python"
+
+# Installing python packages in virtual environment
+if [[ -x "$VENV_PYTHON" ]]; then
+    echo "Installing Python packages in virtual environment..."
+    "$VENV_PYTHON" -m pip install --upgrade pip
+    "$VENV_PYTHON" -m pip install poetry
+    "$VENV_PYTHON" -m pip install -r $SCRIPT_DIR/requirements-vdb.txt
 else
-    echo "Invalid PYTHON_PATH: $PYTHON_PATH"
-    exit 1
+    echo "Virtual environment Python not found at: $VENV_PYTHON"
+    echo "Falling back to system Python..."
+    if [[ -x "$PYTHON_PATH" ]]; then
+        "$PYTHON_PATH" -m pip install --user poetry
+        "$PYTHON_PATH" -m pip install --user -r $SCRIPT_DIR/requirements-vdb.txt
+        VENV_PYTHON="$PYTHON_PATH"
+    else
+        echo "Invalid PYTHON_PATH: $PYTHON_PATH"
+        exit 1
+    fi
 fi
 
 Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping )
@@ -167,7 +189,7 @@ fi
 
 # STAGE UPLOAD
 if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
-    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $VENV_PYTHON $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
 fi
 
 # STAGE RUN
@@ -184,7 +206,7 @@ if [[ ${RUN_EMON} == true ]]; then
     fi
 fi
 
-REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
+REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $VENV_PYTHON $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
 
 if [[ ${RUN_EMON} == true ]]; then
     echo "Stopping emon..."
