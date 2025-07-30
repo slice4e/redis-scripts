@@ -91,11 +91,12 @@ WORKER_THREADS=5
 ##########################
 # Benchmark settings #
 ##########################
-# Choose dataset size for benchmarking vector db, please choose from: 1M, 10M, 20M, 40M, 100M, 200M, 400M
+# Choose dataset size for benchmarking vector db, available datasets:
+# laion-512-1M, laion-512-10M, laion-512-20M, laion-512-40M, laion-512-100M, laion-512-200M, laion-512-400M, laion-768-1M, dbpedia-1536-1M, cohere-768-1M
 # We consume roughtly 6GB of memory capacity per M vectors. 
 USE_NUMACTL_CLIENT=0
 NUMA_NODES_CLIENT=0,1
-DATASET_SIZE="1M"
+DATASET="laion-512-1M"
 REPETITIONS=1
 QUERIES=10000
 
