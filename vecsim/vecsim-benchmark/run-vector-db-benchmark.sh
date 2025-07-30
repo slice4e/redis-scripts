@@ -1,30 +1,65 @@
 #!/bin/bash
 
-#------------------------------------------------------ load config and variables file ---------------------------------------------------------------
-# Read the config file
-if [ "$1" != "" ]; then
-	config_file=$1
-else
-	config_file="./config.file"
-fi
+# Logging functions
+log_info() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [benchmark] [INFO] $*"
+}
 
-# Check if the file exists
-if [ ! -f "$config_file" ]; then
-  echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
-  exit 1
-fi
+log_warn() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [benchmark] [WARN] $*" >&2
+}
 
-source $config_file
+log_error() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [benchmark] [ERROR] $*" >&2
+}
 
-if [[ ! -e "./variables.file" ]]; then
-    # TODO: Add redisearch building
-    echo "Variables file does not exist."
-    exit 1
-fi
-
-source "./variables.file"
-
+# Constants
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+VENV_DIR_NAME="venv-redis-benchmark"
+
+#------------------------------------------------------ load config and variables file ---------------------------------------------------------------
+
+# Function to load configuration files
+load_configuration() {
+    local config_file="${1:-./config.file}"
+    
+    log_info "Loading configuration from: $config_file"
+    
+    # Check if the config file exists
+    if [[ ! -f "$config_file" ]]; then
+        log_error "The config file '$config_file' does not exist."
+        echo ""
+        echo "Available configuration files in current directory:"
+        ls -1 *.file 2>/dev/null || echo "  No *.file found"
+        echo ""
+        echo "You can create a configuration file using the template:"
+        echo "  cp config.file.template config.file"
+        echo "  # Edit config.file with your settings"
+        echo ""
+        echo "Or specify a different config file:"
+        echo "  $0 <config_file>"
+        echo "  Example: $0 ./my-config.file"
+        exit 1
+    fi
+    
+    # Source the config file
+    source "$config_file"
+    
+    # Check for variables file
+    if [[ ! -e "./variables.file" ]]; then
+        log_error "Variables file does not exist."
+        exit 1
+    fi
+    
+    source "./variables.file"
+    log_info "Configuration loaded successfully"
+    
+    # Set the dataset name from the associative array to avoid arithmetic evaluation issues
+    DATASET_NAME=${DATASET_DICT["$DATASET_SIZE"]}
+}
+
+# Load configuration
+load_configuration "${1:-}"
 SOURCE_SCRIPT=$(dirname $(dirname "$SCRIPT_DIR"))/shared-scripts/set_ssh.sh
 
 if [ "$REDIS_ENTERPRISE" -eq 1 ]; then
@@ -60,53 +95,100 @@ fi
 
 
 
-# #------------------------------- check if vector-db-benchmark directory exists if not pull it from github -------------------------------------------
-
-if [[ ! -d $VECTORDB_BENCHMARK_PATH ]]; then
-    echo "Couldn't find Vector DB Benchmark in $VECTORDB_BENCHMARK_PATH, cloning it now ..."
-    git clone -b update.redisearch https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH"
-    cd "$VECTORDB_BENCHMARK_PATH"
-#    git checkout 1dcb421556448a285aaf84022302183749c459b7
-    cd -
-else
-    cd "$VECTORDB_BENCHMARK_PATH" || exit
-    git pull origin update.redisearch
-#    git checkout 1dcb421556448a285aaf84022302183749c459b7
-    cd -
-fi
-
-#------------------------------- install python requirements for vector-db-benchmark ----------------------------------------------------------------
-
-# Set up Python virtual environment path
-VENV_PATH="$HOME_PATH/venv-redis-benchmark"
-
-# Create virtual environment if it doesn't exist locally
-if [[ ! -d "$VENV_PATH" ]]; then
-    echo "Creating Python virtual environment at $VENV_PATH..."
-    python3 -m venv "$VENV_PATH"
-fi
-
-# Use Python from virtual environment
-VENV_PYTHON="$VENV_PATH/bin/python"
-
-# Installing python packages in virtual environment
-if [[ -x "$VENV_PYTHON" ]]; then
-    echo "Installing Python packages in virtual environment..."
-    "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip install poetry
-    "$VENV_PYTHON" -m pip install -r $SCRIPT_DIR/requirements-vdb.txt
-else
-    echo "Virtual environment Python not found at: $VENV_PYTHON"
-    echo "Falling back to system Python..."
-    if [[ -x "$PYTHON_PATH" ]]; then
-        "$PYTHON_PATH" -m pip install --user poetry
-        "$PYTHON_PATH" -m pip install --user -r $SCRIPT_DIR/requirements-vdb.txt
-        VENV_PYTHON="$PYTHON_PATH"
+# Function to setup vector-db-benchmark repository
+setup_vectordb_benchmark() {
+    log_info "Setting up vector-db-benchmark repository..."
+    
+    if [[ ! -d "$VECTORDB_BENCHMARK_PATH" ]]; then
+        log_info "Cloning vector-db-benchmark from GitHub..."
+        if ! git clone -b update.redisearch https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH"; then
+            log_error "Failed to clone vector-db-benchmark repository"
+            return 1
+        fi
     else
-        echo "Invalid PYTHON_PATH: $PYTHON_PATH"
-        exit 1
+        log_info "Updating existing vector-db-benchmark repository..."
+        cd "$VECTORDB_BENCHMARK_PATH" || exit
+        git pull origin update.redisearch
+        cd -
     fi
-fi
+}
+
+# Function to wait for Redis to be ready
+wait_for_redis() {
+    local max_attempts=${1:-60}
+    local attempt=0
+    
+    log_info "Waiting for Redis server to be ready on $TARGET:$PORT..."
+    
+    while [[ $attempt -lt $max_attempts ]]; do
+        if redis_ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping 2>/dev/null) && [[ $redis_ping == *"PONG"* ]]; then
+            log_info "Redis server is ready!"
+            return 0
+        fi
+        
+        sleep 1
+        ((attempt++))
+        echo -ne "."
+    done
+    
+    log_error "Redis server did not become ready after $max_attempts seconds"
+    return 1
+}
+
+# Function to setup and activate Python virtual environment
+setup_python_environment() {
+    local venv_path="$HOME_PATH/$VENV_DIR_NAME"
+    
+    log_info "Setting up Python virtual environment..."
+    
+    # Create virtual environment if it doesn't exist locally
+    if [[ ! -d "$venv_path" ]]; then
+        log_info "Creating Python virtual environment at $venv_path..."
+        if ! python3 -m venv "$venv_path"; then
+            log_error "Failed to create virtual environment"
+            return 1
+        fi
+    fi
+    
+    # Activate the virtual environment
+    log_info "Activating virtual environment..."
+    source "$venv_path/bin/activate"
+    
+    # Verify activation worked
+    if [[ "$VIRTUAL_ENV" != "$venv_path" ]]; then
+        log_error "Failed to activate virtual environment"
+        return 1
+    fi
+    
+    log_info "Virtual environment activated: $VIRTUAL_ENV"
+    
+    # Install/upgrade packages in the activated environment
+    log_info "Installing Python packages in virtual environment..."
+    
+    if ! python -m pip install --upgrade pip; then
+        log_error "Failed to upgrade pip"
+        return 1
+    fi
+    
+    if ! python -m pip install poetry; then
+        log_error "Failed to install poetry"
+        return 1
+    fi
+    
+    if ! python -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt"; then
+        log_error "Failed to install requirements"
+        return 1
+    fi
+    
+    log_info "Python environment setup completed successfully"
+}
+
+# Setup Redis, vector-db-benchmark, and Python environment
+source "./redis_setup.sh"
+main  # Call the main function from redis_setup.sh to actually set up and start Redis
+setup_vectordb_benchmark
+setup_python_environment
+wait_for_redis
 
 Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping )
 echo "Waiting for redis server to be ready..."
@@ -189,7 +271,7 @@ fi
 
 # STAGE UPLOAD
 if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
-    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $VENV_PYTHON $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX python $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets $DATASET_NAME --host ${TARGET} --no-skip-if-exists --skip-search
 fi
 
 # STAGE RUN
@@ -206,7 +288,7 @@ if [[ ${RUN_EMON} == true ]]; then
     fi
 fi
 
-REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $VENV_PYTHON $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
+REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX python $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets $DATASET_NAME --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
 
 if [[ ${RUN_EMON} == true ]]; then
     echo "Stopping emon..."

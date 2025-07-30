@@ -6,30 +6,92 @@
 # Replaces: local.sh, remote.sh, remote_multiple_servers.sh
 #=======================================================================================================================
 
+# Global variables for logging
+LOG_LEVEL=${LOG_LEVEL:-"INFO"}
+SCRIPT_NAME="redis_setup"
+
+# Logging functions
+log_info() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${SCRIPT_NAME}] [INFO] $*"
+}
+
+log_warn() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${SCRIPT_NAME}] [WARN] $*" >&2
+}
+
+log_error() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${SCRIPT_NAME}] [ERROR] $*" >&2
+}
+
+# Constants - using regular variables since this script is sourced
+REDIS_REPO_URL="https://github.com/redis/redis"
+REDISEARCH_LIB_PATH="modules/redisearch/src/bin/linux-x64-release/search-community/redisearch.so"
+
+# Only define VENV_DIR_NAME if not already defined
+if [[ -z "${VENV_DIR_NAME:-}" ]]; then
+    VENV_DIR_NAME="venv-redis-benchmark"
+fi
+
+# Configuration defaults
+DEFAULT_BUILD_FLAGS="BUILD_TLS=yes BUILD_WITH_MODULES=yes INSTALL_RUST_TOOLCHAIN=yes DISABLE_WERRORS=yes"
+DEFAULT_REDIS_CFLAGS="-g -fno-omit-frame-pointer"
+
+# Function to validate required environment variables
+validate_environment() {
+    local required_vars=("REDIS_PATH" "HOME_PATH")
+    local missing_vars=()
+    
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var:-}" ]]; then
+            missing_vars+=("$var")
+        fi
+    done
+    
+    if [[ ${#missing_vars[@]} -gt 0 ]]; then
+        log_error "Missing required environment variables: ${missing_vars[*]}"
+        log_error "Please check your config.file"
+        exit 1
+    fi
+}
+
 # Function to execute commands either locally or remotely
+# Args: $1 = command, $2 = target_server
 execute_command() {
     local cmd="$1"
     local target_server="$2"
     
+    log_info "Executing on $target_server: $cmd"
+    
     if [[ "$SERVER_REMOTE" == "true" ]]; then
         local ssh_cmd="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${target_server}"
-        $ssh_cmd "$cmd"
+        if ! $ssh_cmd "$cmd"; then
+            log_error "Command failed on remote server $target_server: $cmd"
+            return 1
+        fi
     else
-        eval "$cmd"
+        if ! eval "$cmd"; then
+            log_error "Command failed locally: $cmd"
+            return 1
+        fi
     fi
 }
 
 # Function to execute commands in background (for server startup)
+# Args: $1 = command, $2 = target_server
 execute_command_background() {
     local cmd="$1"
     local target_server="$2"
     
+    log_info "Starting background process on $target_server: $cmd"
+    
     if [[ "$SERVER_REMOTE" == "true" ]]; then
         local ssh_cmd="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${target_server}"
-        nohup $ssh_cmd "$cmd &" &
+        nohup $ssh_cmd "$cmd &" > /dev/null 2>&1 &
     else
         eval "$cmd &"
     fi
+    
+    log_info "Background process started with PID: $!"
 }
 
 # Function to copy files to remote server
@@ -91,50 +153,89 @@ setup_python_venv() {
 }
 
 # Function to setup Redis
+# Args: $1 = target_server
 setup_redis() {
     local target_server="$1"
     
-    echo "Setting up Redis on $target_server..."
+    log_info "Setting up Redis on $target_server..."
     
-    # Check if Redis exists
+    # Check if Redis exists and build if necessary
     if execute_command "[ ! -d \"$REDIS_PATH\" ]" "$target_server"; then
-        echo "Redis not found in $REDIS_PATH, downloading it ..."
-        execute_command "git clone https://github.com/redis/redis $REDIS_PATH" "$target_server"
-        execute_command "cd $REDIS_PATH && git checkout $REDIS_BRANCH && export BUILD_TLS=yes BUILD_WITH_MODULES=yes INSTALL_RUST_TOOLCHAIN=yes DISABLE_WERRORS=yes && make -j REDIS_CFLAGS=\"-g -fno-omit-frame-pointer\" && cd -" "$target_server"
+        log_info "Redis not found in $REDIS_PATH, downloading and building..."
+        
+        # Clone Redis repository
+        execute_command "git clone $REDIS_REPO_URL $REDIS_PATH" "$target_server"
+        
+        # Build Redis with proper error handling
+        local build_cmd="cd $REDIS_PATH && git checkout $REDIS_BRANCH && export $DEFAULT_BUILD_FLAGS && make -j REDIS_CFLAGS=\"$DEFAULT_REDIS_CFLAGS\" && cd -"
+        
+        if ! execute_command "$build_cmd" "$target_server"; then
+            log_error "Failed to build Redis on $target_server"
+            return 1
+        fi
+        
+        log_info "Redis successfully built on $target_server"
+    else
+        log_info "Redis already exists at $REDIS_PATH on $target_server"
     fi
     
     # For remote setups, also install Redis locally for redis-cli
     if [[ "$SERVER_REMOTE" == "true" && ! -d "$REDIS_PATH" ]]; then
-        echo "Installing Redis locally for redis-cli..."
-        git clone https://github.com/redis/redis $REDIS_PATH
-        cd $REDIS_PATH
-        git checkout $REDIS_BRANCH
-        export BUILD_TLS=yes BUILD_WITH_MODULES=yes INSTALL_RUST_TOOLCHAIN=yes DISABLE_WERRORS=yes
-        make -j REDIS_CFLAGS="-g -fno-omit-frame-pointer"
+        log_info "Installing Redis locally for redis-cli..."
+        
+        if ! git clone $REDIS_REPO_URL "$REDIS_PATH"; then
+            log_error "Failed to clone Redis locally"
+            return 1
+        fi
+        
+        cd "$REDIS_PATH"
+        git checkout "$REDIS_BRANCH"
+        export $DEFAULT_BUILD_FLAGS
+        
+        if ! make -j REDIS_CFLAGS="$DEFAULT_REDIS_CFLAGS"; then
+            log_error "Failed to build Redis locally"
+            cd -
+            return 1
+        fi
+        
         cd -
+        log_info "Redis successfully installed locally"
     fi
 }
 
 # Function to setup RediSearch
+# Args: $1 = target_server
 setup_redisearch() {
     local target_server="$1"
     
-    if [[ "$VECTOR_SEARCH" != "vectorsets" ]]; then
-        echo "Setting up RediSearch on $target_server..."
+    if [[ "$VECTOR_SEARCH" == "vectorsets" ]]; then
+        log_info "Skipping RediSearch setup (using vectorsets)"
+        return 0
+    fi
+    
+    log_info "Setting up RediSearch on $target_server..."
+    
+    local redisearch_lib="$REDIS_PATH/$REDISEARCH_LIB_PATH"
+    
+    if execute_command "[ ! -f \"$redisearch_lib\" ]" "$target_server"; then
+        log_info "RediSearch not found, building..."
         
-        # Use consistent RediSearch setup for all remote configurations
-        local redisearch_lib="$REDIS_PATH/modules/redisearch/src/bin/linux-x64-release/search-community/redisearch.so"
+        local build_cmd="cd $REDIS_PATH/modules/redisearch && make && cd -"
         
-        if execute_command "[ ! -f \"$redisearch_lib\" ]" "$target_server"; then
-            echo "RediSearch not found in $redisearch_lib, downloading it ..."
-            execute_command "cd $REDIS_PATH/modules/redisearch && make && cd -" "$target_server"
+        if ! execute_command "$build_cmd" "$target_server"; then
+            log_error "Failed to build RediSearch on $target_server"
+            return 1
         fi
+        
+        log_info "RediSearch successfully built on $target_server"
+    else
+        log_info "RediSearch already exists on $target_server"
     fi
 }
 
 # Function to get the appropriate RediSearch library path
 get_redisearch_lib() {
-    echo "$REDIS_PATH/modules/redisearch/src/bin/linux-x64-release/search-community/redisearch.so"
+    echo "$REDIS_PATH/$REDISEARCH_LIB_PATH"
 }
 
 # Function to cleanup existing Redis instances
@@ -235,43 +336,53 @@ create_redis_cluster() {
 # Main execution logic
 #=======================================================================================================================
 
-if [ ! "$SKIP_SETUP" -eq 1 ]; then
+main() {
+    log_info "Starting Redis setup process..."
+    
+    # Validate environment
+    validate_environment
+    
+    if [ "$SKIP_SETUP" -eq 1 ]; then
+        log_info "Skipping setup (SKIP_SETUP=1)"
+        return 0
+    fi
     
     # Determine which servers to configure
+    local servers=()
     if [[ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]]; then
         servers=("${CLUSTER_SERVERS[@]}")
+        log_info "Multiple server cluster setup with servers: ${servers[*]}"
     elif [[ "$SERVER_REMOTE" == "true" ]]; then
         servers=("$TARGET")
+        log_info "Single remote server setup: $TARGET"
     else
         servers=("localhost")
+        log_info "Local server setup"
     fi
     
     # Setup phase: Install dependencies, Redis, and RediSearch on all servers
     for server in "${servers[@]}"; do
-        echo "=== Setting up server: $server ==="
+        log_info "=== Setting up server: $server ==="
         
         install_dependencies "$server"
         
         # Set up Python virtual environment
-        if [[ "$server" == "localhost" ]]; then
-            venv_path="$HOME_PATH/venv-redis-benchmark"
-        else
-            venv_path="$HOME_PATH/venv-redis-benchmark"
-        fi
+        local venv_path="$HOME_PATH/$VENV_DIR_NAME"
         setup_python_venv "$server" "$venv_path"
         
         setup_redis "$server"
         setup_redisearch "$server"
         
-        echo "=== Setup completed for server: $server ==="
+        log_info "=== Setup completed for server: $server ==="
     done
     
     # Get RediSearch library path
+    local redisearch_lib
     redisearch_lib=$(get_redisearch_lib)
     
     # Cleanup and start phase
     for server in "${servers[@]}"; do
-        echo "=== Starting Redis on server: $server ==="
+        log_info "=== Starting Redis on server: $server ==="
         
         cleanup_redis "$server"
         
@@ -292,10 +403,15 @@ if [ ! "$SKIP_SETUP" -eq 1 ]; then
     
     # Create cluster if needed
     if [ "$REDIS_CLUSTER" -eq 1 ]; then
-        echo "=== Creating Redis cluster ==="
+        log_info "=== Creating Redis cluster ==="
         create_redis_cluster
         sleep 5
     fi
     
-    echo "=== Redis setup completed ==="
+    log_info "=== Redis setup completed successfully ==="
+}
+
+# Run main function if script is executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
 fi
