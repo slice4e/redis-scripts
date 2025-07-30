@@ -101,14 +101,26 @@ setup_vectordb_benchmark() {
     
     if [[ ! -d "$VECTORDB_BENCHMARK_PATH" ]]; then
         log_info "Cloning vector-db-benchmark from GitHub..."
-        if ! git clone -b update.redisearch https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH"; then
+        if ! git clone https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH"; then
             log_error "Failed to clone vector-db-benchmark repository"
             return 1
         fi
+        
+        # Switch to the specified branch
+        cd "$VECTORDB_BENCHMARK_PATH" || exit
+        log_info "Switching to branch: $VECTORDB_BENCHMARK_BRANCH"
+        if ! git checkout "$VECTORDB_BENCHMARK_BRANCH"; then
+            log_error "Failed to switch to branch: $VECTORDB_BENCHMARK_BRANCH"
+            return 1
+        fi
+        cd -
     else
         log_info "Updating existing vector-db-benchmark repository..."
         cd "$VECTORDB_BENCHMARK_PATH" || exit
-        git pull origin update.redisearch
+        git fetch origin
+        log_info "Switching to branch: $VECTORDB_BENCHMARK_BRANCH"
+        git checkout "$VECTORDB_BENCHMARK_BRANCH"
+        git pull origin "$VECTORDB_BENCHMARK_BRANCH"
         cd -
     fi
 }
