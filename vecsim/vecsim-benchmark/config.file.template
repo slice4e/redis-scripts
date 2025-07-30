@@ -29,7 +29,7 @@ VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
 VECTORDB_BENCHMARK_BRANCH=fix_parameters
 # Virtual environment will be created at: $HOME_PATH/venv-redis-benchmark
 SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip uploading the data -> run benchmark on existing redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
-SKIP_SETUP=0      # Set SKIP_SETUP to 1 to skip setup of redis
+SKIP_SETUP=0        # Set SKIP_SETUP to 1 to skip setup of redis
 
 ##########################
 # Redis settings #
@@ -50,8 +50,11 @@ REDISEARCH_WORKERS=1
 ##########################
 # SSH Settings #
 ##########################
+# Note: For remote servers, the user must have passwordless sudo access
+# to install system dependencies (numactl, python3-venv). Configure sudoers
+# file on remote servers to allow NOPASSWD sudo for the user.
 SERVER_REMOTE=false     # If used with cluster this is the node on which cluster will be created
-LOGIN_ID=root
+LOGIN_ID=user
 SERVER_IP=1.2.3.4
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
