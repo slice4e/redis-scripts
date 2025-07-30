@@ -112,9 +112,54 @@ install_dependencies() {
     local target_server="$1"
     
     if [[ "$SERVER_REMOTE" == "true" ]]; then
-        echo "Installing dependencies on $target_server..."
-        execute_command "apt-get install -y numactl python3-venv" "$target_server"
+        log_info "Checking dependencies and sudo access on $target_server..."
+        
+        # First, check if user has sudo privileges
+        if ! execute_command "sudo -n true >/dev/null 2>&1" "$target_server"; then
+            log_error "User does not have passwordless sudo access on $target_server"
+            log_error "Remote user must be configured as a sudoer for dependency installation"
+            log_error "Please ensure the user can run 'sudo' commands without password prompt"
+            log_error "You can configure this by adding the user to sudoers file with NOPASSWD option"
+            return 1
+        fi
+        
+        log_info "Sudo access confirmed on $target_server"
+        
+        # Update package lists first
+        log_info "Updating package lists on $target_server..."
+        if ! execute_command "sudo apt-get update" "$target_server"; then
+            log_error "Failed to update package lists on $target_server"
+            return 1
+        fi
+        
+        # Check if numactl is available
+        if ! execute_command "command -v numactl >/dev/null 2>&1" "$target_server"; then
+            log_info "Installing numactl on $target_server..."
+            if ! execute_command "sudo apt-get install -y numactl" "$target_server"; then
+                log_error "Failed to install numactl on $target_server"
+                return 1
+            fi
+            log_info "Successfully installed numactl on $target_server"
+        else
+            log_info "numactl is already available on $target_server"
+        fi
+        
+        # Check if python3-venv is available
+        if ! execute_command "python3 -m venv --help >/dev/null 2>&1" "$target_server"; then
+            log_info "Installing python3-venv on $target_server..."
+            if ! execute_command "sudo apt-get install -y python3-venv" "$target_server"; then
+                log_error "Failed to install python3-venv on $target_server"
+                log_error "python3-venv is required for virtual environment setup"
+                return 1
+            fi
+            log_info "Successfully installed python3-venv on $target_server"
+        else
+            log_info "python3-venv is already available on $target_server"
+        fi
+        
+        log_info "All dependencies are available on $target_server"
     else
+        # Local installation logic remains the same
         # Check if numactl is available, install if running as root or warn if not available
         if ! command -v numactl >/dev/null 2>&1; then
             if [ "$EUID" -eq 0 ]; then
