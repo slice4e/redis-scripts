@@ -334,8 +334,8 @@ if [[ ${RUN_EMON} == true ]]; then
     fi
     if [[ ${SERVER_REMOTE} == true ]]; then
         $SSH_COMMAND "${EMON_FOLDER}/emon -stop || true"
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ../../shared-scripts/emon_process.sh $USER@${TARGET}:${HOME_PATH}/emon_process.sh
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${EMON_CONFIG_FILE} $USER@${TARGET}:${HOME_PATH}/pyedp_config.txt
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ../../shared-scripts/emon_process.sh $LOGIN_ID@${TARGET}:${HOME_PATH}/emon_process.sh
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${EMON_CONFIG_FILE} $LOGIN_ID@${TARGET}:${HOME_PATH}/pyedp_config.txt
         $SSH_COMMAND "cd ${HOME_PATH} && EMON_CONFIG_FILE=$HOME_PATH/pyedp_config.txt RUN_EMON=true EMON_HOME=$EMON_HOME bash ${HOME_PATH}/emon_process.sh"
     fi
 fi

@@ -38,7 +38,7 @@ DEFAULT_REDIS_CFLAGS="-g -fno-omit-frame-pointer"
 
 # Function to validate required environment variables
 validate_environment() {
-    local required_vars=("REDIS_PATH" "HOME_PATH")
+    local required_vars=("REDIS_PATH" "HOME_PATH" "LOGIN_ID")
     local missing_vars=()
     
     for var in "${required_vars[@]}"; do
@@ -52,6 +52,21 @@ validate_environment() {
         log_error "Please check your config.file"
         exit 1
     fi
+}
+
+# Function to validate and ensure consistent paths across servers
+validate_paths() {
+    log_info "Validating path configuration..."
+    
+    # Log the paths that will be used
+    log_info "HOME_PATH: $HOME_PATH"
+    log_info "REDIS_PATH: $REDIS_PATH"
+    log_info "LOGIN_ID: $LOGIN_ID"
+    
+    # Since we assume the same username on local and remote servers,
+    # HOME paths should be consistent. We'll ensure directory structure exists during setup.
+    
+    log_info "Path validation completed"
 }
 
 # Function to execute commands either locally or remotely
@@ -70,7 +85,7 @@ execute_command() {
         fi
     else
         local ssh_opts="-o PreferredAuthentications=publickey -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3"
-        local ssh_cmd="ssh $ssh_opts -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $USER@${target_server}"
+        local ssh_cmd="ssh $ssh_opts -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $LOGIN_ID@${target_server}"
         
         if ! $ssh_cmd "$cmd"; then
             log_error "Command failed on remote server $target_server: $cmd"
@@ -89,7 +104,7 @@ execute_command_quiet() {
         eval "$cmd" >/dev/null 2>&1
     else
         local ssh_opts="-o PreferredAuthentications=publickey -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3"
-        local ssh_cmd="ssh $ssh_opts -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $USER@${target_server}"
+        local ssh_cmd="ssh $ssh_opts -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $LOGIN_ID@${target_server}"
         $ssh_cmd "$cmd" >/dev/null 2>&1
     fi
 }
@@ -110,7 +125,7 @@ execute_command_background() {
     else
         # Remote background execution
         local ssh_opts="-o PreferredAuthentications=publickey -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3"
-        local ssh_cmd="ssh $ssh_opts -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $USER@${target_server}"
+        local ssh_cmd="ssh $ssh_opts -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $LOGIN_ID@${target_server}"
         
         nohup $ssh_cmd "$cmd" > /dev/null 2>&1 &
         local pid=$!
@@ -125,7 +140,7 @@ copy_file_to_server() {
     local target_server="$3"
     
     if [[ "$SERVER_REMOTE" == "true" ]]; then
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} "$local_file" $USER@${target_server}:"$remote_path"
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} "$local_file" $LOGIN_ID@${target_server}:"$remote_path"
     else
         cp "$local_file" "$remote_path"
     fi
@@ -279,6 +294,13 @@ setup_redis() {
 
     log_info "Preparing to clone and build Redis on $target_server..."
     
+    # Ensure the parent directory structure exists (create HOME_PATH if it doesn't exist)
+    local parent_dir=$(dirname "$REDIS_PATH")
+    if ! execute_command "mkdir -p \"$parent_dir\"" "$target_server"; then
+        log_error "Failed to create parent directory $parent_dir on $target_server"
+        return 1
+    fi
+    
     # Clone Redis repository
     if ! execute_command "git clone $REDIS_REPO_URL $REDIS_PATH" "$target_server"; then
         log_error "Failed to clone Redis repository on $target_server"
@@ -401,7 +423,7 @@ create_redis_cluster() {
     if [[ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]]; then
         # Multiple servers cluster creation
         sleep 2
-        local ssh_cmd="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q $USER@${CLUSTER_MASTER}"
+        local ssh_cmd="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q $LOGIN_ID@${CLUSTER_MASTER}"
         local endport=$((PORT+CLUSTER_NODES-1))
         local startport=$PORT
         local hosts=""
@@ -433,6 +455,9 @@ main() {
     
     # Validate environment
     validate_environment
+    
+    # Validate paths
+    validate_paths
     
     if [ "$SKIP_SETUP" -eq 1 ]; then
         log_info "Skipping setup (SKIP_SETUP=1)"

@@ -1,5 +1,9 @@
 ##########################
-# General benchmarking methodology
+# General benchmarking me# Note: For remote servers, the user must have passwordless sudo access
+# to install system dependencies (numactl, python3-venv). Configure sudoers
+# file on remote servers to allow NOPASSWD sudo for the user.
+LOGIN_ID=$USER                  # Username for SSH connections to remote servers
+SERVER_REMOTE=false     # If used with cluster this is the node on which cluster will be createdlogy
 # 
 # Redis recommends about 25 GB of data per shard, to satisfy performance and high-availablility requirements. 
 # Each shard can utilize at most REDISEARCH_WORKERS=16 parallel workers.
@@ -53,6 +57,7 @@ REDISEARCH_WORKERS=1
 # Note: For remote servers, the user must have passwordless sudo access
 # to install system dependencies (numactl, python3-venv). Configure sudoers
 # file on remote servers to allow NOPASSWD sudo for the user.
+USER=root                 # Username for SSH connections to remote servers
 SERVER_REMOTE=false     # If used with cluster this is the node on which cluster will be created
 SERVER_IP=1.2.3.4
 SSH_KEY_PATH=~/.ssh
