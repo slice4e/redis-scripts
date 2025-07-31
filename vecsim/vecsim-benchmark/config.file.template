@@ -54,7 +54,6 @@ REDISEARCH_WORKERS=1
 # to install system dependencies (numactl, python3-venv). Configure sudoers
 # file on remote servers to allow NOPASSWD sudo for the user.
 SERVER_REMOTE=false     # If used with cluster this is the node on which cluster will be created
-LOGIN_ID=user
 SERVER_IP=1.2.3.4
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa

@@ -54,8 +54,7 @@ load_configuration() {
     source "./variables.file"
     log_info "Configuration loaded successfully"
     
-    # Set the dataset name from the associative array to avoid arithmetic evaluation issues
-    DATASET_NAME=${DATASET_DICT["$DATASET_SIZE"]}
+    DATASET_NAME=${DATASET_DICT["$DATASET"]}
 }
 
 # Load configuration
@@ -147,11 +146,17 @@ wait_for_redis() {
     return 1
 }
 
-# Function to setup and activate Python virtual environment
+# Function to setup and activate Python virtual environment (for local benchmark client)
 setup_python_environment() {
+    # In local mode, Python environment is already set up by redis_setup.sh
+    if [[ "$SERVER_REMOTE" != "true" ]]; then
+        log_info "Python environment already set up by redis_setup.sh for local mode"
+        return 0
+    fi
+    
     local venv_path="$HOME_PATH/$VENV_DIR_NAME"
     
-    log_info "Setting up Python virtual environment..."
+    log_info "Setting up Python virtual environment locally for benchmark client..."
     
     # Create virtual environment if it doesn't exist locally
     if [[ ! -d "$venv_path" ]]; then
@@ -197,16 +202,16 @@ setup_python_environment() {
 
 # Setup Redis, vector-db-benchmark, and Python environment
 source "./redis_setup.sh"
-main  # Call the main function from redis_setup.sh to actually set up and start Redis
+main  # Call the main function from redis_setup.sh to set up and start Redis on remote servers
 setup_vectordb_benchmark
-setup_python_environment
+setup_python_environment  # Set up Python environment locally for benchmark client
 wait_for_redis
 
-Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping )
+Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping 2>/dev/null || echo "failed")
 echo "Waiting for redis server to be ready..."
 while [[ $Redis_Ping != *"PONG"* ]]; do
     sleep 1
-    Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping )
+    Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping 2>/dev/null || echo "failed")
     echo -ne "."
 done
 
@@ -272,46 +277,65 @@ fi
 
 
 # STAGE DOWNLOAD
-DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/laion-img-emb-512/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
+# Construct dataset path based on dataset type
+if [[ "$DATASET" == laion-512-* ]]; then
+    DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/laion-img-emb-512/$DATASET_NAME.hdf5
+    DATASET_URL="http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/$DATASET_NAME.hdf5"
+elif [[ "$DATASET" == laion-768-* ]]; then
+    DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/laion-img-emb-768/$DATASET_NAME.hdf5
+    DATASET_URL="http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/$DATASET_NAME.hdf5"
+elif [[ "$DATASET" == dbpedia-* ]]; then
+    DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/dbpedia/$DATASET_NAME.hdf5
+    DATASET_URL="http://benchmarks.redislabs.s3.amazonaws.com/vecsim/dbpedia/$DATASET_NAME.hdf5"
+elif [[ "$DATASET" == cohere-* ]]; then
+    DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/cohere/$DATASET_NAME.hdf5
+    DATASET_URL="http://benchmarks.redislabs.s3.amazonaws.com/vecsim/cohere/$DATASET_NAME.hdf5"
+else
+    log_error "Unknown dataset type: $DATASET"
+    exit 1
+fi
 
 # Ensure the parent directory exists
 mkdir -p "$(dirname "$DATASET_PATH")"
 
 if [[ ! -e $DATASET_PATH ]]; then
-    wget -q -O $DATASET_PATH http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
+    log_info "Downloading dataset from $DATASET_URL..."
+    wget -q -O $DATASET_PATH $DATASET_URL
 fi
 
 # STAGE UPLOAD
 if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
-    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX python $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets $DATASET_NAME --host ${TARGET} --no-skip-if-exists --skip-search
+    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX python3 $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets $DATASET_NAME --host ${TARGET} --no-skip-if-exists --skip-search
 fi
 
 # STAGE RUN
 if [[ ${RUN_EMON} == true ]]; then
     echo "Starting emon... (First, try to stop if emon is running)"
+    # Extract a short identifier from dataset name for EMON filename
+    DATASET_ID=$(echo "$DATASET" | sed 's/.*-\([^-]*\)$/\1/')  # Extract last part after final dash
     if [[ ${SERVER_REMOTE} == false ]]; then
-        ${EMON_FOLDER}/emon -stop
-        (${EMON_FOLDER}/emon -collect-edp -f redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat) &
+        ${EMON_FOLDER}/emon -stop || true
+        (${EMON_FOLDER}/emon -collect-edp -f redis-${DATASET_ID}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat) &
     fi
     if [[ ${SERVER_REMOTE} == true ]]; then
-        $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
-        cmd="${EMON_FOLDER}/emon -collect-edp -f ${HOME_PATH}/redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat"
+        $SSH_COMMAND "${EMON_FOLDER}/emon -stop || true"
+        cmd="${EMON_FOLDER}/emon -collect-edp -f ${HOME_PATH}/redis-${DATASET_ID}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat"
         nohup $SSH_COMMAND "$cmd &" &
     fi
 fi
 
-REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX python $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets $DATASET_NAME --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
+REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX python3 $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets $DATASET_NAME --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
 
 if [[ ${RUN_EMON} == true ]]; then
     echo "Stopping emon..."
     if [[ ${SERVER_REMOTE} == false ]]; then
-        ${EMON_FOLDER}/emon -stop
+        ${EMON_FOLDER}/emon -stop || true
         source ../../shared-scripts/emon_process.sh
     fi
     if [[ ${SERVER_REMOTE} == true ]]; then
-        $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ../../shared-scripts/emon_process.sh ${LOGIN_ID}@${TARGET}:${HOME_PATH}/emon_process.sh
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${EMON_CONFIG_FILE} ${LOGIN_ID}@${TARGET}:${HOME_PATH}/pyedp_config.txt
+        $SSH_COMMAND "${EMON_FOLDER}/emon -stop || true"
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ../../shared-scripts/emon_process.sh $USER@${TARGET}:${HOME_PATH}/emon_process.sh
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${EMON_CONFIG_FILE} $USER@${TARGET}:${HOME_PATH}/pyedp_config.txt
         $SSH_COMMAND "cd ${HOME_PATH} && EMON_CONFIG_FILE=$HOME_PATH/pyedp_config.txt RUN_EMON=true EMON_HOME=$EMON_HOME bash ${HOME_PATH}/emon_process.sh"
     fi
 fi
