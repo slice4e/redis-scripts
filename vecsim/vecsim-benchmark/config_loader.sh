@@ -16,19 +16,7 @@ source "$SCRIPT_DIR/common_utils.sh"
 # Function to map dataset identifiers to actual dataset names
 get_dataset_name() {
     local dataset="$1"
-    case "$dataset" in
-        "laion-512-1M")    echo "laion-img-emb-512-1M-cosine" ;;
-        "laion-512-10M")   echo "laion-img-emb-512-10M-cosine" ;;
-        "laion-512-20M")   echo "laion-img-emb-512-20M-cosine" ;;
-        "laion-512-40M")   echo "laion-img-emb-512-40M-cosine" ;;
-        "laion-512-100M")  echo "laion-img-emb-512-100M-cosine" ;;
-        "laion-512-200M")  echo "laion-img-emb-512-200M-cosine" ;;
-        "laion-512-400M")  echo "laion-img-emb-512-400M-cosine" ;;
-        "laion-768-1M")    echo "laion-img-emb-768-1M-cosine" ;;
-        "dbpedia-1536-1M") echo "dbpedia-openai-1M-1536-angular-100neighbors" ;;
-        "cohere-768-1M")   echo "cohere-768-1M" ;;
-        *)                 echo "" ;;
-    esac
+    echo "${DATASET_DICT[$dataset]:-}"
 }
 
 # Function to validate configuration values
