@@ -1,0 +1,205 @@
+#!/bin/bash
+
+#=======================================================================================================================
+# Benchmark Utilities Script
+# Functions specific to vector database benchmarking
+#=======================================================================================================================
+
+# Source common utilities
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$SCRIPT_DIR/common_utils.sh"
+
+#=======================================================================================================================
+# Dataset Management Functions
+#=======================================================================================================================
+
+# Function to get dataset URL and path based on dataset type
+get_dataset_info() {
+    local dataset="$1" dataset_name="$2" base_path="$3"
+    
+    # Extract dataset type from prefix
+    local dataset_type
+    case "$dataset" in
+        laion-512-*) dataset_type="laion-img-emb-512"; url_path="laion400m" ;;
+        laion-768-*) dataset_type="laion-img-emb-768"; url_path="laion400m" ;;
+        dbpedia-*)   dataset_type="dbpedia"; url_path="dbpedia" ;;
+        cohere-*)    dataset_type="cohere"; url_path="cohere" ;;
+        *) log_error "Unknown dataset type: $dataset"; return 1 ;;
+    esac
+    
+    local dataset_path="$base_path/datasets/$dataset_type/$dataset_name.hdf5"
+    local dataset_url="http://benchmarks.redislabs.s3.amazonaws.com/vecsim/$url_path/$dataset_name.hdf5"
+    
+    echo "$dataset_path|$dataset_url"
+}
+
+# Function to download dataset if needed
+download_dataset() {
+    local dataset="$1" dataset_name="$2" base_path="$3"
+    
+    local dataset_info=$(get_dataset_info "$dataset" "$dataset_name" "$base_path") || return 1
+    local dataset_path="${dataset_info%|*}"
+    local dataset_url="${dataset_info#*|}"
+    
+    # Ensure directory exists and download if needed
+    ensure_directory "$(dirname "$dataset_path")" "localhost"
+    
+    if [[ ! -e "$dataset_path" ]]; then
+        log_info "Downloading dataset from $dataset_url..."
+        wget -q -O "$dataset_path" "$dataset_url" || { log_error "Failed to download dataset"; return 1; }
+        log_info "Dataset downloaded successfully"
+    else
+        log_info "Dataset already exists"
+    fi
+    
+    echo "$dataset_path"
+}
+
+#=======================================================================================================================
+# Benchmark Configuration Generation Functions
+#=======================================================================================================================
+
+# Function to generate search parameters JSON
+generate_search_params() {
+    local ef_search="$1"
+    local parallel="$2"
+    local data_type="$3"
+    
+    local search_params_json="["
+    
+    # Handle multiple EF values separated by commas
+    IFS=',' read -ra EF_LIST <<< "$ef_search"
+    for idx in "${!EF_LIST[@]}"; do
+        ef_val="${EF_LIST[$idx]}"
+        search_params_json+="{\"parallel\":${parallel},\"search_params\":{\"ef\":${ef_val},\"data_type\":\"${data_type}\"}}"
+        [[ $idx -lt $((${#EF_LIST[@]}-1)) ]] && search_params_json+=","
+    done
+    
+    search_params_json+="]"
+    echo "$search_params_json"
+}
+
+# Function to generate benchmark configuration
+generate_benchmark_config() {
+    local vector_search="$1" m="$2" ef_construction="$3" parallel="$4" data_type="$5" ef_search="$6" output_file="$7"
+    
+    local search_params_json=$(generate_search_params "$ef_search" "$parallel" "$data_type")
+    
+    # Configure based on vector search type
+    local collection_params upload_params engine_name
+    if [[ "$vector_search" == "vectorsets" ]]; then
+        collection_params="{}"
+        upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
+        engine_name="vectorsets"
+    else
+        collection_params="{\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
+        upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\"}"
+        engine_name="redis"
+    fi
+    
+    local config_json="[{\"name\":\"redis-m-${m}-ef-${ef_construction}-parallel-${parallel}-${data_type}\",\"engine\":\"${engine_name}\",\"connection_params\":{},\"collection_params\":$collection_params,\"search_params\":$search_params_json,\"upload_params\":$upload_params}]"
+    
+    mkdir -p "$(dirname "$output_file")"
+    echo "$config_json" > "$output_file"
+    log_info "Generated benchmark configuration: $output_file"
+}
+
+#=======================================================================================================================
+# EMON Monitoring Functions
+#=======================================================================================================================
+
+# Function to start EMON monitoring
+start_emon_monitoring() {
+    local dataset="$1" m="$2" ef_construction="$3" server_remote="$4" emon_folder="$5" ssh_command="$6" home_path="$7"
+    
+    [[ ${RUN_EMON:-false} != true ]] && return 0
+    
+    log_info "Starting emon monitoring..."
+    
+    local dataset_id=$(echo "$dataset" | sed 's/.*-\([^-]*\)$/\1/')
+    local emon_file="redis-${dataset_id}-m-${m}-ef-${ef_construction}-emon.dat"
+    
+    if [[ ${server_remote} == false ]]; then
+        ${emon_folder}/emon -stop || true
+        (${emon_folder}/emon -collect-edp -f "$emon_file") &
+    else
+        $ssh_command "${emon_folder}/emon -stop || true"
+        nohup $ssh_command "${emon_folder}/emon -collect-edp -f ${home_path}/${emon_file} &" &
+    fi
+    
+    log_info "EMON monitoring started with file: $emon_file"
+}
+
+# Function to stop EMON monitoring
+stop_emon_monitoring() {
+    local server_remote="$1" emon_folder="$2" ssh_command="$3" ssh_key_path="$4" 
+    local ssh_key_name="$5" login_id="$6" target="$7" home_path="$8" 
+    local emon_config_file="$9" emon_home="${10}"
+    
+    [[ ${RUN_EMON:-false} != true ]] && return 0
+    
+    log_info "Stopping emon monitoring..."
+    
+    if [[ ${server_remote} == false ]]; then
+        ${emon_folder}/emon -stop || true
+        source ../../shared-scripts/emon_process.sh
+    else
+        $ssh_command "${emon_folder}/emon -stop || true"
+        scp -i ${ssh_key_path}/${ssh_key_name} ../../shared-scripts/emon_process.sh $login_id@${target}:${home_path}/emon_process.sh
+        scp -i ${ssh_key_path}/${ssh_key_name} ${emon_config_file} $login_id@${target}:${home_path}/pyedp_config.txt
+        $ssh_command "cd ${home_path} && EMON_CONFIG_FILE=$home_path/pyedp_config.txt RUN_EMON=true EMON_HOME=$emon_home bash ${home_path}/emon_process.sh"
+    fi
+    
+    log_info "EMON monitoring stopped and processed"
+}
+
+#=======================================================================================================================
+# Benchmark Execution Functions
+#=======================================================================================================================
+
+# Function to run benchmark upload stage
+run_benchmark_upload() {
+    local vectordb_benchmark_path="$1"
+    local engine_name="$2"
+    local dataset_name="$3"
+    local target="$4"
+    local redis_cluster="$5"
+    local port="$6"
+    local numactl_prefix="$7"
+    local skip_upload="$8"
+    local skip_setup="$9"
+    
+    if [ "$skip_upload" -eq 0 ] || [ "$skip_setup" -eq 0 ]; then
+        log_info "Running benchmark upload stage..."
+        REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
+            --engines "$engine_name" \
+            --datasets "$dataset_name" \
+            --host "$target" \
+            --no-skip-if-exists \
+            --skip-search
+    else
+        log_info "Skipping upload stage (SKIP_UPLOAD=1)"
+    fi
+}
+
+# Function to run benchmark search stage
+run_benchmark_search() {
+    local vectordb_benchmark_path="$1"
+    local engine_name="$2"
+    local dataset_name="$3"
+    local target="$4"
+    local queries="$5"
+    local repetitions="$6"
+    local redis_cluster="$7"
+    local port="$8"
+    local numactl_prefix="$9"
+    
+    log_info "Running benchmark search stage..."
+    REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
+        --engines "$engine_name" \
+        --datasets "$dataset_name" \
+        --host "$target" \
+        --no-skip-if-exists \
+        --queries "$queries" \
+        --skip-upload
+}
