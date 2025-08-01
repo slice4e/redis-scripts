@@ -87,6 +87,23 @@ setup_python_environment() {
     log_success "Python environment setup completed successfully"
 }
 
+# Function to activate Python virtual environment (for manual use)
+activate_python_environment() {
+    local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
+    
+    if [ -d "$venv_path" ]; then
+        log_info "Activating Python virtual environment at: $venv_path"
+        source "$venv_path/bin/activate"
+        log_info "Virtual environment activated. Python path: $(which python)"
+        log_info "To deactivate, run: deactivate"
+        return 0
+    else
+        log_error "Virtual environment not found at: $venv_path"
+        log_error "Please run the Redis setup script first to create the virtual environment."
+        return 1
+    fi
+}
+
 # Function to setup complete benchmark environment
 setup_benchmark_environment() {
     log_step "Setting Up Benchmark Environment"
@@ -249,22 +266,82 @@ run_benchmark_search() {
 # Standalone Execution Support
 #=======================================================================================================================
 
+# Function to show usage information
+show_usage() {
+    cat << EOF
+Redis Vector Database Benchmark Utilities
+
+Usage: $0 [options]
+
+Options:
+  -h, --help              Show this help message
+  -a, --activate-venv     Activate Python virtual environment only
+  -s, --setup             Setup complete benchmark environment (default)
+
+Examples:
+  $0                      # Setup complete benchmark environment
+  $0 --activate-venv      # Activate virtual environment only
+  source <($0 --activate-venv)  # Source activation in current shell
+
+EOF
+}
+
 # Main function for standalone execution
 main() {
-    log_step "Setting Up Benchmark Utilities"
+    local action="setup"
     
-    # Load and validate configuration
-    if ! load_benchmark_configuration "${1:-}"; then
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                show_usage
+                exit 0
+                ;;
+            -a|--activate-venv)
+                action="activate"
+                shift
+                ;;
+            -s|--setup)
+                action="setup"
+                shift
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Load configuration
+    source "$SCRIPT_DIR/config_loader.sh"
+    if ! load_benchmark_configuration; then
         exit 1
     fi
     
-    # Display configuration summary
-    display_config_summary
-    
-    # Setup complete benchmark environment
-    setup_benchmark_environment
-    
-    log_success "Benchmark utilities setup completed successfully!"
+    case $action in
+        activate)
+            log_step "Activating Python Virtual Environment"
+            if activate_python_environment; then
+                # Output activation command for sourcing
+                local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
+                echo "source \"$venv_path/bin/activate\""
+            else
+                exit 1
+            fi
+            ;;
+        setup)
+            log_step "Setting Up Benchmark Utilities"
+            
+            # Display configuration summary
+            display_config_summary
+            
+            # Setup complete benchmark environment
+            setup_benchmark_environment
+            
+            log_success "Benchmark utilities setup completed successfully!"
+            ;;
+    esac
 }
 
 # Run main function if script is executed directly
@@ -272,7 +349,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # Set script name for logging
     SCRIPT_NAME="${SCRIPT_NAME:-benchmark_utils}"
     
-    # Source config loader for standalone execution
-    source "$SCRIPT_DIR/config_loader.sh"
     main "$@"
 fi

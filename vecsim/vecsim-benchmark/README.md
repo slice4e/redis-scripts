@@ -37,6 +37,25 @@ The main configuration is done through `config.file`. Key sections include:
 - **Benchmark Settings**: Dataset selection, query parameters, index configuration
 - **Performance Monitoring**: EMON and profiling options
 
+## Python Environment Management
+
+The benchmark system uses a Python virtual environment for dependencies. You can manage it using `benchmark_utils.sh`:
+
+### Setup Complete Environment
+```bash
+./benchmark_utils.sh --setup    # Setup benchmark environment (default)
+./benchmark_utils.sh            # Same as above
+```
+
+### Activate Virtual Environment Only
+```bash
+# Method 1 (recommended - sources in current shell)
+source <(./benchmark_utils.sh --activate-venv)
+
+# Method 2 (shows activation command)
+./benchmark_utils.sh --activate-venv
+```
+
 ## Custom Configuration Generator
 
 For advanced users who need to create custom benchmark configurations with specific HNSW parameters, use the standalone `create_custom_config.sh` script:
