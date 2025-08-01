@@ -9,6 +9,9 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/common_utils.sh"
 
+# Source dataset variables
+source "$SCRIPT_DIR/variables.file"
+
 #=======================================================================================================================
 # Configuration Loading Functions
 #=======================================================================================================================
@@ -16,8 +19,11 @@ source "$SCRIPT_DIR/common_utils.sh"
 # Function to map dataset identifiers to actual dataset names
 get_dataset_name() {
     local dataset="$1"
+    
+    # Use the DATASET_DICT to get the proper dataset name
     echo "${DATASET_DICT[$dataset]:-}"
 }
+
 
 # Function to validate configuration values
 validate_configuration() {

@@ -142,14 +142,14 @@ configure_redis_cluster() {
     local cluster_host_option=""
     [[ "$SERVER_REMOTE" == "true" ]] && cluster_host_option="echo \"CLUSTER_HOST=$target_server\" >> $config_file"
     
-    execute_command "cat > $config_file << EOF
-    PORT=$((PORT-1))
-    NODES=$CLUSTER_NODES
-    TIMEOUT=$CLUSTER_TIMEOUT
-    REPLICAS=$CLUSTER_REPLICAS
-    NUMA_CONFIG='$NUMA_CONFIG'
-    ADDITIONAL_OPTIONS='--save \"\" --protected-mode no --appendonly no $loadmodule_option'
-    EOF" "$target_server"
+    execute_command "cat > $config_file << 'EOF'
+PORT=$((PORT-1))
+NODES=$CLUSTER_NODES
+TIMEOUT=$CLUSTER_TIMEOUT
+REPLICAS=$CLUSTER_REPLICAS
+NUMA_CONFIG='$NUMA_CONFIG'
+ADDITIONAL_OPTIONS='--save \"\" --protected-mode no --appendonly no $loadmodule_option'
+EOF" "$target_server"
     
     [[ -n "$cluster_host_option" ]] && execute_command "$cluster_host_option" "$target_server"
 }
