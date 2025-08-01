@@ -1,4 +1,4 @@
-if [ ! "$SKIP_SETUP" -eq 1 ]; then
+if [ ! "$SKIP_UPLOAD" -eq 1 ]; then
     set -x
     RE_INSTALLER_PATH=$HOME_PATH/RE_installer
     # Download RE on each node

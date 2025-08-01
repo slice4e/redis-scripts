@@ -256,9 +256,8 @@ run_benchmark_upload() {
     local port="$6"
     local numactl_prefix="$7"
     local skip_upload="$8"
-    local skip_setup="$9"
     
-    if [ "$skip_upload" -eq 0 ] || [ "$skip_setup" -eq 0 ]; then
+    if [ "$skip_upload" -eq 0 ]; then
         log_info "Running benchmark upload stage..."
         REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
             --engines "$engine_name" \
@@ -267,7 +266,7 @@ run_benchmark_upload() {
             --no-skip-if-exists \
             --skip-search
     else
-        log_info "Skipping upload stage (SKIP_UPLOAD=1)"
+        log_info "Skipping upload stage (SKIP_UPLOAD=1 - using existing data and setup)"
     fi
 }
 

@@ -272,8 +272,8 @@ main() {
     # Display configuration summary
     display_config_summary
     
-    if [ "${SKIP_SETUP:-0}" -eq 1 ]; then
-        log_info "Skipping setup (SKIP_SETUP=1)"
+    if [ "${SKIP_UPLOAD:-0}" -eq 1 ]; then
+        log_info "Skipping Redis setup (SKIP_UPLOAD=1 implies existing setup)"
         return 0
     fi
 

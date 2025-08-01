@@ -57,7 +57,7 @@ run_complete_benchmark() {
     
     # Run benchmark stages
     run_benchmark_upload "$VECTORDB_BENCHMARK_PATH" "$ENGINE_NAME" "$DATASET_NAME" "$REDIS_SERVER" \
-        "$REDIS_CLUSTER" "$PORT" "$NUMACTL_PREFIX" "$SKIP_UPLOAD" "$SKIP_SETUP"
+        "$REDIS_CLUSTER" "$PORT" "$NUMACTL_PREFIX" "$SKIP_UPLOAD"
     
     run_benchmark_search "$VECTORDB_BENCHMARK_PATH" "$ENGINE_NAME" "$DATASET_NAME" "$REDIS_SERVER" \
         "$QUERIES" "$REPETITIONS" "$REDIS_CLUSTER" "$PORT" "$NUMACTL_PREFIX"
