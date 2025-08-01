@@ -5,7 +5,7 @@
 # Shared functions for logging, SSH operations, and environment validation
 #=======================================================================================================================
 
-# Logging functions
+# Logging functions with improved formatting
 log_info() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${SCRIPT_NAME:-script}] [INFO] $*"
 }
@@ -16,6 +16,21 @@ log_warn() {
 
 log_error() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${SCRIPT_NAME:-script}] [ERROR] $*" >&2
+}
+
+log_debug() {
+    [[ "${DEBUG:-0}" == "1" ]] && echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${SCRIPT_NAME:-script}] [DEBUG] $*" >&2
+}
+
+log_step() {
+    echo ""
+    echo "┌──────────────────────────────────────────────────────────────────────────────┐"
+    echo "│ $1"
+    echo "└──────────────────────────────────────────────────────────────────────────────┘"
+}
+
+log_success() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${SCRIPT_NAME:-script}] [✓] $*"
 }
 
 #=======================================================================================================================
@@ -314,6 +329,8 @@ wait_for_service() {
     log_error "$service_name did not become ready after $max_attempts seconds"
     return 1
 }
+
+
 
 # Function to create directory structure
 ensure_directory() {

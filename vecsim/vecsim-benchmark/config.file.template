@@ -1,18 +1,14 @@
 ##########################
-# General benchmarking me# Note: For remote servers, the user must have passwordless sudo access
-# to install system dependencies (numactl, python3-venv). Configure sudoers
-# file on remote servers to allow NOPASSWD sudo for the user.
-LOGIN_ID=$USER                  # Username for SSH connections to remote servers
-SERVER_REMOTE=false     # If used with cluster this is the node on which cluster will be createdlogy
-# 
-# Redis recommends about 25 GB of data per shard, to satisfy performance and high-availablility requirements. 
+# General benchmarking methodology
+##########################
+# Redis recommends about 25 GB of data per shard, to satisfy performance and high-availability requirements. 
 # Each shard can utilize at most REDISEARCH_WORKERS=16 parallel workers.
 #
 # Example 1: Saturate 128 vCPUs.  
-# To saturate 128 vCPUs, we needs REDISEARCH_WORKERS=16 and 8 shards. 
+# To saturate 128 vCPUs, we need REDISEARCH_WORKERS=16 and 8 shards. 
 # In addition, since we expect about 25GB of data per shard, we need about 200GB of data. 
-# Since since we consume approximately 6GB of memory capacity per M vectors, we need at least 33M vectors. 
-# The closest vector-db-bencnmark supports is 40M vectors. Thus, we can configure our benchmark with 
+# Since we consume approximately 6GB of memory capacity per M vectors, we need at least 33M vectors. 
+# The closest vector-db-benchmark supports is 40M vectors. Thus, we can configure our benchmark with 
 # 8 shards, 16 workers per shard and 40M vectors. 
 #
 # Example 2: Benchmark a large dataset with 200M vectors
@@ -26,7 +22,9 @@ SERVER_REMOTE=false     # If used with cluster this is the node on which cluster
 # When increasing the number of shards, precision will increase, since each shard responds with top K results. 
 ##########################
 
-
+##########################
+# Python Environment Settings
+##########################
 PYTHON_PATH=/usr/bin/python3
 HOME_PATH=$HOME
 VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
@@ -36,7 +34,7 @@ SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip uploading the data -> run ben
 SKIP_SETUP=0        # Set SKIP_SETUP to 1 to skip setup of redis
 
 ##########################
-# Redis settings #
+# Redis Settings
 ##########################
 
 REDIS_PATH=$HOME_PATH/redis
@@ -47,12 +45,12 @@ NUMA_NODES=0,1      # Provide numa nodes after semicolon
 PORT=9000
 
 ##########################
-# Redisearch settings #
+# RediSearch Settings
 ##########################
 REDISEARCH_WORKERS=1
 
 ##########################
-# SSH Settings #
+# SSH Settings
 ##########################
 # Note: For remote servers, the user must have passwordless sudo access
 # to install system dependencies (numactl, python3-venv). Configure sudoers
