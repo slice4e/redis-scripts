@@ -110,7 +110,7 @@ start_redis_server() {
     [[ "$SERVER_REMOTE" == "true" ]] && bind_option="--bind $target_server"
     
     local numa_prefix=""
-    [[ "$USE_NUMACTL" -eq 1 ]] && numa_prefix="numactl -m ${NUMA_NODES} -N ${NUMA_NODES}"
+    [[ -n "$NUMA_CONFIG" ]] && numa_prefix="$NUMA_CONFIG"
     
     local cmd="$numa_prefix $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} $bind_option --logfile $REDIS_PATH/server.log --save \"\" --protected-mode no --appendonly no $loadmodule_option"
     
@@ -147,8 +147,7 @@ configure_redis_cluster() {
     NODES=$CLUSTER_NODES
     TIMEOUT=$CLUSTER_TIMEOUT
     REPLICAS=$CLUSTER_REPLICAS
-    USE_NUMACTL=$USE_NUMACTL
-    NUMA_NODES=$NUMA_NODES
+    NUMA_CONFIG='$NUMA_CONFIG'
     ADDITIONAL_OPTIONS='--save \"\" --protected-mode no --appendonly no $loadmodule_option'
     EOF" "$target_server"
     

@@ -70,7 +70,7 @@ load_benchmark_configuration() {
     # Export critical variables
     export DATASET HOME_PATH REDIS_PATH LOGIN_ID SERVER_REMOTE REDIS_SERVER PORT
     export VECTORDB_BENCHMARK_PATH REPETITIONS QUERIES M EF_CONSTRUCTION PARALLEL DATA_TYPE EF_SEARCH
-    export CREATE_DYNAMICALLY SKIP_UPLOAD SKIP_SETUP REDIS_CLUSTER USE_NUMACTL_CLIENT NUMA_NODES_CLIENT
+    export CREATE_DYNAMICALLY SKIP_UPLOAD SKIP_SETUP REDIS_CLUSTER NUMA_CONFIG NUMA_CONFIG_CLIENT
     
     # Validate configuration
     validate_configuration || return 1
@@ -84,7 +84,8 @@ set_default_values() {
     VENV_DIR_NAME=${VENV_DIR_NAME:-"venv-redis-benchmark"}
     SKIP_SETUP=${SKIP_SETUP:-0}
     SKIP_UPLOAD=${SKIP_UPLOAD:-0}
-    USE_NUMACTL=${USE_NUMACTL:-0}
+    NUMA_CONFIG=${NUMA_CONFIG:-""}
+    NUMA_CONFIG_CLIENT=${NUMA_CONFIG_CLIENT:-""}
     REDIS_CLUSTER=${REDIS_CLUSTER:-0}
     CLUSTER_MULTIPLE_SERVERS=${CLUSTER_MULTIPLE_SERVERS:-0}
     REDIS_ENTERPRISE=${REDIS_ENTERPRISE:-0}
@@ -147,7 +148,8 @@ display_config_summary() {
     # Performance Monitoring
     echo "  Enable EMON:             $EMON_ENABLE"
     echo "  Enable Perf:             $PERF_ENABLE"
-    echo "  Use NUMA:                $USE_NUMACTL"
+    echo "  Server NUMA Config:      ${NUMA_CONFIG:-'(none)'}"
+    echo "  Client NUMA Config:      ${NUMA_CONFIG_CLIENT:-'(none)'}"
     
     # Cluster Configuration
     if [[ "${REDIS_CLUSTER:-0}" -eq 1 ]]; then

@@ -38,7 +38,7 @@ prepare_benchmark_config() {
 setup_benchmark_execution() {
     # Set up NUMA prefix for client
     NUMACTL_PREFIX=""
-    [ "$USE_NUMACTL_CLIENT" -eq 1 ] && NUMACTL_PREFIX="numactl -N $NUMA_NODES_CLIENT -m $NUMA_NODES_CLIENT"
+    [ -n "$NUMA_CONFIG_CLIENT" ] && NUMACTL_PREFIX="$NUMA_CONFIG_CLIENT"
     
     # Construct engine name
     local engine_append=""
