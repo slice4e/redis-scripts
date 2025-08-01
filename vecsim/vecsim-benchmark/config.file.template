@@ -25,7 +25,6 @@
 ##########################
 # Python Environment Settings
 ##########################
-PYTHON_PATH=/usr/bin/python3
 HOME_PATH=$HOME
 VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
 VECTORDB_BENCHMARK_BRANCH=fix_parameters
