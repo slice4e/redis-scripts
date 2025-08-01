@@ -66,17 +66,6 @@ load_config_file() {
     # Check if the config file exists
     if [[ ! -f "$config_file" ]]; then
         log_error "The config file '$config_file' does not exist."
-        echo ""
-        echo "Available configuration files in current directory:"
-        ls -1 *.file 2>/dev/null || echo "  No *.file found"
-        echo ""
-        echo "You can create a configuration file using the template:"
-        echo "  cp config.file.template config.file"
-        echo "  # Edit config.file with your settings"
-        echo ""
-        echo "Or specify a different config file:"
-        echo "  $0 <config_file>"
-        echo "  Example: $0 ./my-config.file"
         return 1
     fi
     
@@ -191,46 +180,7 @@ install_dependencies() {
     
     log_info "Installing dependencies on $target_server..."
     
-    # For localhost, check if we actually need to install anything first
-    if [[ "$target_server" == "localhost" ]]; then
-        # Check if all required tools are already available
-        local missing_deps=()
-        
-        if ! command_exists "numactl" "$target_server"; then
-            missing_deps+=("numactl")
-        fi
-        
-        if ! execute_command_quiet "python3 -m venv --help" "$target_server"; then
-            missing_deps+=("python3-venv")
-        fi
-        
-        if ! execute_command_quiet "pkg-config --exists openssl" "$target_server"; then
-            missing_deps+=("libssl-dev pkg-config")
-        fi
-        
-        # If nothing is missing, skip dependency installation
-        if [[ ${#missing_deps[@]} -eq 0 ]]; then
-            log_info "All required dependencies are already available on localhost, skipping installation"
-            return 0
-        fi
-        
-        # If something is missing, warn user and provide instructions
-        log_warn "Missing dependencies on localhost: ${missing_deps[*]}"
-        log_warn "Please install them manually with:"
-        log_warn "sudo apt-get update && sudo apt-get install -y numactl python3-venv libssl-dev pkg-config"
-        log_warn "Or ensure your user has sudo privileges"
-        return 1
-    fi
-    
-    # Update package lists first
-    log_info "Updating package lists on $target_server..."
-    if ! execute_command "sudo apt-get update" "$target_server"; then
-        log_error "Failed to update package lists on $target_server"
-        log_error "Ensure the user has passwordless sudo access"
-        return 1
-    fi
-    
-    # Install required packages
+    # Define the complete list of required packages
     local packages=(
         "numactl"
         "python3-venv"
@@ -256,6 +206,54 @@ install_dependencies() {
         "libtool"
     )
     
+    # For localhost, check if we actually need to install anything first
+    if [[ "$target_server" == "localhost" ]]; then
+        # Check all required packages
+        local missing_deps=()
+        
+        for pkg in "${packages[@]}"; do
+            if ! package_exists "$pkg" "$target_server"; then
+                missing_deps+=("$pkg")
+            fi
+        done
+        
+        # If nothing is missing, skip dependency installation
+        if [[ ${#missing_deps[@]} -eq 0 ]]; then
+            log_info "All required dependencies are already available on localhost, skipping installation"
+            return 0
+        fi
+        
+        log_info "Missing dependencies on localhost: ${missing_deps[*]}"
+        
+        # Try to install if we're root or have passwordless sudo
+        if [[ $EUID -eq 0 ]] || sudo -n true 2>/dev/null; then
+            log_info "Installing missing packages..."
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends "${missing_deps[@]}"
+            if [[ $? -eq 0 ]]; then
+                log_success "Dependencies installed successfully"
+                return 0
+            else
+                log_error "Failed to install dependencies"
+                return 1
+            fi
+        else
+            # No root or passwordless sudo, provide manual instructions
+            log_warn "Cannot automatically install packages (not root and no passwordless sudo)"
+            log_warn "Please install them manually with:"
+            log_warn "sudo apt-get update && sudo apt-get install -y ${missing_deps[*]}"
+            return 1
+        fi
+    fi
+    
+    # Update package lists first
+    log_info "Updating package lists on $target_server..."
+    if ! execute_command "sudo apt-get update" "$target_server"; then
+        log_error "Failed to update package lists on $target_server"
+        log_error "Ensure the user has passwordless sudo access"
+        return 1
+    fi
+    
+    # Install required packages
     log_info "Installing required packages on $target_server..."
     local package_list=$(IFS=' '; echo "${packages[*]}")
     if ! execute_command "sudo apt-get install -y --no-install-recommends $package_list" "$target_server"; then
