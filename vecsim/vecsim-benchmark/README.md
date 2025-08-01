@@ -37,6 +37,32 @@ The main configuration is done through `config.file`. Key sections include:
 - **Benchmark Settings**: Dataset selection, query parameters, index configuration
 - **Performance Monitoring**: EMON and profiling options
 
+## Custom Configuration Generator
+
+For advanced users who need to create custom benchmark configurations with specific HNSW parameters, use the standalone `create_custom_config.sh` script:
+
+```bash
+# Create a custom configuration with specific parameters
+./create_custom_config.sh -m 64 -e 512 -s "90,100,110" -p 16 -o my-config.json
+
+# Use vectorsets instead of redisearch
+./create_custom_config.sh --vector-search vectorsets --data-type FLOAT32
+
+# Generate configuration for multiple EF_SEARCH values
+./create_custom_config.sh --ef-search "64,128,256" --parallel 32
+```
+
+**Available Options:**
+- `-m, --m VALUE`: HNSW M parameter (1-512, default: 32)
+- `-e, --ef-construction VALUE`: EF_CONSTRUCTION parameter (1-2048, default: 256) 
+- `-s, --ef-search VALUES`: EF_SEARCH values, comma-separated (default: 128)
+- `-p, --parallel VALUE`: Number of parallel clients (1-1024, default: 8)
+- `-t, --data-type TYPE`: Data type FLOAT16|FLOAT32 (default: FLOAT16)
+- `-v, --vector-search TYPE`: Vector search type redisearch|vectorsets (default: redisearch)
+- `-o, --output FILE`: Output configuration file (default: redis-custom.json)
+
+The generated configuration files are compatible with the vector-db-benchmark framework and can be used directly for benchmarking.
+
 ## General Benchmarking Methodology
 
 ### Performance Guidelines

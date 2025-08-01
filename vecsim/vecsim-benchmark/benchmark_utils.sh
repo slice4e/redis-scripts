@@ -1,8 +1,10 @@
 #!/bin/bash
 
 #=======================================================================================================================
-# Benchmark Utilities Script
-# Functions specific to vector database benchmarking
+# Benchmark Util
+#=======================================================================================================================
+# EMON Monitoring Functions
+#=======================================================================================================================tions specific to vector database benchmarking
 #=======================================================================================================================
 
 # Source common utilities
@@ -142,55 +144,6 @@ download_dataset() {
     fi
     
     echo "$dataset_path"
-}
-
-#=======================================================================================================================
-# Benchmark Configuration Generation Functions
-#=======================================================================================================================
-
-# Function to generate search parameters JSON
-generate_search_params() {
-    local ef_search="$1"
-    local parallel="$2"
-    local data_type="$3"
-    
-    local search_params_json="["
-    
-    # Handle multiple EF values separated by commas
-    IFS=',' read -ra EF_LIST <<< "$ef_search"
-    for idx in "${!EF_LIST[@]}"; do
-        ef_val="${EF_LIST[$idx]}"
-        search_params_json+="{\"parallel\":${parallel},\"search_params\":{\"ef\":${ef_val},\"data_type\":\"${data_type}\"}}"
-        [[ $idx -lt $((${#EF_LIST[@]}-1)) ]] && search_params_json+=","
-    done
-    
-    search_params_json+="]"
-    echo "$search_params_json"
-}
-
-# Function to generate benchmark configuration
-generate_benchmark_config() {
-    local vector_search="$1" m="$2" ef_construction="$3" parallel="$4" data_type="$5" ef_search="$6" output_file="$7"
-    
-    local search_params_json=$(generate_search_params "$ef_search" "$parallel" "$data_type")
-    
-    # Configure based on vector search type
-    local collection_params upload_params engine_name
-    if [[ "$vector_search" == "vectorsets" ]]; then
-        collection_params="{}"
-        upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
-        engine_name="vectorsets"
-    else
-        collection_params="{\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
-        upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\"}"
-        engine_name="redis"
-    fi
-    
-    local config_json="[{\"name\":\"redis-m-${m}-ef-${ef_construction}-parallel-${parallel}-${data_type}\",\"engine\":\"${engine_name}\",\"connection_params\":{},\"collection_params\":$collection_params,\"search_params\":$search_params_json,\"upload_params\":$upload_params}]"
-    
-    mkdir -p "$(dirname "$output_file")"
-    echo "$config_json" > "$output_file"
-    log_info "Generated benchmark configuration: $output_file"
 }
 
 #=======================================================================================================================

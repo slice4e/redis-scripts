@@ -25,13 +25,6 @@ VENV_DIR_NAME="venv-redis-benchmark"
 prepare_benchmark_config() {
     # Download dataset
     download_dataset "$DATASET" "$DATASET_NAME" "$VECTORDB_BENCHMARK_PATH" || exit 1
-    
-    # Generate dynamic configuration if needed
-    if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
-        log_info "Generating dynamic benchmark configuration..."
-        generate_benchmark_config "$VECTOR_SEARCH" "$M" "$EF_CONSTRUCTION" "$PARALLEL" "$DATA_TYPE" "$EF_SEARCH" \
-            "$VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json"
-    fi
 }
 
 # Function to setup benchmark execution parameters
@@ -41,9 +34,7 @@ setup_benchmark_execution() {
     [ -n "$NUMA_CONFIG_CLIENT" ] && NUMACTL_PREFIX="$NUMA_CONFIG_CLIENT"
     
     # Construct engine name
-    local engine_append=""
-    [ "$CREATE_DYNAMICALLY" -eq 1 ] && engine_append="-parallel-$PARALLEL-${DATA_TYPE}"
-    ENGINE_NAME="redis-m-$M-ef-$EF_CONSTRUCTION$engine_append"
+    ENGINE_NAME="redis-m-$M-ef-$EF_CONSTRUCTION"
     
     # Setup SSH command for remote monitoring
     SSH_COMMAND=""
