@@ -21,47 +21,6 @@ VENV_DIR_NAME="venv-redis-benchmark"
 # Benchmark-specific Functions
 #=======================================================================================================================
 
-# Function to setup vector-db-benchmark repository
-setup_vectordb_benchmark() {
-    log_info "Setting up vector-db-benchmark repository..."
-    
-    if [[ ! -d "$VECTORDB_BENCHMARK_PATH" ]]; then
-        log_info "Cloning vector-db-benchmark..."
-        git clone https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH" || { log_error "Failed to clone repository"; return 1; }
-    else
-        log_info "Updating vector-db-benchmark..."
-        cd "$VECTORDB_BENCHMARK_PATH" && git fetch origin && cd - || { log_error "Failed to update repository"; return 1; }
-    fi
-    
-    # Switch to specified branch
-    cd "$VECTORDB_BENCHMARK_PATH" || return 1
-    log_info "Switching to branch: $VECTORDB_BENCHMARK_BRANCH"
-    git checkout "$VECTORDB_BENCHMARK_BRANCH" && git pull origin "$VECTORDB_BENCHMARK_BRANCH" 2>/dev/null || true
-    cd - >/dev/null
-}
-
-
-# Function to setup and activate Python virtual environment (for remote benchmark client only)
-setup_python_environment() {
-    # Local mode uses environment from redis_setup.sh
-    [[ "$SERVER_REMOTE" != "true" ]] && return 0
-    
-    local venv_path="$HOME_PATH/$VENV_DIR_NAME"
-    log_info "Setting up Python virtual environment for remote benchmark client..."
-    
-    # Create and setup virtual environment
-    setup_python_venv "localhost" "$venv_path"
-    
-    # Activate and install packages
-    source "$venv_path/bin/activate"
-    [[ "$VIRTUAL_ENV" != "$venv_path" ]] && { log_error "Failed to activate virtual environment"; return 1; }
-    
-    python -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
-    python -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
-    
-    log_info "Python environment setup completed successfully"
-}
-
 # Function to prepare benchmark configuration
 prepare_benchmark_config() {
     # Download dataset
@@ -75,8 +34,8 @@ prepare_benchmark_config() {
     fi
 }
 
-# Function to setup benchmark execution environment
-setup_benchmark_environment() {
+# Function to setup benchmark execution parameters
+setup_benchmark_execution() {
     # Set up NUMA prefix for client
     NUMACTL_PREFIX=""
     [ "$USE_NUMACTL_CLIENT" -eq 1 ] && NUMACTL_PREFIX="numactl -N $NUMA_NODES_CLIENT -m $NUMA_NODES_CLIENT"
@@ -137,8 +96,7 @@ main() {
     
     # Setup benchmark components with progress tracking
     log_step "Preparing Benchmark Environment"
-    setup_vectordb_benchmark
-    setup_python_environment
+    setup_benchmark_environment
     
     # Wait for Redis to be ready
     log_step "Waiting for Redis to be Ready"
@@ -147,9 +105,10 @@ main() {
     # Prepare and execute benchmark
     log_step "Executing Benchmark"
     prepare_benchmark_config
-    setup_benchmark_environment
+    setup_benchmark_execution
     run_complete_benchmark
     
+
     log_success "Vector database benchmark completed successfully!"
 }
 

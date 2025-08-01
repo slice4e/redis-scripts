@@ -10,6 +10,95 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/common_utils.sh"
 
 #=======================================================================================================================
+# Python Environment Setup Functions
+#=======================================================================================================================
+
+# Function to setup Python virtual environment
+setup_python_venv() {
+    local target_server="$1"
+    local venv_path="$2"
+    
+    log_info "Setting up Python virtual environment on $target_server at $venv_path..."
+
+    # Check if virtual environment exists and is valid
+    if execute_command_quiet "[ ! -d \"$venv_path\" ] || [ ! -x \"$venv_path/bin/python\" ]" "$target_server"; then
+        log_info "Virtual environment missing or invalid, creating new one at $venv_path..."
+        # Remove any incomplete or corrupted venv directory
+        execute_command "rm -rf \"$venv_path\"" "$target_server"
+        # Create new virtual environment with --upgrade-deps
+        if ! execute_command "python3 -m venv --upgrade-deps \"$venv_path\"" "$target_server"; then
+            log_error "Failed to create virtual environment"
+            return 1
+        fi
+    else
+        log_info "Virtual environment already exists at $venv_path"
+    fi
+    
+    # Verify pip is available and upgrade it
+    if ! execute_command_quiet "\"$venv_path/bin/python\" -m pip --version" "$target_server"; then
+        log_info "Virtual environment pip is not working, recreating..."
+        execute_command "rm -rf \"$venv_path\"" "$target_server"
+        execute_command "python3 -m venv --upgrade-deps \"$venv_path\"" "$target_server"
+    fi
+    
+    # Upgrade pip in the virtual environment
+    execute_command "\"$venv_path/bin/python\" -m pip install --upgrade pip" "$target_server"
+}
+
+# Function to setup vector-db-benchmark repository
+setup_vectordb_benchmark() {
+    log_info "Setting up vector-db-benchmark repository..."
+    
+    if [[ ! -d "$VECTORDB_BENCHMARK_PATH" ]]; then
+        log_info "Cloning vector-db-benchmark..."
+        git clone https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH" || { log_error "Failed to clone repository"; return 1; }
+    else
+        log_info "Updating vector-db-benchmark..."
+        cd "$VECTORDB_BENCHMARK_PATH" && git fetch origin && cd - || { log_error "Failed to update repository"; return 1; }
+    fi
+    
+    # Switch to specified branch
+    cd "$VECTORDB_BENCHMARK_PATH" || return 1
+    log_info "Switching to branch: $VECTORDB_BENCHMARK_BRANCH"
+    git checkout "$VECTORDB_BENCHMARK_BRANCH" && git pull origin "$VECTORDB_BENCHMARK_BRANCH" 2>/dev/null || true
+    cd - >/dev/null
+}
+
+# Function to setup and activate Python virtual environment for benchmarking
+setup_python_environment() {
+    # Skip if not needed for local mode
+    [[ "$SERVER_REMOTE" != "true" ]] && { log_info "Skipping Python environment setup for local mode"; return 0; }
+    
+    local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
+    log_info "Setting up Python virtual environment for benchmark client..."
+    
+    # Create and setup virtual environment
+    setup_python_venv "localhost" "$venv_path"
+    
+    # Activate and install packages
+    source "$venv_path/bin/activate"
+    [[ "$VIRTUAL_ENV" != "$venv_path" ]] && { log_error "Failed to activate virtual environment"; return 1; }
+    
+    python -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
+    python -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
+    
+    log_success "Python environment setup completed successfully"
+}
+
+# Function to setup complete benchmark environment
+setup_benchmark_environment() {
+    log_step "Setting Up Benchmark Environment"
+    
+    # Setup vector-db-benchmark repository
+    setup_vectordb_benchmark
+    
+    # Setup Python environment
+    setup_python_environment
+    
+    log_success "Benchmark environment setup completed"
+}
+
+#=======================================================================================================================
 # Dataset Management Functions
 #=======================================================================================================================
 
@@ -203,3 +292,35 @@ run_benchmark_search() {
         --queries "$queries" \
         --skip-upload
 }
+
+#=======================================================================================================================
+# Standalone Execution Support
+#=======================================================================================================================
+
+# Main function for standalone execution
+main() {
+    log_step "Setting Up Benchmark Utilities"
+    
+    # Load and validate configuration
+    if ! load_benchmark_configuration "${1:-}"; then
+        exit 1
+    fi
+    
+    # Display configuration summary
+    display_config_summary
+    
+    # Setup complete benchmark environment
+    setup_benchmark_environment
+    
+    log_success "Benchmark utilities setup completed successfully!"
+}
+
+# Run main function if script is executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Set script name for logging
+    SCRIPT_NAME="${SCRIPT_NAME:-benchmark_utils}"
+    
+    # Source config loader for standalone execution
+    source "$SCRIPT_DIR/config_loader.sh"
+    main "$@"
+fi

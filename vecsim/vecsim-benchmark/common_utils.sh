@@ -265,42 +265,6 @@ install_dependencies() {
 }
 
 #=======================================================================================================================
-# Python Environment Functions
-#=======================================================================================================================
-
-# Function to setup Python virtual environment
-setup_python_venv() {
-    local target_server="$1"
-    local venv_path="$2"
-    
-    log_info "Setting up Python virtual environment on $target_server at $venv_path..."
-
-    # Check if virtual environment exists and is valid
-    if execute_command_quiet "[ ! -d \"$venv_path\" ] || [ ! -x \"$venv_path/bin/python\" ]" "$target_server"; then
-        log_info "Virtual environment missing or invalid, creating new one at $venv_path..."
-        # Remove any incomplete or corrupted venv directory
-        execute_command "rm -rf \"$venv_path\"" "$target_server"
-        # Create new virtual environment with --upgrade-deps
-        if ! execute_command "python3 -m venv --upgrade-deps \"$venv_path\"" "$target_server"; then
-            log_error "Failed to create virtual environment"
-            return 1
-        fi
-    else
-        log_info "Virtual environment already exists at $venv_path"
-    fi
-    
-    # Verify pip is available and upgrade it
-    if ! execute_command_quiet "\"$venv_path/bin/python\" -m pip --version" "$target_server"; then
-        log_info "Virtual environment pip is not working, recreating..."
-        execute_command "rm -rf \"$venv_path\"" "$target_server"
-        execute_command "python3 -m venv --upgrade-deps \"$venv_path\"" "$target_server"
-    fi
-    
-    # Upgrade pip in the virtual environment
-    execute_command "\"$venv_path/bin/python\" -m pip install --upgrade pip" "$target_server"
-}
-
-#=======================================================================================================================
 # Utility Functions
 #=======================================================================================================================
 
