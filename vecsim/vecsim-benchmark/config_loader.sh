@@ -55,7 +55,7 @@ load_benchmark_configuration() {
     fi
     
     # Export critical variables
-    export DATASET HOME_PATH REDIS_PATH LOGIN_ID SERVER_REMOTE TARGET PORT
+    export DATASET HOME_PATH REDIS_PATH LOGIN_ID SERVER_REMOTE REDIS_SERVER PORT
     export VECTORDB_BENCHMARK_PATH REPETITIONS QUERIES M EF_CONSTRUCTION PARALLEL DATA_TYPE EF_SEARCH
     export CREATE_DYNAMICALLY SKIP_UPLOAD SKIP_SETUP REDIS_CLUSTER USE_NUMACTL_CLIENT NUMA_NODES_CLIENT
     
@@ -90,15 +90,15 @@ set_default_values() {
 determine_target_servers() {
     if [[ ${SERVER_REMOTE} == true ]]; then
         if [ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]; then
-            TARGET=$CLUSTER_MASTER
-            log_info "Multiple server cluster mode - target: $TARGET"
+            REDIS_SERVER=$CLUSTER_MASTER
+            log_info "Multiple server cluster mode - target: $REDIS_SERVER"
         else
-            TARGET=$SERVER_IP
-            log_info "Single remote server mode - target: $TARGET"
+            REDIS_SERVER=$SERVER_IP
+            log_info "Single remote server mode - target: $REDIS_SERVER"
         fi
     else
-        TARGET="localhost"
-        log_info "Local server mode - target: $TARGET"
+        REDIS_SERVER="localhost"
+        log_info "Local server mode - target: $REDIS_SERVER"
     fi
 }
 
@@ -109,7 +109,7 @@ get_server_list() {
     if [[ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]]; then
         servers+=("${CLUSTER_SERVERS[@]}")
     elif [[ "$SERVER_REMOTE" == "true" ]]; then
-        servers+=("$TARGET")
+        servers+=("$REDIS_SERVER")
     fi
     
     echo "${servers[@]}"
@@ -120,7 +120,7 @@ display_config_summary() {
     log_info "=== Configuration Summary ==="
     
     # Redis Configuration
-    log_info "Redis: ${REDIS_PATH} (${REDIS_BRANCH:-default}) on ${TARGET}:${PORT:-6379}"
+    log_info "Redis: ${REDIS_PATH} (${REDIS_BRANCH:-default}) on ${REDIS_SERVER}:${PORT:-6379}"
     log_info "Vector Search: ${VECTOR_SEARCH:-redisearch}, NUMA: ${USE_NUMACTL}"
     
     # Cluster Configuration

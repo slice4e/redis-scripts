@@ -169,7 +169,7 @@ create_redis_cluster() {
         local hosts=$(build_cluster_hosts)
         $ssh_cmd "echo \"yes\" | $REDIS_PATH/src/redis-cli --cluster create $hosts --cluster-replicas $CLUSTER_REPLICAS"
     else
-        local target_server=$([[ "$SERVER_REMOTE" == "true" ]] && echo "$TARGET" || echo "localhost")
+        local target_server=$([[ "$SERVER_REMOTE" == "true" ]] && echo "$REDIS_SERVER" || echo "localhost")
         execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa start && echo \"yes\" | ./create-cluster-numa create && cd -" "$target_server"
     fi
 }

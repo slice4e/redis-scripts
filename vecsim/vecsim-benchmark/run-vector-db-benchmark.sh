@@ -88,7 +88,7 @@ setup_benchmark_environment() {
     
     # Setup SSH command for remote monitoring
     SSH_COMMAND=""
-    [[ "$SERVER_REMOTE" == "true" ]] && SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $LOGIN_ID@${TARGET}"
+    [[ "$SERVER_REMOTE" == "true" ]] && SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $LOGIN_ID@${REDIS_SERVER}"
 }
 
 # Function to run complete benchmark with monitoring
@@ -97,15 +97,15 @@ run_complete_benchmark() {
     start_emon_monitoring "$DATASET" "$M" "$EF_CONSTRUCTION" "$SERVER_REMOTE" "$EMON_FOLDER" "$SSH_COMMAND" "$HOME_PATH"
     
     # Run benchmark stages
-    run_benchmark_upload "$VECTORDB_BENCHMARK_PATH" "$ENGINE_NAME" "$DATASET_NAME" "$TARGET" \
+    run_benchmark_upload "$VECTORDB_BENCHMARK_PATH" "$ENGINE_NAME" "$DATASET_NAME" "$REDIS_SERVER" \
         "$REDIS_CLUSTER" "$PORT" "$NUMACTL_PREFIX" "$SKIP_UPLOAD" "$SKIP_SETUP"
     
-    run_benchmark_search "$VECTORDB_BENCHMARK_PATH" "$ENGINE_NAME" "$DATASET_NAME" "$TARGET" \
+    run_benchmark_search "$VECTORDB_BENCHMARK_PATH" "$ENGINE_NAME" "$DATASET_NAME" "$REDIS_SERVER" \
         "$QUERIES" "$REPETITIONS" "$REDIS_CLUSTER" "$PORT" "$NUMACTL_PREFIX"
     
     # Stop monitoring
     stop_emon_monitoring "$SERVER_REMOTE" "$EMON_FOLDER" "$SSH_COMMAND" "$SSH_KEY_PATH" "$SSH_KEY_NAME" \
-        "$LOGIN_ID" "$TARGET" "$HOME_PATH" "$EMON_CONFIG_FILE" "$EMON_HOME"
+        "$LOGIN_ID" "$REDIS_SERVER" "$HOME_PATH" "$EMON_CONFIG_FILE" "$EMON_HOME"
 }
 
 #=======================================================================================================================
@@ -136,7 +136,7 @@ main() {
     # Setup benchmark components
     setup_vectordb_benchmark
     setup_python_environment
-    wait_for_redis "$TARGET" "$PORT"
+    wait_for_redis "$REDIS_SERVER" "$PORT"
     
     # Prepare and execute benchmark
     prepare_benchmark_config
