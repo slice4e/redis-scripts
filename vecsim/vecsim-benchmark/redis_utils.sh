@@ -1,9 +1,17 @@
 #!/bin/bash
 
 #=======================================================================================================================
-# Redis Utilities Script
-# Redis-specific setup, configuration, and management functions
+# Redis Setup and Utilities Script
+# Comprehensive Redis setup, configuration, and management functions
+# Can be used standalone or as part of the benchmark suite
+#
+# USAGE:
+#   Standalone: ./redis_utils.sh [config_file]
+#   As module:  source redis_utils.sh
 #=======================================================================================================================
+
+# Set script name for logging
+SCRIPT_NAME="${SCRIPT_NAME:-redis_setup}"
 
 # Source common utilities
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -135,14 +143,14 @@ configure_redis_cluster() {
     [[ "$SERVER_REMOTE" == "true" ]] && cluster_host_option="echo \"CLUSTER_HOST=$target_server\" >> $config_file"
     
     execute_command "cat > $config_file << EOF
-PORT=$((PORT-1))
-NODES=$CLUSTER_NODES
-TIMEOUT=$CLUSTER_TIMEOUT
-REPLICAS=$CLUSTER_REPLICAS
-USE_NUMACTL=$USE_NUMACTL
-NUMA_NODES=$NUMA_NODES
-ADDITIONAL_OPTIONS='--save \"\" --protected-mode no --appendonly no $loadmodule_option'
-EOF" "$target_server"
+    PORT=$((PORT-1))
+    NODES=$CLUSTER_NODES
+    TIMEOUT=$CLUSTER_TIMEOUT
+    REPLICAS=$CLUSTER_REPLICAS
+    USE_NUMACTL=$USE_NUMACTL
+    NUMA_NODES=$NUMA_NODES
+    ADDITIONAL_OPTIONS='--save \"\" --protected-mode no --appendonly no $loadmodule_option'
+    EOF" "$target_server"
     
     [[ -n "$cluster_host_option" ]] && execute_command "$cluster_host_option" "$target_server"
 }
@@ -165,9 +173,9 @@ build_cluster_hosts() {
 create_redis_cluster() {
     if [[ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]]; then
         sleep 2
-        local ssh_cmd="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q $LOGIN_ID@${CLUSTER_MASTER}"
         local hosts=$(build_cluster_hosts)
-        $ssh_cmd "echo \"yes\" | $REDIS_PATH/src/redis-cli --cluster create $hosts --cluster-replicas $CLUSTER_REPLICAS"
+        local cluster_cmd="echo \"yes\" | $REDIS_PATH/src/redis-cli --cluster create $hosts --cluster-replicas $CLUSTER_REPLICAS"
+        execute_command "$cluster_cmd" "$CLUSTER_MASTER"
     else
         local target_server=$([[ "$SERVER_REMOTE" == "true" ]] && echo "$REDIS_SERVER" || echo "localhost")
         execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa start && echo \"yes\" | ./create-cluster-numa create && cd -" "$target_server"
@@ -248,3 +256,38 @@ setup_redis_environment() {
     
     log_info "=== Redis setup completed successfully ==="
 }
+
+#=======================================================================================================================
+# Standalone Execution Support
+#=======================================================================================================================
+
+# Main function for standalone execution
+main() {
+    log_step "Starting Redis Setup Process"
+    
+    # Load and validate configuration
+    if ! load_benchmark_configuration "${1:-}"; then
+        exit 1
+    fi
+    
+    # Display configuration summary
+    display_config_summary
+    
+    if [ "${SKIP_SETUP:-0}" -eq 1 ]; then
+        log_info "Skipping setup (SKIP_SETUP=1)"
+        return 0
+    fi
+
+    # Get server list and setup Redis environment
+    local servers=($(get_server_list))
+    setup_redis_environment "${servers[@]}"
+    
+    log_success "Redis setup completed successfully!"
+}
+
+# Run main function if script is executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Source config loader for standalone execution
+    source "$SCRIPT_DIR/config_loader.sh"
+    main "$@"
+fi

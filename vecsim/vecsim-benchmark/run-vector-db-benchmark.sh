@@ -113,7 +113,7 @@ run_complete_benchmark() {
 #=======================================================================================================================
 
 main() {
-    log_info "Starting vector database benchmark..."
+    log_step "Starting Vector Database Benchmark"
     
     # Load configuration and setup environment
     load_benchmark_configuration "${1:-}" || exit 1
@@ -121,6 +121,7 @@ main() {
     
     # Handle Redis Enterprise vs Open Source setup
     if [ "$REDIS_ENTERPRISE" -eq 1 ]; then
+        log_step "Setting Up Redis Enterprise"
         SOURCE_SCRIPT=$(dirname $(dirname "$SCRIPT_DIR"))/shared-scripts/set_ssh.sh
         for server in "${RE_SERVERS[@]}"; do
             SERVER_IP=$server
@@ -128,22 +129,28 @@ main() {
         done
         source "./re_setup.sh"
     else
+        log_step "Setting Up Redis Open Source"
         # Setup Redis using the new modular approach
         local servers=($(get_server_list))
         setup_redis_environment "${servers[@]}"
     fi
     
-    # Setup benchmark components
+    # Setup benchmark components with progress tracking
+    log_step "Preparing Benchmark Environment"
     setup_vectordb_benchmark
     setup_python_environment
+    
+    # Wait for Redis to be ready
+    log_step "Waiting for Redis to be Ready"
     wait_for_redis "$REDIS_SERVER" "$PORT"
     
     # Prepare and execute benchmark
+    log_step "Executing Benchmark"
     prepare_benchmark_config
     setup_benchmark_environment
     run_complete_benchmark
     
-    log_info "Vector database benchmark completed successfully!"
+    log_success "Vector database benchmark completed successfully!"
 }
 
 # Run main function
