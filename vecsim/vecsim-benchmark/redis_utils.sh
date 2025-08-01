@@ -91,8 +91,8 @@ cleanup_redis() {
     execute_command "killall -9 redis-server 2>/dev/null || echo 'No redis-server processes running'" "$target_server"
     
     if [ "$REDIS_CLUSTER" -eq 1 ]; then
-        local rediscluster_script="$REDIS_PATH/utils/create-cluster/create-cluster-numa"
-        copy_file_to_server "./create-cluster-numa" "$rediscluster_script" "$target_server"
+        local rediscluster_script="$REDIS_PATH/utils/create-cluster/create-cluster-numa.sh"
+        copy_file_to_server "./create-cluster-numa.sh" "$rediscluster_script" "$target_server"
         execute_command "cd $REDIS_PATH/utils/create-cluster && $rediscluster_script stop && $rediscluster_script clean && cd -" "$target_server"
     else
         execute_command "rm -f ${REDIS_PATH}/*.rdb" "$target_server"
@@ -177,7 +177,7 @@ create_redis_cluster() {
         execute_command "$cluster_cmd" "$CLUSTER_MASTER"
     else
         local target_server=$([[ "$SERVER_REMOTE" == "true" ]] && echo "$REDIS_SERVER" || echo "localhost")
-        execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa start && echo \"yes\" | ./create-cluster-numa create && cd -" "$target_server"
+        execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start && echo \"yes\" | ./create-cluster-numa.sh create && cd -" "$target_server"
     fi
 }
 
@@ -217,7 +217,7 @@ start_redis_instances() {
         
         if [ "$REDIS_CLUSTER" -eq 1 ]; then
             configure_redis_cluster "$server" "$redisearch_lib"
-            [[ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]] && execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa start" "$server"
+            [[ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]] && execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start" "$server"
         else
             start_redis_server "$server" "$redisearch_lib"
         fi

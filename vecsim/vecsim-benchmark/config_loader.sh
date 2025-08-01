@@ -71,6 +71,7 @@ load_benchmark_configuration() {
     export DATASET HOME_PATH REDIS_PATH LOGIN_ID SERVER_REMOTE REDIS_SERVER PORT
     export VECTORDB_BENCHMARK_PATH REPETITIONS QUERIES M EF_CONSTRUCTION PARALLEL DATA_TYPE EF_SEARCH
     export CREATE_DYNAMICALLY SKIP_UPLOAD SKIP_SETUP REDIS_CLUSTER NUMA_CONFIG NUMA_CONFIG_CLIENT
+    export SSH_KEY_PATH SSH_KEY_NAME
     
     # Validate configuration
     validate_configuration || return 1
@@ -89,6 +90,10 @@ set_default_values() {
     REDIS_CLUSTER=${REDIS_CLUSTER:-0}
     CLUSTER_MULTIPLE_SERVERS=${CLUSTER_MULTIPLE_SERVERS:-0}
     REDIS_ENTERPRISE=${REDIS_ENTERPRISE:-0}
+    
+    # SSH configuration defaults (removed from template but needed internally)
+    SSH_KEY_PATH=${SSH_KEY_PATH:-"~/.ssh"}
+    SSH_KEY_NAME=${SSH_KEY_NAME:-"id_rsa"}
 }
 
 # Function to determine target servers based on configuration
