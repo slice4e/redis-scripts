@@ -11,14 +11,15 @@
 #   ./create_custom_config.sh [options]
 #
 # Options:
-#   -h, --help                    Show this help message
-#   -o, --output FILE            Output configuration file (default: redis-custom.json)
-#   -m, --m VALUE                HNSW M parameter (default: 32)
-#   -e, --ef-construction VALUE  EF_CONSTRUCTION parameter (default: 256)
-#   -s, --ef-search VALUES       EF_SEARCH values, comma-separated (default: 128)
-#   -p, --parallel VALUE         Number of parallel clients (default: 8)
-#   -t, --data-type TYPE         Data type: FLOAT16|FLOAT32 (default: FLOAT16)
-#   -v, --vector-search TYPE     Vector search type: redisearch|vectorsets (default: redisearch)
+#   -h, --help                          Show this help message
+#   -o, --output FILE                   Output configuration file (default: redis-custom.json)
+#   -m, --m VALUE                       HNSW M parameter (default: 32)
+#   -e, --ef-construction VALUE         EF_CONSTRUCTION parameter (default: 256)
+#   -s, --ef-search VALUES              EF_SEARCH values, comma-separated (default: 128)
+#   -p, --parallel VALUE                Number of parallel clients (default: 8)
+#   -t, --data-type TYPE                Data type: FLOAT16|FLOAT32 (default: FLOAT16)
+#   -v, --vector-search TYPE            Vector search type: redisearch|vectorsets (default: redisearch)
+#   -c, --calibration-precision VALUE   Calibration precision for parameter tuning (optional)
 #
 # Examples:
 #   ./create_custom_config.sh -m 64 -e 512 -s "90,100,110" -p 16
@@ -39,6 +40,7 @@ DEFAULT_PARALLEL=8
 DEFAULT_DATA_TYPE="FLOAT16"
 DEFAULT_VECTOR_SEARCH="redisearch"
 DEFAULT_OUTPUT="redis-custom.json"
+DEFAULT_CALIBRATION_PRECISION=""
 
 # Configuration variables
 M="$DEFAULT_M"
@@ -48,6 +50,7 @@ PARALLEL="$DEFAULT_PARALLEL"
 DATA_TYPE="$DEFAULT_DATA_TYPE"
 VECTOR_SEARCH="$DEFAULT_VECTOR_SEARCH"
 OUTPUT_FILE="$DEFAULT_OUTPUT"
+CALIBRATION_PRECISION="$DEFAULT_CALIBRATION_PRECISION"
 
 # Logging functions
 log_info() {
@@ -78,6 +81,7 @@ Options:
   -p, --parallel VALUE         Number of parallel clients (default: $DEFAULT_PARALLEL)
   -t, --data-type TYPE         Data type: FLOAT16|FLOAT32 (default: $DEFAULT_DATA_TYPE)
   -v, --vector-search TYPE     Vector search type: redisearch|vectorsets (default: $DEFAULT_VECTOR_SEARCH)
+  -c, --calibration-precision VALUE  Calibration precision for parameter tuning (optional)
 
 Examples:
   $0 -m 64 -e 512 -s "90,100,110" -p 16
@@ -138,6 +142,7 @@ generate_search_params() {
     local ef_search="$1"
     local parallel="$2"
     local data_type="$3"
+    local calibration_precision="$4"
     
     local search_params_json="["
     
@@ -145,7 +150,15 @@ generate_search_params() {
     IFS=',' read -ra EF_LIST <<< "$ef_search"
     for idx in "${!EF_LIST[@]}"; do
         ef_val=$(echo "${EF_LIST[$idx]}" | xargs) # trim whitespace
-        search_params_json+="{\"parallel\":${parallel},\"search_params\":{\"ef\":${ef_val},\"data_type\":\"${data_type}\"}}"
+        
+        if [[ -n "$calibration_precision" ]]; then
+            # Use calibration mode
+            search_params_json+="{\"parallel\":${parallel},\"top\":100,\"search_params\":{\"data_type\":\"${data_type}\"},\"calibration_param\":\"ef\",\"calibration_precision\":${calibration_precision}}"
+        else
+            # Standard mode with ef parameter
+            search_params_json+="{\"parallel\":${parallel},\"top\":100,\"search_params\":{\"ef\":${ef_val},\"data_type\":\"${data_type}\"}}"
+        fi
+        
         [[ $idx -lt $((${#EF_LIST[@]}-1)) ]] && search_params_json+=","
     done
     
@@ -162,9 +175,10 @@ generate_benchmark_config() {
     local data_type="$5" 
     local ef_search="$6" 
     local output_file="$7"
+    local calibration_precision="$8"
     
     local search_params_json
-    search_params_json=$(generate_search_params "$ef_search" "$parallel" "$data_type")
+    search_params_json=$(generate_search_params "$ef_search" "$parallel" "$data_type" "$calibration_precision")
     
     # Configure based on vector search type
     local collection_params upload_params engine_name
@@ -199,6 +213,7 @@ show_configuration_summary() {
     log_info "  Parallel Clients: $PARALLEL"
     log_info "  Data Type: $DATA_TYPE"
     log_info "  Output File: $OUTPUT_FILE"
+    [[ -n "$CALIBRATION_PRECISION" ]] && log_info "  Calibration Precision: $CALIBRATION_PRECISION"
 }
 
 # Parse command line arguments
@@ -236,6 +251,10 @@ while [[ $# -gt 0 ]]; do
             VECTOR_SEARCH="$2"
             shift 2
             ;;
+        -c|--calibration-precision)
+            CALIBRATION_PRECISION="$2"
+            shift 2
+            ;;
         *)
             log_error "Unknown option: $1"
             echo "Use --help for usage information"
@@ -258,7 +277,7 @@ main() {
     show_configuration_summary
     
     # Generate the configuration
-    generate_benchmark_config "$VECTOR_SEARCH" "$M" "$EF_CONSTRUCTION" "$PARALLEL" "$DATA_TYPE" "$EF_SEARCH" "$OUTPUT_FILE"
+    generate_benchmark_config "$VECTOR_SEARCH" "$M" "$EF_CONSTRUCTION" "$PARALLEL" "$DATA_TYPE" "$EF_SEARCH" "$OUTPUT_FILE" "$CALIBRATION_PRECISION"
     
     log_info "Custom configuration generation completed successfully"
     log_info "You can now use this configuration file with vector-db-benchmark"
