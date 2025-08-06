@@ -91,9 +91,15 @@ cleanup_redis() {
     execute_command "killall -9 redis-server 2>/dev/null || echo 'No redis-server processes running'" "$target_server"
     
     if [ "$REDIS_CLUSTER" -eq 1 ]; then
+        # Save the current working directory
+        local current_dir=$(pwd)
+        
+        # Copy the script to the target location
         local rediscluster_script="$REDIS_PATH/utils/create-cluster/create-cluster-numa.sh"
-        copy_file_to_server "./create-cluster-numa.sh" "$rediscluster_script" "$target_server"
-        execute_command "cd $REDIS_PATH/utils/create-cluster && $rediscluster_script stop && $rediscluster_script clean && cd -" "$target_server"
+        copy_file_to_server "$SCRIPT_DIR/create-cluster-numa.sh" "$rediscluster_script" "$target_server"
+        
+        # Use absolute paths in the command to avoid directory issues
+        execute_command "cd $REDIS_PATH/utils/create-cluster && $rediscluster_script stop && $rediscluster_script clean && cd \"$current_dir\"" "$target_server"
     else
         execute_command "rm -f ${REDIS_PATH}/*.rdb" "$target_server"
     fi
@@ -177,7 +183,9 @@ create_redis_cluster() {
         execute_command "$cluster_cmd" "$CLUSTER_MASTER"
     else
         local target_server=$([[ "$SERVER_REMOTE" == "true" ]] && echo "$REDIS_SERVER" || echo "localhost")
-        execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start && echo \"yes\" | ./create-cluster-numa.sh create && cd -" "$target_server"
+        # Save current directory
+        local current_dir=$(pwd)
+        execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start && echo \"yes\" | ./create-cluster-numa.sh create && cd \"$current_dir\"" "$target_server"
     fi
 }
 
