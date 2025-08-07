@@ -121,47 +121,11 @@ setup_benchmark_environment() {
 # Dataset Management Functions
 #=======================================================================================================================
 
-# Function to get dataset URL and path based on dataset type
-get_dataset_info() {
-    local dataset="$1" dataset_name="$2" base_path="$3"
-    
-    # Extract dataset type from prefix
-    local dataset_type
-    case "$dataset" in
-        laion-512-*) dataset_type="laion-img-emb-512"; url_path="laion400m" ;;
-        laion-768-*) dataset_type="laion-img-emb-768"; url_path="laion400m" ;;
-        dbpedia-*)   dataset_type="dbpedia"; url_path="dbpedia" ;;
-        cohere-*)    dataset_type="cohere"; url_path="cohere" ;;
-        *) log_error "Unknown dataset type: $dataset"; return 1 ;;
-    esac
-    
-    local dataset_path="$base_path/datasets/$dataset_type/$dataset_name.hdf5"
-    local dataset_url="http://benchmarks.redislabs.s3.amazonaws.com/vecsim/$url_path/$dataset_name.hdf5"
-    
-    echo "$dataset_path|$dataset_url"
-}
+# Note: Dataset downloads are now handled automatically by vector-db-benchmark
+# No manual dataset management functions needed
 
-# Function to download dataset if needed
-download_dataset() {
-    local dataset="$1" dataset_name="$2" base_path="$3"
-    
-    local dataset_info=$(get_dataset_info "$dataset" "$dataset_name" "$base_path") || return 1
-    local dataset_path="${dataset_info%|*}"
-    local dataset_url="${dataset_info#*|}"
-    
-    # Ensure directory exists and download if needed
-    ensure_directory "$(dirname "$dataset_path")" "localhost"
-    
-    if [[ ! -e "$dataset_path" ]]; then
-        log_info "Downloading dataset from $dataset_url..."
-        wget -q -O "$dataset_path" "$dataset_url" || { log_error "Failed to download dataset"; return 1; }
-        log_info "Dataset downloaded successfully"
-    else
-        log_info "Dataset already exists"
-    fi
-    
-    echo "$dataset_path"
-}
+
+
 
 #=======================================================================================================================
 # EMON Monitoring Functions

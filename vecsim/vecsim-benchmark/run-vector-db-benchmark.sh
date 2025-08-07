@@ -23,8 +23,8 @@ VENV_DIR_NAME="venv-redis-benchmark"
 
 # Function to prepare benchmark configuration
 prepare_benchmark_config() {
-    # Download dataset
-    download_dataset "$DATASET" "$DATASET_NAME" "$VECTORDB_BENCHMARK_PATH" || exit 1
+    # Dataset download is now handled automatically by vector-db-benchmark
+    log_info "Dataset will be downloaded automatically by vector-db-benchmark if needed"
 }
 
 # Function to setup benchmark execution parameters
