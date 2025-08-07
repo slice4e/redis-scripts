@@ -12,7 +12,7 @@
 ##########################
 HOME_PATH=$HOME
 REDIS_PATH=$HOME_PATH/redis
-REDIS_BRANCH=8.0   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+REDIS_BRANCH=8.2.0   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
 VECTOR_SEARCH=redisearch     # set this to either redisearch or vectorsets 
 PORT=9000
 
@@ -64,7 +64,7 @@ WORKER_THREADS=5
 # Benchmark settings #
 ##########################
 VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
-VECTORDB_BENCHMARK_BRANCH=fix_parameters
+VECTORDB_BENCHMARK_BRANCH=update.redisearch
 # Virtual environment will be created at: $HOME_PATH/venv-redis-benchmark
 SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip both Redis setup and data upload -> run benchmark on existing Redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
 
