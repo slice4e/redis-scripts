@@ -79,7 +79,9 @@ NUMA_CONFIG_CLIENT=""numactl -N 1 -m 1""
 # Choose dataset size for benchmarking vector db, available datasets:
 # laion-512-1M, laion-512-10M, laion-512-20M, laion-512-40M, laion-512-100M, laion-512-200M, laion-512-400M, laion-768-1M, dbpedia-1536-1M, cohere-768-1M
 # We consume roughtly 6GB of memory capacity per M vectors. 
-DATASET="laion-512-1M"
+# To see available experiment configurations, go to vector-db-benchmark/experiments/configurations
+DATASET="dbpedia-1536-1M"
+EXPERIMENT_CONFIGURATION="dbpedia-cal-hnsw-float16"
 REPETITIONS=1
 QUERIES=10000
 
@@ -92,7 +94,6 @@ M=32
 EF_CONSTRUCTION=256
 PARALLEL=8
 EF_SEARCH=128
-DATA_TYPE=FLOAT16
 
 
 ##########################

@@ -34,7 +34,7 @@ setup_benchmark_execution() {
     [ -n "$NUMA_CONFIG_CLIENT" ] && NUMACTL_PREFIX="$NUMA_CONFIG_CLIENT"
     
     # Construct engine name
-    ENGINE_NAME="redis-m-$M-ef-$EF_CONSTRUCTION"
+    ENGINE_NAME="$EXPERIMENT_CONFIGURATION"
     
     # Setup SSH command for remote monitoring
     SSH_COMMAND=""
