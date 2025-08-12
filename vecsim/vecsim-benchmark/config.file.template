@@ -74,7 +74,7 @@ SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip both Redis setup and data upl
 #   NUMA_CONFIG_CLIENT="numactl -N 0,1 -m 0,1"    # Use NUMA nodes 0,1
 #   NUMA_CONFIG_CLIENT="taskset -c 16-31"         # Use CPU cores 16-31
 #   NUMA_CONFIG_CLIENT=""                         # Disable NUMA control (default)
-NUMA_CONFIG_CLIENT=""numactl -N 1 -m 1""
+NUMA_CONFIG_CLIENT="numactl -N 1 -m 1"
 
 # Choose dataset size for benchmarking vector db, available datasets:
 # laion-512-1M, laion-512-10M, laion-512-20M, laion-512-40M, laion-512-100M, laion-512-200M, laion-512-400M, laion-768-1M, dbpedia-1536-1M, cohere-768-1M

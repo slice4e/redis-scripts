@@ -203,6 +203,7 @@ setup_redis_software() {
         setup_redis "$server"
         setup_redisearch "$server"
         
+        #TODO - why are we donig that here? Should be done in benchmark utils. 
         # Setup Python venv only on localhost
         if [[ "$server" == "localhost" ]]; then
             local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
