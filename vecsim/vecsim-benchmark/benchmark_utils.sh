@@ -83,6 +83,7 @@ setup_python_environment() {
     
     python -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
     python -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
+    python -m pip install --upgrade redis || { log_error "Failed to install redis python library"; return 1; }
     
     log_success "Python environment setup completed successfully"
 }
@@ -193,6 +194,7 @@ run_benchmark_upload() {
     
     if [ "$skip_upload" -eq 0 ]; then
         log_info "Running benchmark upload stage..."
+        log_info "REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --skip-search"
         REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
             --engines "$engine_name" \
             --datasets "$dataset_name" \
@@ -217,7 +219,6 @@ run_benchmark_search() {
     local numactl_prefix="$9"
     
     log_info "Running benchmark search stage..."
-    # Print the exact command to log_info
     log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
     REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
         --engines "$engine_name" \
