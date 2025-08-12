@@ -66,7 +66,7 @@ setup_vectordb_benchmark() {
 
 # Function to setup and activate Python virtual environment for benchmarking
 setup_python_environment() {
-    local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
+    
     log_info "Setting up Python virtual environment for benchmark client..."
     
     # Create and setup virtual environment
@@ -75,11 +75,10 @@ setup_python_environment() {
     # Activate and install packages
     source "$venv_path/bin/activate"
     [[ "$VIRTUAL_ENV" != "$venv_path" ]] && { log_error "Failed to activate virtual environment"; return 1; }
-    
-    python -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
-    python -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
-    python -m pip install --upgrade redis || { log_error "Failed to install redis python library"; return 1; }
-    
+
+    "$venv_path/bin/python" -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
+
+    "$venv_path/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
     log_success "Python environment setup completed successfully"
 }
 
@@ -188,9 +187,10 @@ run_benchmark_upload() {
     local skip_upload="$8"
     
     if [ "$skip_upload" -eq 0 ]; then
+        local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
         log_info "Running benchmark upload stage..."
-        log_info "REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --skip-search"
-        REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
+        log_info "REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $venv_path/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --skip-search"
+        REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $venv_path/bin/python $vectordb_benchmark_path/run.py \
             --engines "$engine_name" \
             --datasets "$dataset_name" \
             --host "$target" \
@@ -212,9 +212,10 @@ run_benchmark_search() {
     local redis_cluster="$7"
     local port="$8"
     local numactl_prefix="$9"
+    local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
     
     log_info "Running benchmark search stage..."
-    log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
+    log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $venv_path/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
     REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
         --engines "$engine_name" \
         --datasets "$dataset_name" \
