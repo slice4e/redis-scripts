@@ -23,28 +23,26 @@ setup_python_venv() {
     log_info "Setting up Python virtual environment on $target_server at $venv_path..."
 
     # Check if virtual environment exists and is valid
-    if execute_command_quiet "[ ! -d \"$venv_path\" ] || [ ! -x \"$venv_path/bin/python\" ]" "$target_server"; then
+    if [ ! -d "$venv_path" ] || [ ! -x "$venv_path/bin/python" ]; then
         log_info "Virtual environment missing or invalid, creating new one at $venv_path..."
-        # Remove any incomplete or corrupted venv directory
-        execute_command "rm -rf \"$venv_path\"" "$target_server"
-        # Create new virtual environment with --upgrade-deps
-        if ! execute_command "python3 -m venv --upgrade-deps \"$venv_path\"" "$target_server"; then
+        rm -rf "$venv_path"
+        if ! python3 -m venv --upgrade-deps "$venv_path"; then
             log_error "Failed to create virtual environment"
             return 1
         fi
     else
         log_info "Virtual environment already exists at $venv_path"
     fi
-    
+
     # Verify pip is available and upgrade it
-    if ! execute_command_quiet "\"$venv_path/bin/python\" -m pip --version" "$target_server"; then
+    if ! "$venv_path/bin/python" -m pip --version; then
         log_info "Virtual environment pip is not working, recreating..."
-        execute_command "rm -rf \"$venv_path\"" "$target_server"
-        execute_command "python3 -m venv --upgrade-deps \"$venv_path\"" "$target_server"
+        rm -rf "$venv_path"
+        python3 -m venv --upgrade-deps "$venv_path"
     fi
-    
+
     # Upgrade pip in the virtual environment
-    execute_command "\"$venv_path/bin/python\" -m pip install --upgrade pip" "$target_server"
+    "$venv_path/bin/python" -m pip install --upgrade pip
 }
 
 # Function to setup vector-db-benchmark repository
@@ -68,9 +66,6 @@ setup_vectordb_benchmark() {
 
 # Function to setup and activate Python virtual environment for benchmarking
 setup_python_environment() {
-    # Skip if not needed for local mode
-    [[ "$SERVER_REMOTE" != "true" ]] && { log_info "Skipping Python environment setup for local mode"; return 0; }
-    
     local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
     log_info "Setting up Python virtual environment for benchmark client..."
     
