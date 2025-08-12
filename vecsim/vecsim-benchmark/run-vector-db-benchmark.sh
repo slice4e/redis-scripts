@@ -69,20 +69,24 @@ main() {
     load_benchmark_configuration "${1:-}" || exit 1
     display_config_summary
     
-    # Handle Redis Enterprise vs Open Source setup
-    if [ "$REDIS_ENTERPRISE" -eq 1 ]; then
-        log_step "Setting Up Redis Enterprise"
-        SOURCE_SCRIPT=$(dirname $(dirname "$SCRIPT_DIR"))/shared-scripts/set_ssh.sh
-        for server in "${RE_SERVERS[@]}"; do
-            SERVER_IP=$server
-            source $SOURCE_SCRIPT
-        done
-        source "./re_setup.sh"
+    if [ "$SKIP_UPLOAD" != "1" ]; then
+        # Handle Redis Enterprise vs Open Source setup
+        if [ "$REDIS_ENTERPRISE" -eq 1 ]; then
+            log_step "Setting Up Redis Enterprise"
+            SOURCE_SCRIPT=$(dirname $(dirname "$SCRIPT_DIR"))/shared-scripts/set_ssh.sh
+            for server in "${RE_SERVERS[@]}"; do
+                SERVER_IP=$server
+                source $SOURCE_SCRIPT
+            done
+            source "./re_setup.sh"
+        else
+            log_step "Setting Up Redis Open Source"
+            # Setup Redis using the new modular approach
+            local servers=($(get_server_list))
+            setup_redis_environment "${servers[@]}"
+        fi
     else
-        log_step "Setting Up Redis Open Source"
-        # Setup Redis using the new modular approach
-        local servers=($(get_server_list))
-        setup_redis_environment "${servers[@]}"
+        log_info "SKIP_UPLOAD=1, skipping Redis environment setup."
     fi
     
     # Setup benchmark components with progress tracking

@@ -217,6 +217,8 @@ run_benchmark_search() {
     local numactl_prefix="$9"
     
     log_info "Running benchmark search stage..."
+    # Print the exact command to log_info
+    log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
     REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
         --engines "$engine_name" \
         --datasets "$dataset_name" \
