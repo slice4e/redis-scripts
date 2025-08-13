@@ -18,31 +18,30 @@ source "$SCRIPT_DIR/common_utils.sh"
 # Function to setup Python virtual environment
 setup_python_venv() {
     local target_server="$1"
-    local venv_path="$2"
     
-    log_info "Setting up Python virtual environment on $target_server at $venv_path..."
+    log_info "Setting up Python virtual environment on $target_server at $VENV_PATH..."
 
     # Check if virtual environment exists and is valid
-    if [ ! -d "$venv_path" ] || [ ! -x "$venv_path/bin/python" ]; then
-        log_info "Virtual environment missing or invalid, creating new one at $venv_path..."
-        rm -rf "$venv_path"
-        if ! python3 -m venv --upgrade-deps "$venv_path"; then
+    if [ ! -d "$VENV_PATH" ] || [ ! -x "$VENV_PATH/bin/python" ]; then
+        log_info "Virtual environment missing or invalid, creating new one at $VENV_PATH..."
+        rm -rf "$VENV_PATH"
+        if ! python3 -m venv --upgrade-deps "$VENV_PATH"; then
             log_error "Failed to create virtual environment"
             return 1
         fi
     else
-        log_info "Virtual environment already exists at $venv_path"
+        log_info "Virtual environment already exists at $VENV_PATH"
     fi
 
     # Verify pip is available and upgrade it
-    if ! "$venv_path/bin/python" -m pip --version; then
+    if ! "$VENV_PATH/bin/python" -m pip --version; then
         log_info "Virtual environment pip is not working, recreating..."
-        rm -rf "$venv_path"
-        python3 -m venv --upgrade-deps "$venv_path"
+        rm -rf "$VENV_PATH"
+        python3 -m venv --upgrade-deps "$VENV_PATH"
     fi
 
     # Upgrade pip in the virtual environment
-    "$venv_path/bin/python" -m pip install --upgrade pip
+    "$VENV_PATH/bin/python" -m pip install --upgrade pip
 }
 
 # Function to setup vector-db-benchmark repository
@@ -70,30 +69,29 @@ setup_python_environment() {
     log_info "Setting up Python virtual environment for benchmark client..."
     
     # Create and setup virtual environment
-    setup_python_venv "localhost" "$venv_path"
+    setup_python_venv "localhost"
     
     # Activate and install packages
-    source "$venv_path/bin/activate"
-    [[ "$VIRTUAL_ENV" != "$venv_path" ]] && { log_error "Failed to activate virtual environment"; return 1; }
+    source "$VENV_PATH/bin/activate"
+    [[ "$VIRTUAL_ENV" != "$VENV_PATH" ]] && { log_error "Failed to activate virtual environment"; return 1; }
 
-    "$venv_path/bin/python" -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
+    "$VENV_PATH/bin/python" -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
 
-    "$venv_path/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
+    "$VENV_PATH/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
     log_success "Python environment setup completed successfully"
 }
 
 # Function to activate Python virtual environment (for manual use)
 activate_python_environment() {
-    local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
     
-    if [ -d "$venv_path" ]; then
-        log_info "Activating Python virtual environment at: $venv_path"
-        source "$venv_path/bin/activate"
+    if [ -d "$VENV_PATH" ]; then
+        log_info "Activating Python virtual environment at: $VENV_PATH"
+        source "$VENV_PATH/bin/activate"
         log_info "Virtual environment activated. Python path: $(which python)"
         log_info "To deactivate, run: deactivate"
         return 0
     else
-        log_error "Virtual environment not found at: $venv_path"
+        log_error "Virtual environment not found at: $VENV_PATH"
         log_error "Please run the Redis setup script first to create the virtual environment."
         return 1
     fi
@@ -187,10 +185,9 @@ run_benchmark_upload() {
     local skip_upload="$8"
     
     if [ "$skip_upload" -eq 0 ]; then
-        local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
         log_info "Running benchmark upload stage..."
-        log_info "REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $venv_path/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --skip-search"
-        REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $venv_path/bin/python $vectordb_benchmark_path/run.py \
+        log_info "REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --skip-search"
+        REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py \
             --engines "$engine_name" \
             --datasets "$dataset_name" \
             --host "$target" \
@@ -212,11 +209,10 @@ run_benchmark_search() {
     local redis_cluster="$7"
     local port="$8"
     local numactl_prefix="$9"
-    local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
     
     log_info "Running benchmark search stage..."
-    log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $venv_path/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
-    REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix python3 $vectordb_benchmark_path/run.py \
+    log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
+    REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py \
         --engines "$engine_name" \
         --datasets "$dataset_name" \
         --host "$target" \
@@ -286,9 +282,7 @@ main() {
         activate)
             log_step "Activating Python Virtual Environment"
             if activate_python_environment; then
-                # Output activation command for sourcing
-                local venv_path="$HOME_PATH/${VENV_DIR_NAME:-venv-redis-benchmark}"
-                echo "source \"$venv_path/bin/activate\""
+                echo "source \"$VENV_PATH/bin/activate\""
             else
                 exit 1
             fi

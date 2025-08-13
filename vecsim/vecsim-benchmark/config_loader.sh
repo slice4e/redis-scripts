@@ -78,6 +78,7 @@ load_benchmark_configuration() {
     export VECTORDB_BENCHMARK_PATH REPETITIONS QUERIES M EF_CONSTRUCTION PARALLEL EF_SEARCH
     export SKIP_UPLOAD REDIS_CLUSTER NUMA_CONFIG NUMA_CONFIG_CLIENT
     export SSH_KEY_PATH SSH_KEY_NAME
+    export VENV_PATH
     
     # Validate configuration
     validate_configuration || return 1
@@ -89,6 +90,7 @@ load_benchmark_configuration() {
 # Function to set default values for optional variables
 set_default_values() {
     VENV_DIR_NAME=${VENV_DIR_NAME:-"venv-redis-benchmark"}
+    VENV_PATH="$HOME_PATH/$VENV_DIR_NAME"
     SKIP_UPLOAD=${SKIP_UPLOAD:-0}
     NUMA_CONFIG=${NUMA_CONFIG:-""}
     NUMA_CONFIG_CLIENT=${NUMA_CONFIG_CLIENT:-""}
