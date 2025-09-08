@@ -305,3 +305,125 @@ ensure_directory() {
     fi
     return 0
 }
+
+#=======================================================================================================================
+# MLC (Memory Latency Checker) Functions
+#=======================================================================================================================
+
+# Function to download and setup MLC
+setup_mlc() {
+    local target_server="$1"
+    local mlc_path="$2"
+    
+    log_info "Setting up MLC on $target_server at $mlc_path..."
+    
+    # Check if MLC already exists
+    if execute_command_quiet "[ -f \"$mlc_path/mlc\" ]" "$target_server"; then
+        log_info "MLC already exists at $mlc_path/mlc"
+        return 0
+    fi
+    
+    # Create MLC directory
+    ensure_directory "$mlc_path" "$target_server" || return 1
+    
+    # Download MLC
+    log_info "Downloading MLC from Intel..."
+    local mlc_url="https://downloadmirror.intel.com/834254/mlc_v3.11b.tgz"
+    local temp_file="/tmp/mlc_v3.11b.tgz"
+    
+    if ! execute_command "wget -O $temp_file $mlc_url" "$target_server"; then
+        log_error "Failed to download MLC"
+        return 1
+    fi
+    
+    # Extract MLC
+    log_info "Extracting MLC..."
+    if ! execute_command "cd $mlc_path && tar -xzf $temp_file --strip-components=1" "$target_server"; then
+        log_error "Failed to extract MLC"
+        return 1
+    fi
+    
+    # Cleanup temporary file
+    execute_command "rm -f $temp_file" "$target_server"
+    
+    # Verify MLC executable exists
+    if ! execute_command_quiet "[ -f \"$mlc_path/mlc\" ]" "$target_server"; then
+        log_error "MLC executable not found after extraction"
+        return 1
+    fi
+    
+    # Make MLC executable
+    execute_command "chmod +x $mlc_path/mlc" "$target_server"
+    
+    log_info "MLC successfully set up on $target_server"
+    return 0
+}
+
+# Function to run MLC and save output
+run_mlc() {
+    local target_server="$1"
+    local mlc_path="$2"
+    local output_dir="$3"
+    
+    log_info "Running MLC on $target_server..."
+    
+    # Verify MLC exists
+    if ! execute_command_quiet "[ -f \"$mlc_path/mlc\" ]" "$target_server"; then
+        log_error "MLC executable not found at $mlc_path/mlc"
+        return 1
+    fi
+    
+    # Create output directory
+    ensure_directory "$output_dir" "$target_server" || return 1
+    
+    # Generate timestamp for output files
+    local timestamp=$(date "+%Y%m%d_%H%M%S")
+    local output_file="$output_dir/mlc_output_${timestamp}.txt"
+    
+    log_info "Running MLC and saving output to $output_file..."
+    
+    # Run MLC with default parameters and save output
+    local mlc_cmd="cd $mlc_path && ./mlc > $output_file 2>&1"
+    
+    if execute_command "$mlc_cmd" "$target_server"; then
+        log_success "MLC completed successfully. Output saved to $output_file"
+        return 0
+    else
+        log_error "MLC execution failed"
+        return 1
+    fi
+}
+
+# Function to setup and run MLC if enabled
+execute_mlc_if_enabled() {
+    local target_server="$1"
+    
+    # Check if MLC is enabled
+    if [[ "${MLC:-0}" != "1" ]]; then
+        log_info "MLC is disabled (MLC=0), skipping MLC execution"
+        return 0
+    fi
+    
+    # Validate MLC_PATH is set
+    if [[ -z "${MLC_PATH:-}" ]]; then
+        log_error "MLC is enabled but MLC_PATH is not set"
+        return 1
+    fi
+    
+    log_step "Executing MLC (Memory Latency Checker) on $target_server"
+    
+    # Setup MLC
+    if ! setup_mlc "$target_server" "$MLC_PATH"; then
+        log_error "Failed to setup MLC on $target_server"
+        return 1
+    fi
+    
+    # Run MLC and save output to the same directory
+    if ! run_mlc "$target_server" "$MLC_PATH" "$MLC_PATH"; then
+        log_error "Failed to run MLC on $target_server"
+        return 1
+    fi
+    
+    log_success "MLC execution completed successfully on $target_server"
+    return 0
+}

@@ -97,6 +97,12 @@ EF_SEARCH=128
 
 
 ##########################
+# MLC Settings #
+##########################
+MLC=0                                    # Set to 1 to run MLC before Redis setup, 0 to disable
+MLC_PATH=$HOME_PATH/mlc                 # Path where MLC will be downloaded and extracted
+
+##########################
 # EMON Settings #
 ##########################
 RUN_EMON=false

@@ -197,6 +197,15 @@ create_redis_cluster() {
 setup_redis_software() {
     local servers=("$@")
     
+    # Run MLC before Redis setup if enabled
+    for server in "${servers[@]}"; do
+        # Skip localhost if using remote servers for MLC
+        [[ "$server" == "localhost" && "$SERVER_REMOTE" == "true" ]] && continue
+        
+        log_info "=== Checking MLC on: $server ==="
+        execute_mlc_if_enabled "$server"
+    done
+    
     for server in "${servers[@]}"; do
         log_info "=== Setting up Redis software on: $server ==="
         install_dependencies "$server"

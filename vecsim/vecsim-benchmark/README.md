@@ -36,6 +36,30 @@ The main configuration is done through `config.file`. Key sections include:
 - **Cluster Configuration**: Multi-node setup and replica settings  
 - **Benchmark Settings**: Dataset selection, query parameters, index configuration
 - **Performance Monitoring**: EMON and profiling options
+- **MLC Settings**: Memory latency checker configuration for system analysis
+
+### MLC (Memory Latency Checker) Configuration
+
+The benchmark supports Intel's Memory Latency Checker (MLC) to analyze memory subsystem performance before Redis setup:
+
+```bash
+# Enable MLC execution
+MLC=1                        # Set to 1 to enable MLC, 0 to disable
+MLC_PATH=$HOME/mlc          # Path where MLC will be downloaded and extracted
+```
+
+When enabled (`MLC=1`), the benchmark will:
+1. Download MLC v3.11b from Intel's official repository
+2. Extract the tool to the specified `MLC_PATH`
+3. Execute comprehensive memory analysis using default parameters on target servers
+4. Save output to timestamped files in the MLC directory
+
+**Server Targeting**: 
+- For local deployment (`SERVER_REMOTE=false`): MLC runs on localhost
+- For remote deployment (`SERVER_REMOTE=true`): MLC runs on the remote server specified by `SERVER_IP`
+- For cluster deployment: MLC runs on all cluster servers
+
+**Note**: MLC execution requires appropriate system permissions and may take several minutes to complete.
 
 ## Python Environment Management
 
