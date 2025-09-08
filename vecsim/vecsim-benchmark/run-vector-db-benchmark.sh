@@ -1,206 +1,111 @@
 #!/bin/bash
-#------------------------------------------------------ check if user is sudo or root ---------------------------------------------------------------
-if [ "$(id -u)" -ne 0 ]; then
-	  echo "This script must be run as root."
-	    exit 1
-fi
 
-#------------------------------------------------------ load config and variables file ---------------------------------------------------------------
-# Read the config file
-if [ "$1" != "" ]; then
-	config_file=$1
-else
-	config_file="./config.file"
-fi
+#=======================================================================================================================
+# Simplified Vector Database Benchmark Script
+# Main entry point for running vector database benchmarks
+#=======================================================================================================================
 
-# Check if the file exists
-if [ ! -f "$config_file" ]; then
-  echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
-  exit 1
-fi
+# Script identification for logging
+SCRIPT_NAME="benchmark"
 
-source $config_file
-
-if [[ ! -e "./variables.file" ]]; then
-    # TODO: Add redisearch building
-    echo "Variables file does not exist."
-    exit 1
-fi
-
-source "./variables.file"
-
+# Get script directory and source utilities
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-SOURCE_SCRIPT=$(dirname $(dirname "$SCRIPT_DIR"))/shared-scripts/set_ssh.sh
+source "$SCRIPT_DIR/config_loader.sh"
+source "$SCRIPT_DIR/redis_utils.sh"
+source "$SCRIPT_DIR/benchmark_utils.sh"
 
-if [ "$REDIS_ENTERPRISE" -eq 1 ]; then
-    for server in "${RE_SERVERS[@]}"; do
-        SERVER_IP=$server
-        source $SOURCE_SCRIPT
-    done
-    source "./re_setup.sh"
-else
-    if [ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]; then
-        CLUSTER_MASTER=$SERVER_IP
-        for server in "${CLUSTER_SERVERS[@]}"; do
-            SERVER_IP=$server
-            source $SOURCE_SCRIPT
-        done
-    else
-        source $SOURCE_SCRIPT
-    fi
+# Constants
+VENV_DIR_NAME="venv-redis-benchmark"
 
-    if [[ ${SERVER_REMOTE} == true ]]; then
-        if [ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]; then
-            TARGET=$CLUSTER_MASTER
-            source "./remote_multiple_servers.sh"
+#=======================================================================================================================
+# Benchmark-specific Functions
+#=======================================================================================================================
+
+# Function to prepare benchmark configuration
+prepare_benchmark_config() {
+    # Dataset download is now handled automatically by vector-db-benchmark
+    log_info "Dataset will be downloaded automatically by vector-db-benchmark if needed"
+}
+
+# Function to setup benchmark execution parameters
+setup_benchmark_execution() {
+    # Set up NUMA prefix for client
+    NUMACTL_PREFIX=""
+    [ -n "$NUMA_CONFIG_CLIENT" ] && NUMACTL_PREFIX="$NUMA_CONFIG_CLIENT"
+    
+    # Construct engine name
+    ENGINE_NAME="$EXPERIMENT_CONFIGURATION"
+    
+    # Setup SSH command for remote monitoring
+    SSH_COMMAND=""
+    [[ "$SERVER_REMOTE" == "true" ]] && SSH_COMMAND="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} $LOGIN_ID@${REDIS_SERVER}"
+}
+
+# Function to run complete benchmark with monitoring
+run_complete_benchmark() {
+    # Start monitoring
+    start_emon_monitoring "$DATASET" "$M" "$EF_CONSTRUCTION" "$SERVER_REMOTE" "$EMON_FOLDER" "$SSH_COMMAND" "$HOME_PATH"
+    
+    # Run benchmark stages
+    run_benchmark_upload "$VECTORDB_BENCHMARK_PATH" "$ENGINE_NAME" "$DATASET_NAME" "$REDIS_SERVER" \
+        "$REDIS_CLUSTER" "$PORT" "$NUMACTL_PREFIX" "$SKIP_UPLOAD"
+    
+    run_benchmark_search "$VECTORDB_BENCHMARK_PATH" "$ENGINE_NAME" "$DATASET_NAME" "$REDIS_SERVER" \
+        "$QUERIES" "$REPETITIONS" "$REDIS_CLUSTER" "$PORT" "$NUMACTL_PREFIX"
+    
+    # Stop monitoring
+    stop_emon_monitoring "$SERVER_REMOTE" "$EMON_FOLDER" "$SSH_COMMAND" "$SSH_KEY_PATH" "$SSH_KEY_NAME" \
+        "$LOGIN_ID" "$REDIS_SERVER" "$HOME_PATH" "$EMON_CONFIG_FILE" "$EMON_HOME"
+}
+
+#=======================================================================================================================
+# Main Benchmark Execution
+#=======================================================================================================================
+
+main() {
+    log_step "Starting Vector Database Benchmark"
+    
+    # Load configuration and setup environment
+    load_benchmark_configuration "${1:-}" || exit 1
+    display_config_summary
+    
+    if [ "$SKIP_UPLOAD" != "1" ]; then
+        # Handle Redis Enterprise vs Open Source setup
+        if [ "$REDIS_ENTERPRISE" -eq 1 ]; then
+            log_step "Setting Up Redis Enterprise"
+            SOURCE_SCRIPT=$(dirname $(dirname "$SCRIPT_DIR"))/shared-scripts/set_ssh.sh
+            for server in "${RE_SERVERS[@]}"; do
+                SERVER_IP=$server
+                source $SOURCE_SCRIPT
+            done
+            source "./re_setup.sh"
         else
-            TARGET=$SERVER_IP
-            source "./remote.sh"
+            log_step "Setting Up Redis Open Source"
+            # Setup Redis using the new modular approach
+            local servers=($(get_server_list))
+            setup_redis_environment "${servers[@]}"
         fi
     else
-        TARGET="localhost"
-        source "./local.sh"
+        log_info "SKIP_UPLOAD=1, skipping Redis environment setup."
     fi
-fi
+    
+    # Setup benchmark components with progress tracking
+    log_step "Preparing Benchmark Environment"
+    setup_benchmark_environment
+    
+    # Wait for Redis to be ready
+    log_step "Waiting for Redis to be Ready"
+    wait_for_redis "$REDIS_SERVER" "$PORT"
+    
+    # Prepare and execute benchmark
+    log_step "Executing Benchmark"
+    prepare_benchmark_config
+    setup_benchmark_execution
+    run_complete_benchmark
+    
 
+    log_success "Vector database benchmark completed successfully!"
+}
 
-
-# #------------------------------- check if vector-db-benchmark directory exists if not pull it from github -------------------------------------------
-
-if [[ ! -d $VECTORDB_BENCHMARK_PATH ]]; then
-    echo "Couldn't find Vector DB Benchmark in $VECTORDB_BENCHMARK_PATH, cloning it now ..."
-    git clone -b update.redisearch https://github.com/redis-performance/vector-db-benchmark "$VECTORDB_BENCHMARK_PATH"
-    cd "$VECTORDB_BENCHMARK_PATH"
-#    git checkout 1dcb421556448a285aaf84022302183749c459b7
-    cd -
-else
-    cd "$VECTORDB_BENCHMARK_PATH" || exit
-    git pull origin update.redisearch
-#    git checkout 1dcb421556448a285aaf84022302183749c459b7
-    cd -
-fi
-
-#------------------------------- install python requirements for vector-db-benchmark ----------------------------------------------------------------
-
-# Installing python packages with root is not the best way to do it TODO: Figure out how to change it
-if [[ -x "$PYTHON_PATH" ]]; then
-    "$PYTHON_PATH" -m pip install poetry
-    "$PYTHON_PATH" -m pip install -r $SCRIPT_DIR/requirements-vdb.txt
-else
-    echo "Invalid PYTHON_PATH: $PYTHON_PATH"
-    exit 1
-fi
-
-Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping )
-echo "Waiting for redis server to be ready..."
-while [[ $Redis_Ping != *"PONG"* ]]; do
-    sleep 1
-    Redis_Ping=$(${REDIS_PATH}/src/redis-cli -h ${TARGET} -p ${PORT} ping )
-    echo -ne "."
-done
-
-if [ "$CREATE_DYNAMICALLY" -eq 1 ]; then
-    #---------------------------------------------- Dynamically Generate a vector db benchmark configuation file -----------------------------------------------
-
-    # Check if EF_SEARCH has "," in it, if so, we will create multiple search params
-    if [[ "$EF_SEARCH" == *,* ]]; then
-        SEARCH_PARAMS_JSON="["
-        IFS=',' read -ra EF_LIST <<< "$EF_SEARCH"
-        for idx in "${!EF_LIST[@]}"; do
-            ef_val="${EF_LIST[$idx]}"
-            SEARCH_PARAMS_JSON+="
-                { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${ef_val}, \"data_type\": \"${DATA_TYPE}\" } }"
-            # Add comma if not the last element
-            if [[ $idx -lt $((${#EF_LIST[@]}-1)) ]]; then
-                SEARCH_PARAMS_JSON+=","
-            fi
-        done
-        SEARCH_PARAMS_JSON+="
-            ]"
-    else
-        SEARCH_PARAMS_JSON="[
-                { \"parallel\": ${PARALLEL}, \"search_params\": { \"ef\": ${EF_SEARCH}, \"data_type\": \"${DATA_TYPE}\" } }
-            ]"
-    fi
-
-    if [[ "$VECTOR_SEARCH" == "vectorsets" ]]; then
-        COLLECTION_PARAMS="{}"
-        UPLOAD_PARAMS="{ \"parallel\": 128, \"data_type\": \"${DATA_TYPE}\", \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} } }"
-        ENGINE_NAME="vectorsets"
-    else
-        COLLECTION_PARAMS="{
-            \"data_type\": \"${DATA_TYPE}\",
-            \"hnsw_config\": { \"M\": ${M}, \"EF_CONSTRUCTION\": ${EF_CONSTRUCTION} }
-        }"
-        UPLOAD_PARAMS="{ \"parallel\": 128, \"data_type\": \"${DATA_TYPE}\" }"
-        ENGINE_NAME="redis"
-    fi
-
-    OUT="[
-        {\"name\": \"redis-m-${M}-ef-${EF_CONSTRUCTION}-parallel-${PARALLEL}-${DATA_TYPE}\",
-        \"engine\": \"${ENGINE_NAME}\",
-        \"connection_params\": {},
-        \"collection_params\": $COLLECTION_PARAMS,
-        \"search_params\": $SEARCH_PARAMS_JSON,
-        \"upload_params\": $UPLOAD_PARAMS
-    }]" 
-    echo "$OUT" > "$VECTORDB_BENCHMARK_PATH/experiments/configurations/redis-intel.json"
-
-    #-------------------------------------------------------- Run Vector-db-benchmark ------------------------------------------------------------------
-    ENGINE_APPEND="-parallel-$PARALLEL-${DATA_TYPE}"
-else
-    ENGINE_APPEND=""
-fi
-
-# NUMA PREFIX
-if [ "$USE_NUMACTL_CLIENT" -eq 1 ]; then
-    NUMACTL_PREFIX="numactl -N $NUMA_NODES_CLIENT -m $NUMA_NODES_CLIENT"
-else
-    NUMACTL_PREFIX=""
-fi
-
-
-# STAGE DOWNLOAD
-DATASET_PATH=$VECTORDB_BENCHMARK_PATH/datasets/laion-img-emb-512/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
-
-# Ensure the parent directory exists
-mkdir -p "$(dirname "$DATASET_PATH")"
-
-if [[ ! -e $DATASET_PATH ]]; then
-    wget -q -O $DATASET_PATH http://benchmarks.redislabs.s3.amazonaws.com/vecsim/laion400m/laion-img-emb-512-$DATASET_SIZE-cosine.hdf5
-fi
-
-# STAGE UPLOAD
-if [ "$SKIP_UPLOAD" -eq 0 ] || [ "$SKIP_SETUP" -eq 0 ]; then
-    REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --skip-search
-fi
-
-# STAGE RUN
-if [[ ${RUN_EMON} == true ]]; then
-    echo "Starting emon... (First, try to stop if emon is running)"
-    if [[ ${SERVER_REMOTE} == false ]]; then
-        ${EMON_FOLDER}/emon -stop
-        (${EMON_FOLDER}/emon -collect-edp -f redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat) &
-    fi
-    if [[ ${SERVER_REMOTE} == true ]]; then
-        $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
-        cmd="${EMON_FOLDER}/emon -collect-edp -f ${HOME_PATH}/redis-${DATASET_SIZE}-m-${M}-ef-${EF_CONSTRUCTION}-emon.dat"
-        nohup $SSH_COMMAND "$cmd &" &
-    fi
-fi
-
-REPETITIONS=$REPETITIONS REDIS_CLUSTER=$REDIS_CLUSTER REDIS_PORT=$PORT $NUMACTL_PREFIX $PYTHON_PATH $VECTORDB_BENCHMARK_PATH/run.py --engines redis-m-$M-ef-$EF_CONSTRUCTION$ENGINE_APPEND --datasets ${DATASET_DICT[$DATASET_SIZE]} --host ${TARGET} --no-skip-if-exists --queries $QUERIES --skip-upload
-
-if [[ ${RUN_EMON} == true ]]; then
-    echo "Stopping emon..."
-    if [[ ${SERVER_REMOTE} == false ]]; then
-        ${EMON_FOLDER}/emon -stop
-        source ../../shared-scripts/emon_process.sh
-    fi
-    if [[ ${SERVER_REMOTE} == true ]]; then
-        $SSH_COMMAND "${EMON_FOLDER}/emon -stop"
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ../../shared-scripts/emon_process.sh ${LOGIN_ID}@${TARGET}:${HOME_PATH}/emon_process.sh
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${EMON_CONFIG_FILE} ${LOGIN_ID}@${TARGET}:${HOME_PATH}/pyedp_config.txt
-        $SSH_COMMAND "cd ${HOME_PATH} && EMON_CONFIG_FILE=$HOME_PATH/pyedp_config.txt RUN_EMON=true EMON_HOME=$EMON_HOME bash ${HOME_PATH}/emon_process.sh"
-    fi
-fi
+# Run main function
+main "$@"

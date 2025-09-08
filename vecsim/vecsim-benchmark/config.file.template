@@ -1,70 +1,37 @@
-##########################
-# General benchmarking methodology
+##############################################################################
+# Redis Vector Database Benchmark Configuration Template
+##############################################################################
 # 
-# Redis recommends about 25 GB of data per shard, to satisfy performance and high-availablility requirements. 
-# Each shard can utilize at most REDISEARCH_WORKERS=16 parallel workers.
+# For detailed benchmarking methodology, HNSW algorithm parameters, and usage
+# examples, please refer to README.md
 #
-# Example 1: Saturate 128 vCPUs.  
-# To saturate 128 vCPUs, we needs REDISEARCH_WORKERS=16 and 8 shards. 
-# In addition, since we expect about 25GB of data per shard, we need about 200GB of data. 
-# Since since we consume approximately 6GB of memory capacity per M vectors, we need at least 33M vectors. 
-# The closest vector-db-bencnmark supports is 40M vectors. Thus, we can configure our benchmark with 
-# 8 shards, 16 workers per shard and 40M vectors. 
-#
-# Example 2: Benchmark a large dataset with 200M vectors
-# Since we consume approximately 6GB of memory capacity per M vectors, we can expect 200M vectors to consume about 1.2TB of data. 
-# Since Redis recommends about 25GB per shard, we need to create 48 shards. 
-# For best performance, we can utilize REDISEARCH_WORKERS=16 per shard. 
-# Thus, we need 16 workers * 48 shards = 768 vCPUs. 
-# In this case, we could utilize a cluster of 4 machines with 192 vCPUs each. 
-#
-# In all cases, when we compare performance results (RPS), we need to compare at the same precision. 
-# When increasing the number of shards, precision will increase, since each shard responds with top K results. 
-##########################
-
-
-PYTHON_PATH=/usr/bin/python3
-HOME_PATH=/root
-VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
-SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip uploading the data -> run benchmark on existing redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
-SKIP_SETUP=0      # Set SKIP_SETUP to 1 to skip setup of redis
+##############################################################################
 
 ##########################
-# Redis settings #
+# Redis Server Settings
 ##########################
-
+HOME_PATH=$HOME
 REDIS_PATH=$HOME_PATH/redis
-REDIS_BRANCH=8.0   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
-USE_NUMACTL=1
-VECTOR_SEARCH=redisearch     # set this to either redisearch for benchmarking redisearch vector search or vectorsets for benchmarking vectorsets
-NUMA_NODES=0,1      # Provide numa nodes after semicolon
+REDIS_BRANCH=8.2.0   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+VECTOR_SEARCH=redisearch     # set this to either redisearch or vectorsets 
 PORT=9000
 
-##########################
-# Redisearch settings #
-##########################
-# Boost in needed by Redisearch
-REDISEARCH_WORKERS=1
+# NUMA Configuration for Redis server (optional)
+# Specify the exact NUMA command to use for Redis server processes
+# Examples:
+#   NUMA_CONFIG="numactl -N 0,1 -m 0,1"          # Use NUMA nodes 0,1 for memory and CPU
+#   NUMA_CONFIG="taskset -c 0-15"                # Use CPU cores 0-15
+#   NUMA_CONFIG=""                               # Disable NUMA control (default)
+NUMA_CONFIG="numactl -N 0 -m 0"
 
-##########################
-# SSH Settings #
-##########################
-SERVER_REMOTE=false     # If used with cluster this is the node on which cluster will be created
-LOGIN_ID=root
+# Note: For remote servers, the user must have passwordless sudo access
+# to install system dependencies 
+SERVER_REMOTE=false             # If used with cluster this is the node on which cluster will be created
+LOGIN_ID=root                   # Username for SSH connections to remote servers
 SERVER_IP=1.2.3.4
-SSH_KEY_PATH=~/.ssh
-SSH_KEY_NAME=id_rsa
 
 ##########################
-# EMON Settings #
-##########################
-RUN_EMON=false
-EMON_HOME=/opt/intel/emon  # emon path of the Server and client
-EMON_FOLDER=$EMON_HOME/bin64  # emon path of the Server and client
-EMON_CONFIG_FILE=$HOME_PATH/redis-scripts/pyedp_config.txt
-
-##########################
-# Redis cluster settings #
+# Redis cluster settings 
 ##########################
 REDIS_CLUSTER=1                # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
 CLUSTER_MULTIPLE_SERVERS=0     # Set value of this variable to 1 to use IP's from CLUSTER_SERVERS
@@ -72,6 +39,11 @@ CLUSTER_SERVERS=("1.2.3.4" "2.3.4.5" "3.4.5.6")
 CLUSTER_NODES=24
 CLUSTER_REPLICAS=0
 CLUSTER_TIMEOUT=50000
+
+##########################
+# RediSearch Settings
+##########################
+REDISEARCH_WORKERS=1
 
 ##########################
 # Redis Enterprise settings #
@@ -87,14 +59,29 @@ RE_PASSWORD=readmin
 SHARD_COUNT=20
 WORKER_THREADS=5
 
+
 ##########################
 # Benchmark settings #
 ##########################
-# Choose dataset size for benchmarking vector db, please choose from: 1M, 10M, 20M, 40M, 100M, 200M, 400M
+VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
+VECTORDB_BENCHMARK_BRANCH=update.redisearch
+# Virtual environment will be created at: $HOME_PATH/venv-redis-benchmark
+SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip both Redis setup and data upload -> run benchmark on existing Redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
+
+# NUMA Configuration for benchmark client (optional)
+# Specify the exact NUMA command to use for benchmark client processes
+# Examples:
+#   NUMA_CONFIG_CLIENT="numactl -N 0,1 -m 0,1"    # Use NUMA nodes 0,1
+#   NUMA_CONFIG_CLIENT="taskset -c 16-31"         # Use CPU cores 16-31
+#   NUMA_CONFIG_CLIENT=""                         # Disable NUMA control (default)
+NUMA_CONFIG_CLIENT="numactl -N 1 -m 1"
+
+# Choose dataset size for benchmarking vector db, available datasets:
+# laion-512-1M, laion-512-10M, laion-512-20M, laion-512-40M, laion-512-100M, laion-512-200M, laion-512-400M, laion-768-1M, dbpedia-1536-1M, cohere-768-1M
 # We consume roughtly 6GB of memory capacity per M vectors. 
-USE_NUMACTL_CLIENT=0
-NUMA_NODES_CLIENT=0,1
-DATASET_SIZE="1M"
+# To see available experiment configurations, go to vector-db-benchmark/experiments/configurations
+DATASET="dbpedia-1536-1M"
+EXPERIMENT_CONFIGURATION="dbpedia-cal-hnsw-float16"
 REPETITIONS=1
 QUERIES=10000
 
@@ -105,35 +92,21 @@ QUERIES=10000
 
 M=32
 EF_CONSTRUCTION=256
-
-CREATE_DYNAMICALLY=1 # Set value of this variable to 1 to create custom benchmark scenario (from M, EF_CONSTRUCTION, EF_SEARCH and PARALLEL)
-# You can provide multiple EF_SEARCH to run search on more than one configuration for example: EF_SEARCH=90,100,110
-# Number of parallel clients
 PARALLEL=8
 EF_SEARCH=128
-DATA_TYPE=FLOAT16
 
 
 ##########################
-# Notes                  #
+# MLC Settings #
 ##########################
-# EF in search params is HNSW ef_search parameter, it controls the number of edges that is explored by algorithm in every level of the graph. 
-# The higher ef_search the more the graph will be explored by HNSW and the ‘better’ nearest neighbors should be returned (better precision) but at the cost of search time. 
-# Parameter ‘K’ is responsible for how many vectors we want HNSW to return. 
-# Vector-db-benchmark sets ‘K’ parameter to the number of searched nearest neighbors during ground-truth generation. 
-# In our case vector-db-benchmark sets K to 100 and HNSW returns 100 approximate nearest neighbors 
-# because for every test_vector we searched for 100 nearest neighbors in train_vector dataset during ground-truth generation. 
-# Then vector-db-benchmark compares returned vectors from HNSW search and the vectors found during ground-truth generation and based on their intersection it calculates precision.
-#
-# When we split the graph into multiple shards (cluster nodes) we are going to searh each shard for the 100 nearest neighbors. 
-# After each shard returns 100 nearest neighbors, a reduce step aggregates the results from all the shards and respond to the client with a final 100 neighbors. 
-# Thus, sharding the graph results in a proportional increase in the number of work we do in order to produce a response. In addition, the precision improves with sharding, 
-# since we are examinining more of the graph. 
-# 
-# The response to the client consists of the id's of the 100 nearest neighbors. 
+MLC=0                                    # Set to 1 to run MLC before Redis setup, 0 to disable
+MLC_PATH=$HOME_PATH/mlc                 # Path where MLC will be downloaded and extracted
 
-
-
-
-
+##########################
+# EMON Settings #
+##########################
+RUN_EMON=false
+EMON_HOME=/opt/intel/emon  # emon path of the Server and client
+EMON_FOLDER=$EMON_HOME/bin64  # emon path of the Server and client
+EMON_CONFIG_FILE=$HOME_PATH/redis-scripts/pyedp_config.txt
 
