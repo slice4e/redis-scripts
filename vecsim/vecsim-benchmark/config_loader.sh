@@ -160,6 +160,10 @@ display_config_summary() {
     # Performance Monitoring
     echo "  Enable EMON:             $EMON_ENABLE"
     echo "  Enable Perf:             $PERF_ENABLE"
+    echo "  Enable MLC:              ${MLC:-0}"
+    if [[ "${MLC:-0}" -eq 1 ]]; then
+        echo "  MLC Path:                ${MLC_PATH:-'(not set)'}"
+    fi
     echo "  Server NUMA Config:      ${NUMA_CONFIG:-'(none)'}"
     echo "  Client NUMA Config:      ${NUMA_CONFIG_CLIENT:-'(none)'}"
     
