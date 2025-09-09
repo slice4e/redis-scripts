@@ -186,13 +186,15 @@ run_benchmark_upload() {
     
     if [ "$skip_upload" -eq 0 ]; then
         log_info "Running benchmark upload stage..."
-        log_info "REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --skip-search"
-        REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py \
-            --engines "$engine_name" \
-            --datasets "$dataset_name" \
-            --host "$target" \
-            --no-skip-if-exists \
-            --skip-search
+        local base_cmd="$numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --skip-search"
+        
+        # Add additional parameters if specified
+        if [ -n "$VECTORDB_BENCHMARK_PARAMS" ]; then
+            base_cmd="$base_cmd $VECTORDB_BENCHMARK_PARAMS"
+        fi
+        
+        log_info "REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $base_cmd"
+        REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port eval "$base_cmd"
     else
         log_info "Skipping upload stage (SKIP_UPLOAD=1 - using existing data and setup)"
     fi
@@ -211,14 +213,15 @@ run_benchmark_search() {
     local numactl_prefix="$9"
     
     log_info "Running benchmark search stage..."
-    log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
-    REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py \
-        --engines "$engine_name" \
-        --datasets "$dataset_name" \
-        --host "$target" \
-        --no-skip-if-exists \
-        --queries "$queries" \
-        --skip-upload
+    local base_cmd="$numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
+    
+    # Add additional parameters if specified
+    if [ -n "$VECTORDB_BENCHMARK_PARAMS" ]; then
+        base_cmd="$base_cmd $VECTORDB_BENCHMARK_PARAMS"
+    fi
+    
+    log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $base_cmd"
+    REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port eval "$base_cmd"
 }
 
 #=======================================================================================================================

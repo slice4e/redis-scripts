@@ -128,10 +128,12 @@ execute_command_background() {
     log_info "Starting background process on $target_server: $cmd"
     
     if [[ "$target_server" == "localhost" ]]; then
-        # Local background execution
-        eval "$cmd" &
+        # Local background execution with complete detachment
+        # Use setsid to create a new session and nohup to detach from terminal
+        nohup setsid bash -c "$cmd" >/dev/null 2>&1 &
         local pid=$!
-        log_info "Background process started locally with PID: $pid"
+        disown $pid 2>/dev/null || true
+        log_info "Background process started locally with PID: $pid (completely detached)"
     else
         # Remote background execution
         local ssh_opts="-o PreferredAuthentications=publickey -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3"
@@ -139,7 +141,8 @@ execute_command_background() {
         
         nohup $ssh_cmd "$cmd" > /dev/null 2>&1 &
         local pid=$!
-        log_info "Background process started on remote server with local PID: $pid"
+        disown $pid
+        log_info "Background process started on remote server with local PID: $pid (detached from shell)"
     fi
 }
 
