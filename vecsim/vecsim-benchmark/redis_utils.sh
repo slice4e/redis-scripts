@@ -121,6 +121,19 @@ start_redis_server() {
     local cmd="$numa_prefix $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} $bind_option --logfile $REDIS_PATH/server.log --save \"\" --protected-mode no --appendonly no $loadmodule_option"
     
     log_info "Starting Redis server: $cmd"
+    
+    # Verify Redis configuration file exists
+    if [[ ! -f "$REDIS_PATH/redis.conf" ]]; then
+        log_error "Redis configuration file not found: $REDIS_PATH/redis.conf"
+        return 1
+    fi
+    
+    # Verify RediSearch module exists if needed
+    if [[ -n "$loadmodule_option" && ! -f "$redisearch_lib" ]]; then
+        log_error "RediSearch module not found: $redisearch_lib"
+        return 1
+    fi
+    
     execute_command_background "$cmd" "$target_server"
 }
 
@@ -128,9 +141,63 @@ start_redis_server() {
 wait_for_redis() {
     local target="${1:-localhost}"
     local port="${2:-6379}"
-    local max_attempts="${3:-60}"
+    local max_attempts="${3:-180}"  # Increased from 60 to 180 seconds (3 minutes)
     
-    wait_for_service "Redis server" "${REDIS_PATH}/src/redis-cli -h ${target} -p ${port} ping 2>/dev/null | grep -q PONG" "$max_attempts"
+    log_info "Waiting for Redis server at $target:$port to be ready..."
+    log_info "This may take up to $max_attempts seconds, especially on first startup with modules..."
+    
+    # First, check if Redis process is actually running
+    if [[ "$target" == "localhost" || "$target" == "127.0.0.1" ]]; then
+        local redis_running=$(ps aux | grep "[r]edis-server.*$port" | wc -l)
+        if [[ "$redis_running" -eq 0 ]]; then
+            log_error "No Redis server process found running on port $port"
+            log_info "Checking for any Redis processes:"
+            ps aux | grep "[r]edis-server" || log_info "No Redis processes found"
+            return 1
+        else
+            log_info "Found $redis_running Redis server process(es) running on port $port"
+        fi
+    fi
+    
+    # Enhanced wait logic with better feedback
+    local attempt=0
+    while [[ $attempt -lt $max_attempts ]]; do
+        if ${REDIS_PATH}/src/redis-cli -h ${target} -p ${port} ping 2>/dev/null | grep -q PONG; then
+            log_info "Redis server is ready! (took $attempt seconds)"
+            return 0
+        fi
+        
+        # Provide progress feedback every 10 seconds
+        if [[ $((attempt % 10)) -eq 0 && $attempt -gt 0 ]]; then
+            log_info "Still waiting for Redis... ($attempt/$max_attempts seconds)"
+            
+            # Show Redis log output for debugging
+            if [[ -f "$REDIS_PATH/server.log" ]]; then
+                log_info "Recent Redis log entries:"
+                tail -5 "$REDIS_PATH/server.log" 2>/dev/null || log_info "Could not read Redis log"
+            fi
+        fi
+        
+        sleep 1
+        ((attempt++))
+        echo -ne "."
+    done
+    
+    log_error "Redis server did not become ready after $max_attempts seconds"
+    
+    # Show final diagnostic information
+    if [[ "$target" == "localhost" || "$target" == "127.0.0.1" ]]; then
+        log_info "Final diagnostics:"
+        log_info "Redis processes:"
+        ps aux | grep "[r]edis-server" || log_info "No Redis processes found"
+        
+        if [[ -f "$REDIS_PATH/server.log" ]]; then
+            log_info "Last 10 lines of Redis log:"
+            tail -10 "$REDIS_PATH/server.log" 2>/dev/null || log_info "Could not read Redis log"
+        fi
+    fi
+    
+    return 1
 }
 
 #=======================================================================================================================
@@ -224,13 +291,25 @@ start_redis_instances() {
         [[ "$server" == "localhost" && "$SERVER_REMOTE" == "true" ]] && continue
         
         log_info "=== Starting Redis on: $server ==="
-        cleanup_redis "$server"
+        
+        # Skip cleanup when SKIP_UPLOAD=1 to preserve existing Redis instances
+        if [ "${SKIP_UPLOAD:-0}" != "1" ]; then
+            cleanup_redis "$server"
+            # Allow time for the port to be released after cleanup
+            log_info "Waiting 3 seconds for port to be released after cleanup..."
+            sleep 3
+        else
+            log_info "SKIP_UPLOAD=1: Preserving existing Redis instances"
+        fi
         
         if [ "$REDIS_CLUSTER" -eq 1 ]; then
             configure_redis_cluster "$server" "$redisearch_lib"
             [[ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]] && execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start" "$server"
         else
             start_redis_server "$server" "$redisearch_lib"
+            # Give Redis extra time to initialize, especially with modules
+            log_info "Waiting 5 seconds for Redis to begin initialization..."
+            sleep 5
         fi
         
         [[ "$CLUSTER_MULTIPLE_SERVERS" -ne 1 ]] && sleep 2

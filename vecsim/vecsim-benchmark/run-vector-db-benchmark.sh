@@ -86,7 +86,11 @@ main() {
             setup_redis_environment "${servers[@]}"
         fi
     else
-        log_info "SKIP_UPLOAD=1, skipping Redis environment setup."
+        log_info "SKIP_UPLOAD=1, setting up Redis environment without cleanup (reuse mode)."
+        log_step "Setting Up Redis Open Source (Reuse Mode)"
+        # Setup Redis using the new modular approach
+        local servers=($(get_server_list))
+        setup_redis_environment "${servers[@]}"
     fi
     
     # Setup benchmark components with progress tracking
