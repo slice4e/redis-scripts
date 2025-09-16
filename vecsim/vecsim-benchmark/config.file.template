@@ -36,7 +36,7 @@ SERVER_IP=1.2.3.4
 REDIS_CLUSTER=1                # Set value of this variable to 1 to run redis cluster and to 0 to run single instance of redis
 CLUSTER_MULTIPLE_SERVERS=0     # Set value of this variable to 1 to use IP's from CLUSTER_SERVERS
 CLUSTER_SERVERS=("1.2.3.4" "2.3.4.5" "3.4.5.6")
-CLUSTER_NODES=24
+CLUSTER_NODES=24               # Minimum is 3
 CLUSTER_REPLICAS=0
 CLUSTER_TIMEOUT=50000
 
