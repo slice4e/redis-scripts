@@ -252,7 +252,7 @@ create_redis_cluster() {
         local target_server=$([[ "$SERVER_REMOTE" == "true" ]] && echo "$REDIS_SERVER" || echo "localhost")
         # Save current directory
         local current_dir=$(pwd)
-        execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start && echo \"yes\" | ./create-cluster-numa.sh create && cd \"$current_dir\"" "$target_server"
+        execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start; sleep 2; ./create-cluster-numa.sh create -f && cd \"$current_dir\"" "$target_server"
     fi
 }
 
