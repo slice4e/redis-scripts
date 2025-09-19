@@ -77,7 +77,16 @@ setup_python_environment() {
 
     "$VENV_PATH/bin/python" -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
 
-    "$VENV_PATH/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
+    # Install dependencies using Poetry from vector-db-benchmark directory
+    if [ -d "$VECTORDB_BENCHMARK_PATH" ] && [ -f "$VECTORDB_BENCHMARK_PATH/pyproject.toml" ]; then
+        log_info "Installing dependencies using Poetry from $VECTORDB_BENCHMARK_PATH"
+        cd "$VECTORDB_BENCHMARK_PATH" || { log_error "Failed to cd to $VECTORDB_BENCHMARK_PATH"; return 1; }
+        "$VENV_PATH/bin/python" -m poetry install --no-root || { log_error "Failed to install dependencies with Poetry"; return 1; }
+        cd - >/dev/null
+    else
+        log_warning "Poetry project not found at $VECTORDB_BENCHMARK_PATH, falling back to requirements.txt"
+        "$VENV_PATH/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
+    fi
     log_success "Python environment setup completed successfully"
 }
 
