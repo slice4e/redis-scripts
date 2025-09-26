@@ -242,6 +242,74 @@ build_cluster_hosts() {
 }
 
 # Function to create Redis cluster
+# Function to validate Redis cluster creation
+validate_cluster_creation() {
+    local target_server="$1"
+    local redis_cli_path="$REDIS_PATH/src/redis-cli"
+    local port=$((PORT))
+    
+    log_info "Validating Redis cluster creation..."
+    
+    # Give cluster more time to stabilize
+    sleep 3
+    
+    # Retry cluster state check with timeout
+    local max_attempts=5
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        log_info "Checking cluster state (attempt $attempt/$max_attempts)..."
+        
+        # Check cluster state
+        local cluster_info=$(execute_command "$redis_cli_path -p $port cluster info" "$target_server" 2>/dev/null)
+        local cluster_state=$(echo "$cluster_info" | grep cluster_state | cut -d: -f2)
+        local slots_assigned=$(echo "$cluster_info" | grep cluster_slots_assigned | cut -d: -f2)
+        
+        if [[ "$cluster_state" == "ok" ]]; then
+            log_info "✓ Redis cluster created successfully and is in 'ok' state"
+            
+            # Check slot coverage
+            if [[ "$slots_assigned" == "16384" ]]; then
+                log_info "✓ All 16384 hash slots are properly assigned"
+            else
+                log_info "⚠ Only $slots_assigned slots assigned (expected 16384)"
+            fi
+            
+            # Show cluster nodes
+            log_info "Cluster nodes:"
+            execute_command "$redis_cli_path -p $port cluster nodes" "$target_server" 2>/dev/null || log_info "Could not retrieve cluster nodes info"
+            return 0
+            
+        elif [[ "$slots_assigned" == "16384" ]]; then
+            # Slots are assigned but cluster might still be stabilizing
+            log_info "Slots assigned correctly, waiting for cluster to stabilize... (state: $cluster_state)"
+            sleep 2
+            
+        else
+            log_info "Cluster state: $cluster_state, slots assigned: $slots_assigned"
+            sleep 2
+        fi
+        
+        ((attempt++))
+    done
+    
+    # Final check - if slots are assigned correctly, consider it a success even if state isn't "ok"
+    local final_cluster_info=$(execute_command "$redis_cli_path -p $port cluster info" "$target_server" 2>/dev/null)
+    local final_slots_assigned=$(echo "$final_cluster_info" | grep cluster_slots_assigned | cut -d: -f2)
+    
+    if [[ "$final_slots_assigned" == "16384" ]]; then
+        log_info "✓ Cluster operational - all slots assigned correctly"
+        log_info "Final cluster info:"
+        echo "$final_cluster_info"
+        return 0
+    else
+        log_error "✗ Redis cluster creation failed - slots: $final_slots_assigned"
+        log_info "Final cluster info:"
+        echo "$final_cluster_info"
+        return 1
+    fi
+}
+
 create_redis_cluster() {
     if [[ "$CLUSTER_MULTIPLE_SERVERS" -eq 1 ]]; then
         sleep 2
@@ -252,7 +320,21 @@ create_redis_cluster() {
         local target_server=$([[ "$SERVER_REMOTE" == "true" ]] && echo "$REDIS_SERVER" || echo "localhost")
         # Save current directory
         local current_dir=$(pwd)
-        execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start && echo \"yes\" | ./create-cluster-numa.sh create && cd \"$current_dir\"" "$target_server"
+        
+        # Start the Redis cluster instances
+        log_info "Starting Redis cluster instances..."
+        execute_command "cd $REDIS_PATH/utils/create-cluster && ./create-cluster-numa.sh start && cd \"$current_dir\"" "$target_server"
+        
+        # Wait for Redis instances to fully initialize before creating cluster
+        log_info "Waiting 5 seconds for Redis instances to fully initialize..."
+        sleep 5
+        
+        # Create the cluster
+        log_info "Creating Redis cluster..."
+        execute_command "cd $REDIS_PATH/utils/create-cluster && echo \"yes\" | ./create-cluster-numa.sh create && cd \"$current_dir\"" "$target_server"
+        
+        # Validate cluster creation
+        validate_cluster_creation "$target_server"
     fi
 }
 

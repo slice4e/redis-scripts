@@ -1,6 +1,7 @@
 declare -A DATASET_DICT
 
 DATASET_DICT["laion-512-1M"]="laion-img-emb-512-1M-cosine"
+DATASET_DICT["laion-512-9M"]="laion-img-emb-512-9M-cosine"
 DATASET_DICT["laion-512-10M"]="laion-img-emb-512-10M-cosine"
 DATASET_DICT["laion-512-20M"]="laion-img-emb-512-20M-cosine"
 DATASET_DICT["laion-512-40M"]="laion-img-emb-512-40M-cosine"
