@@ -41,6 +41,9 @@ DEFAULT_DATA_TYPE="FLOAT16"
 DEFAULT_VECTOR_SEARCH="redisearch"
 DEFAULT_OUTPUT="redis-custom.json"
 DEFAULT_CALIBRATION_PRECISION="0.95"
+DEFAULT_SVS_MODE=false
+DEFAULT_CONFIG_NAME=""
+DEFAULT_COMPRESSION=""
 
 # Configuration variables
 M="$DEFAULT_M"
@@ -51,6 +54,9 @@ DATA_TYPE="$DEFAULT_DATA_TYPE"
 VECTOR_SEARCH="$DEFAULT_VECTOR_SEARCH"
 OUTPUT_FILE="$DEFAULT_OUTPUT"
 CALIBRATION_PRECISION="$DEFAULT_CALIBRATION_PRECISION"
+SVS_MODE="$DEFAULT_SVS_MODE"
+CONFIG_NAME="$DEFAULT_CONFIG_NAME"
+COMPRESSION="$DEFAULT_COMPRESSION"
 
 # Logging functions
 log_info() {
@@ -75,6 +81,7 @@ Usage: $0 [options]
 Options:
   -h, --help                    Show this help message
   -o, --output FILE            Output configuration file (default: $DEFAULT_OUTPUT)
+  -n, --name NAME              Custom configuration name (default: auto-generated)
   -m, --m VALUE                HNSW M parameter (default: $DEFAULT_M)
   -e, --ef-construction VALUE  EF_CONSTRUCTION parameter (default: $DEFAULT_EF_CONSTRUCTION)
   -s, --ef-search VALUES       EF_SEARCH values, comma-separated (default: $DEFAULT_EF_SEARCH)
@@ -82,11 +89,16 @@ Options:
   -t, --data-type TYPE         Data type: FLOAT16|FLOAT32 (default: $DEFAULT_DATA_TYPE)
   -v, --vector-search TYPE     Vector search type: redisearch|vectorsets (default: $DEFAULT_VECTOR_SEARCH)
   -c, --calibration-precision VALUE  Calibration precision for parameter tuning (optional)
+  --svs                        Generate SVS-Vamana configuration instead of HNSW
+  --compression TYPE           Compression type for SVS: LVQ4X8|LVQ8|LVQ4X4|LeanVec4x8 (SVS only)
 
 Examples:
   $0 -m 64 -e 512 -s "90,100,110" -p 16
   $0 --output my-config.json --ef-search "64,128,256"
   $0 --vector-search vectorsets --data-type FLOAT32
+  $0 --svs -o redis-custom-svs.json -m 16 -e 70
+  $0 --name "my-custom-config" -m 32 -e 256
+  $0 --svs --compression LVQ4X8 -m 32 -e 200
 
 Generated configuration will be compatible with vector-db-benchmark framework.
 EOF
@@ -134,6 +146,24 @@ validate_parameters() {
         fi
     done
     
+    # Validate SVS and vectorsets compatibility
+    if [[ "$SVS_MODE" == "true" && "$VECTOR_SEARCH" == "vectorsets" ]]; then
+        log_error "SVS mode (--svs) cannot be used with vectorsets. SVS is only compatible with redisearch."
+        return 1
+    fi
+    
+    # Validate compression parameter
+    if [[ -n "$COMPRESSION" ]]; then
+        if [[ "$SVS_MODE" != "true" ]]; then
+            log_error "Compression can only be used with SVS mode (--svs flag required)."
+            return 1
+        fi
+        if [[ "$COMPRESSION" != "LVQ4X8" && "$COMPRESSION" != "LVQ8" && "$COMPRESSION" != "LVQ4X4" && "$COMPRESSION" != "LeanVec4x8" ]]; then
+            log_error "Compression must be one of: LVQ4X8, LVQ8, LVQ4X4, LeanVec4x8"
+            return 1
+        fi
+    fi
+    
     return 0
 }
 
@@ -143,6 +173,7 @@ generate_search_params() {
     local parallel="$2"
     local data_type="$3"
     local calibration_precision="$4"
+    local svs_mode="$5"
     
     local search_params_json="["
     
@@ -151,12 +182,22 @@ generate_search_params() {
     for idx in "${!EF_LIST[@]}"; do
         ef_val=$(echo "${EF_LIST[$idx]}" | xargs) # trim whitespace
         
-        if [[ -n "$calibration_precision" ]]; then
-            # Use calibration mode
-            search_params_json+="{\"parallel\":${parallel},\"top\":100,\"search_params\":{\"data_type\":\"${data_type}\"},\"calibration_param\":\"ef\",\"calibration_precision\":${calibration_precision}}"
+        if [[ "$svs_mode" == "true" ]]; then
+            if [[ -n "$calibration_precision" ]]; then
+                # SVS calibration mode
+                search_params_json+="{\"algorithm\":\"svs-vamana\",\"parallel\":${parallel},\"top\":100,\"search_params\":{\"data_type\":\"${data_type}\"},\"calibration_param\":\"SEARCH_WINDOW_SIZE\",\"calibration_precision\":${calibration_precision}}"
+            else
+                # SVS standard mode
+                search_params_json+="{\"algorithm\":\"svs-vamana\",\"parallel\":${parallel},\"top\":100,\"search_params\":{\"SEARCH_WINDOW_SIZE\":${ef_val},\"data_type\":\"${data_type}\"}}"
+            fi
         else
-            # Standard mode with ef parameter
-            search_params_json+="{\"parallel\":${parallel},\"top\":100,\"search_params\":{\"ef\":${ef_val},\"data_type\":\"${data_type}\"}}"
+            if [[ -n "$calibration_precision" ]]; then
+                # HNSW calibration mode
+                search_params_json+="{\"parallel\":${parallel},\"top\":100,\"search_params\":{\"data_type\":\"${data_type}\"},\"calibration_param\":\"ef\",\"calibration_precision\":${calibration_precision}}"
+            else
+                # HNSW standard mode
+                search_params_json+="{\"parallel\":${parallel},\"top\":100,\"search_params\":{\"ef\":${ef_val},\"data_type\":\"${data_type}\"}}"
+            fi
         fi
         
         [[ $idx -lt $((${#EF_LIST[@]}-1)) ]] && search_params_json+=","
@@ -176,23 +217,52 @@ generate_benchmark_config() {
     local ef_search="$6" 
     local output_file="$7"
     local calibration_precision="$8"
+    local svs_mode="$9"
+    local config_name="${10}"
+    local compression="${11}"
+    
+    # Generate config name if not provided
+    if [[ -z "$config_name" ]]; then
+        config_name="redis-m-${m}-ef-${ef_construction}-parallel-${parallel}-${data_type}"
+    fi
     
     local search_params_json
-    search_params_json=$(generate_search_params "$ef_search" "$parallel" "$data_type" "$calibration_precision")
+    search_params_json=$(generate_search_params "$ef_search" "$parallel" "$data_type" "$calibration_precision" "$svs_mode")
     
-    # Configure based on vector search type
+    # Configure based on vector search type and SVS mode
     local collection_params upload_params engine_name
     if [[ "$vector_search" == "vectorsets" ]]; then
         collection_params="{}"
-        upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
+        if [[ "$svs_mode" == "true" ]]; then
+            # Build SVS config with optional compression
+            local svs_config="{\"GRAPH_MAX_DEGREE\":${m},\"CONSTRUCTION_WINDOW_SIZE\":${ef_construction}"
+            if [[ -n "$compression" ]]; then
+                svs_config="${svs_config},\"compression\":\"${compression}\""
+            fi
+            svs_config="${svs_config}}"
+            upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\",\"algorithm\":\"svs-vamana\",\"svs-vamana_config\":${svs_config}}"
+        else
+            upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
+        fi
         engine_name="vectorsets"
     else
-        collection_params="{\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
-        upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\"}"
+        if [[ "$svs_mode" == "true" ]]; then
+            # Build SVS config with optional compression
+            local svs_config="{\"GRAPH_MAX_DEGREE\":${m},\"CONSTRUCTION_WINDOW_SIZE\":${ef_construction}"
+            if [[ -n "$compression" ]]; then
+                svs_config="${svs_config},\"compression\":\"${compression}\""
+            fi
+            svs_config="${svs_config}}"
+            collection_params="{\"data_type\":\"${data_type}\",\"svs-vamana_config\":${svs_config}}"
+            upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\",\"algorithm\":\"svs-vamana\"}"
+        else
+            collection_params="{\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
+            upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\"}"
+        fi
         engine_name="redis"
     fi
     
-    local config_json="[{\"name\":\"redis-m-${m}-ef-${ef_construction}-parallel-${parallel}-${data_type}\",\"engine\":\"${engine_name}\",\"connection_params\":{},\"collection_params\":$collection_params,\"search_params\":$search_params_json,\"upload_params\":$upload_params}]"
+    local config_json="[{\"name\":\"${config_name}\",\"engine\":\"${engine_name}\",\"connection_params\":{},\"collection_params\":$collection_params,\"search_params\":$search_params_json,\"upload_params\":$upload_params}]"
     
     # Create output directory if it doesn't exist
     mkdir -p "$(dirname "$output_file")"
@@ -227,6 +297,10 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_FILE="$2"
             shift 2
             ;;
+        -n|--name)
+            CONFIG_NAME="$2"
+            shift 2
+            ;;
         -m|--m)
             M="$2"
             shift 2
@@ -255,6 +329,14 @@ while [[ $# -gt 0 ]]; do
             CALIBRATION_PRECISION="$2"
             shift 2
             ;;
+        --svs)
+            SVS_MODE=true
+            shift
+            ;;
+        --compression)
+            COMPRESSION="$2"
+            shift 2
+            ;;
         *)
             log_error "Unknown option: $1"
             echo "Use --help for usage information"
@@ -277,7 +359,7 @@ main() {
     show_configuration_summary
     
     # Generate the configuration
-    generate_benchmark_config "$VECTOR_SEARCH" "$M" "$EF_CONSTRUCTION" "$PARALLEL" "$DATA_TYPE" "$EF_SEARCH" "$OUTPUT_FILE" "$CALIBRATION_PRECISION"
+    generate_benchmark_config "$VECTOR_SEARCH" "$M" "$EF_CONSTRUCTION" "$PARALLEL" "$DATA_TYPE" "$EF_SEARCH" "$OUTPUT_FILE" "$CALIBRATION_PRECISION" "$SVS_MODE" "$CONFIG_NAME" "$COMPRESSION"
     
     log_info "Custom configuration generation completed successfully"
     log_info "You can now use this configuration file with vector-db-benchmark"
