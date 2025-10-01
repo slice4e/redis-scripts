@@ -253,7 +253,7 @@ generate_benchmark_config() {
                 svs_config="${svs_config},\"compression\":\"${compression}\""
             fi
             svs_config="${svs_config}}"
-            collection_params="{\"data_type\":\"${data_type}\",\"svs-vamana_config\":${svs_config}}"
+            collection_params="{\"algorithm\":\"svs-vamana\",\"data_type\":\"${data_type}\",\"svs-vamana_config\":${svs_config}}"
             upload_params="{\"parallel\":128,\"data_type\":\"${data_type}\",\"algorithm\":\"svs-vamana\"}"
         else
             collection_params="{\"data_type\":\"${data_type}\",\"hnsw_config\":{\"M\":${m},\"EF_CONSTRUCTION\":${ef_construction}}}"
