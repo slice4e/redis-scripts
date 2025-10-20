@@ -23,6 +23,7 @@ PORT=9000
 #   NUMA_CONFIG="taskset -c 0-15"                # Use CPU cores 0-15
 #   NUMA_CONFIG=""                               # Disable NUMA control (default)
 NUMA_CONFIG="numactl -N 0 -m 0"
+NUMA_NODES=0,1      # Provide numa nodes after semicolon
 
 # Note: For remote servers, the user must have passwordless sudo access
 # to install system dependencies 

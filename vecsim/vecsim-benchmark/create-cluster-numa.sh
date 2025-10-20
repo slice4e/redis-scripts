@@ -10,7 +10,8 @@ TIMEOUT=2000
 NODES=6
 REPLICAS=1
 PROTECTED_MODE=yes
-NUMA_CONFIG=""
+USE_NUMACTL=1
+NUMA_NODES=0
 ADDITIONAL_OPTIONS=""
 CPU=0
 # You may want to put the above config parameters into config.sh in order to
@@ -24,10 +25,12 @@ fi
 # Computed vars
 ENDPORT=$((PORT+NODES))
 
-# Parse NUMA configuration if provided
-numa_command=""
-if [ -n "$NUMA_CONFIG" ]; then
-    numa_command="$NUMA_CONFIG"
+if [ "$USE_NUMACTL" -eq 1 ]; then
+    IFS=','
+    read -ra nodes_array <<< "$NUMA_NODES"
+    unset IFS
+    nodes_array_len=${#nodes_array[@]}
+    iter_var=0
 fi
 
 if [ "$1" == "start" ]
@@ -35,8 +38,14 @@ then
     while [ $((PORT < ENDPORT)) != "0" ]; do
         PORT=$((PORT+1))
         echo "Starting $PORT"
-        if [ -n "$numa_command" ]; then
-            $numa_command $BIN_PATH/redis-server --port $PORT --protected-mode $PROTECTED_MODE --cluster-enabled yes --cluster-config-file nodes-${PORT}.conf --cluster-node-timeout $TIMEOUT --logfile ${PORT}.log --daemonize yes ${ADDITIONAL_OPTIONS}
+        if [ "$USE_NUMACTL" -eq 1 ]; then
+            numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $BIN_PATH/redis-server --port $PORT --protected-mode $PROTECTED_MODE --cluster-enabled yes --cluster-config-file nodes-${PORT}.conf --cluster-node-timeout $TIMEOUT --logfile ${PORT}.log --daemonize yes ${ADDITIONAL_OPTIONS}
+            iter_var=$((iter_var+1))
+            if [ "$iter_var" -eq "$nodes_array_len" ]; then
+                iter_var=0
+            fi
+            # numactl --localalloc --physcpubind=${CPU} $BIN_PATH/redis-server --port $PORT --protected-mode $PROTECTED_MODE --cluster-enabled yes --cluster-config-file nodes-${PORT}.conf --cluster-node-timeout $TIMEOUT --logfile ${PORT}.log --daemonize yes ${ADDITIONAL_OPTIONS}
+            # CPU=$((CPU+1))
         else
             $BIN_PATH/redis-server --port $PORT --protected-mode $PROTECTED_MODE --cluster-enabled yes --cluster-config-file nodes-${PORT}.conf --cluster-node-timeout $TIMEOUT --appendonly yes --appendfilename appendonly-${PORT}.aof --appenddirname appendonlydir-${PORT} --dbfilename dump-${PORT}.rdb --logfile ${PORT}.log --daemonize yes ${ADDITIONAL_OPTIONS}
         fi
