@@ -16,6 +16,124 @@ source $config_file
 
 source ${HOME_DIR}/redis-scripts/shared-scripts/set_ssh.sh
 
+#---------------------------------------------------------- Multi-Client Helper Functions -------------------------------------------------------
+
+# Setup multi-client mode based on variables set by set_ssh.sh
+setup_multi_client() {
+    if [[ -z "${ADDITIONAL_CLIENT_IPS}" ]]; then
+        MULTI_CLIENT_MODE=false
+        return
+    fi
+    
+    MULTI_CLIENT_MODE=true
+    
+    # Build CLIENT_IPS and CLIENT_SSH_CMDS arrays from ADDITIONAL_CLIENT_IPS
+    IFS=',' read -ra CLIENT_IPS <<< "$ADDITIONAL_CLIENT_IPS"
+    CLIENT_SSH_CMDS=()
+    for ip in "${CLIENT_IPS[@]}"; do
+        CLIENT_SSH_CMDS+=("ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${ip}")
+    done
+    
+    NUM_CLIENTS=$((${#CLIENT_IPS[@]} + 1))  # +1 for primary client
+    
+    echo "Multi-client mode: $NUM_CLIENTS clients total"
+}
+
+# Calculate server range for each client (even split)
+get_client_servers() {
+    local client_idx=$1  # 0 = primary, 1+ = additional clients
+    local servers_per_client=$(($NUM_SERVERS / $NUM_CLIENTS))
+    local remainder=$(($NUM_SERVERS % $NUM_CLIENTS))
+    
+    local start_server=1
+    for ((i=0; i<$client_idx; i++)); do
+        local count=$servers_per_client
+        if [ $i -lt $remainder ]; then
+            ((count++))
+        fi
+        start_server=$((start_server + count))
+    done
+    
+    local count=$servers_per_client
+    if [ $client_idx -lt $remainder ]; then
+        ((count++))
+    fi
+    local end_server=$((start_server + count - 1))
+    
+    echo "${start_server}-${end_server}"
+}
+
+# Launch memtier on remote client via SSH (reuse existing patterns)
+launch_remote_memtier() {
+    local client_idx=$1  # 1-based for additional clients
+    local phase=$2       # "benchmark"
+    local iteration=$3
+    
+    local ssh_cmd="${CLIENT_SSH_CMDS[$((client_idx-1))]}"
+    local client_ip="${CLIENT_IPS[$((client_idx-1))]}"
+    local server_range=$(get_client_servers $client_idx)
+    
+    IFS='-' read -r start_server end_server <<< "$server_range"
+    
+    echo "Launching $phase on client $client_ip for servers $start_server to $end_server"
+    
+    # Build command string for remote execution (similar to existing pattern)
+    local remote_cmd=""
+    for ((server=$start_server; server<=$end_server; server++)); do
+        local port=$(($START_PORT + $server))
+        
+        # Reuse existing memtier command pattern
+        remote_cmd+="${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${server}.log >/dev/null & "
+    done
+    
+    # Execute remotely and return immediately (background on remote)
+    $ssh_cmd "$remote_cmd" &
+}
+
+# Collect results from additional clients (reuse SCP pattern from server collection)
+collect_client_results() {
+    local iteration=$1
+    
+    for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
+        local client_ip="${CLIENT_IPS[$i]}"
+        echo "Collecting results from client $client_ip"
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
+            ${LOGIN_ID}@${client_ip}:${RESULTS_PATH}/run${iteration}/* \
+            ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
+    done
+}
+
+# Wait for remote memtier processes to complete
+wait_for_remote_clients() {
+    echo "Waiting for remote clients to complete..."
+    
+    for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
+        local ssh_cmd="${CLIENT_SSH_CMDS[$i]}"
+        
+        while $ssh_cmd "ps -ef | grep -q memtier_benchmark"; do
+            sleep 5
+        done
+        echo "Client ${CLIENT_IPS[$i]} completed"
+    done
+}
+
+#---------------------------------------------------------- End Multi-Client Helper Functions -------------------------------------------------------
+
+# Setup multi-client mode if configured
+setup_multi_client
+
+# Display server assignments if multi-client
+if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+    echo "Server distribution (even-split):"
+    for ((i=0; i<$NUM_CLIENTS; i++)); do
+        local range=$(get_client_servers $i)
+        if [ $i -eq 0 ]; then
+            echo "  Primary client: servers $range"
+        else
+            echo "  Client ${CLIENT_IPS[$((i-1))]}: servers $range"
+        fi
+    done
+fi
 
 if [ "$SSH_CONNECTED" != "true" ]; then
     echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
@@ -41,6 +159,8 @@ if [ $PIN == "sub-numa" ]; then
 fi
 
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
+# Note: install_prereqs.sh now automatically handles remote client installation
+# when CLIENT_IPS array is populated (set by set_ssh.sh in multi-client mode)
 source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
 source $HOME_DIR/redis-scripts/shared-scripts/check_numa.sh
@@ -335,26 +455,56 @@ do
 	fi
 
 	#--------------------------start memtier benchmark BENCHMARK ------------------------------------------
-	instances=1
-	for cpu in $MEMTIER_CPUS
-	do
-		port=$(($START_PORT + ${instances}))
-		echo -e "starting memtier benchmark $instances on vCPU $cpu"
 
-		#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-		cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-		cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+		# Launch benchmark on additional clients first (in background)
+		for ((i=1; i<$NUM_CLIENTS; i++)); do
+			launch_remote_memtier $i "benchmark" $iteration
+		done
+		
+		# Then launch on primary client (for its assigned servers)
+		local server_range=$(get_client_servers 0)
+		IFS='-' read -r start_server end_server <<< "$server_range"
+		
+		instances=$start_server
+		for cpu in $MEMTIER_CPUS
+		do
+			if [ $instances -gt $end_server ]; then break; fi
+			
+			port=$(($START_PORT + ${instances}))
+			echo -e "starting memtier benchmark $instances on vCPU $cpu"
+			
+			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
 
-		cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
-		instances=$((instances + 1))
-		echo -e $cmd
-		$cmd >/dev/null &
+			cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+			instances=$((instances + 1))
+			echo -e $cmd
+			$cmd >/dev/null &
+		done
+	else
+		# Original single-client code
+		instances=1
+		for cpu in $MEMTIER_CPUS
+		do
+			port=$(($START_PORT + ${instances}))
+			echo -e "starting memtier benchmark $instances on vCPU $cpu"
 
-		if [ $instances -gt $NUM_SERVERS ]
-		then
-			break
-		fi
-	done
+			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+
+			cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+			instances=$((instances + 1))
+			echo -e $cmd
+			$cmd >/dev/null &
+
+			if [ $instances -gt $NUM_SERVERS ]
+			then
+				break
+			fi
+		done
+	fi
 
 	if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then 
 		echo "Starting emon... (First, try to stop if emon is running)"
@@ -402,10 +552,27 @@ do
         fi
 
 
-	while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
-		echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"
-		sleep 5
-	done
+	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+		# Wait for local memtier to finish
+		while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
+			echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) local memtier to finish"
+			sleep 5
+		done
+		
+		# Wait for remote clients
+		wait_for_remote_clients
+	else
+		# Original single-client wait
+		while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
+			echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"
+			sleep 5
+		done
+	fi
+
+	# Collect results from additional clients if multi-client mode
+	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+		collect_client_results $iteration
+	fi
 
 	echo "Killing existing redis server instances and remove rdb files..."
 	KILL_SIGNAL=15

@@ -255,3 +255,55 @@ fi
 
 
 echo "All prerequisites are installed on the client."
+
+#---------------------------------------------------------- Remote Client Prerequisites --------------------------------------------------------
+
+# Function to install prerequisites on remote memtier client machines
+# This function is called when MULTI_CLIENT_MODE is enabled
+install_remote_client_prerequisites() {
+    if [[ -z "${ADDITIONAL_CLIENT_IPS}" ]]; then
+        return
+    fi
+    
+    echo "Installing prerequisites on additional client machines..."
+    
+    # Build arrays from ADDITIONAL_CLIENT_IPS configuration variable
+    IFS=',' read -ra CLIENT_IPS <<< "$ADDITIONAL_CLIENT_IPS"
+    
+    for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
+        local client_ip="${CLIENT_IPS[$i]}"
+        local ssh_cmd="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${client_ip}"
+        
+        echo "Installing prerequisites on client $client_ip"
+        
+        # Copy the config file to the remote client
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${config_file} ${LOGIN_ID}@${client_ip}:/tmp/memtier_client.config
+        
+        # Copy this script to the remote client
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${HOME_DIR}/redis-scripts/shared-scripts/install_prereqs.sh ${LOGIN_ID}@${client_ip}:/tmp/
+        
+        # Run install_prereqs.sh on the remote client (it will handle the client section)
+        $ssh_cmd "source /tmp/memtier_client.config && source /tmp/install_prereqs.sh"
+        
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to install prerequisites on client $client_ip"
+            exit 1
+        fi
+        
+        # Create results directory on client
+        $ssh_cmd "mkdir -p ${RESULTS_PATH}"
+        
+        # Clean up temporary files
+        $ssh_cmd "rm -f /tmp/memtier_client.config /tmp/install_prereqs.sh"
+        
+        echo "Prerequisites installed on client $client_ip"
+    done
+    
+    echo "All additional clients ready"
+}
+
+# Call the remote client installation function if ADDITIONAL_CLIENT_IPS is configured
+# This happens when the script is sourced from run_all.sh in multi-client mode
+if [[ -n "${ADDITIONAL_CLIENT_IPS}" ]]; then
+    install_remote_client_prerequisites
+fi

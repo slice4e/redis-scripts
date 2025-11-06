@@ -42,6 +42,16 @@ MEMTIER_PIPELINE=64
 MEMTIER_CLIENTS=2	# This will be ignored if AUTOTUNE is true
 MEMTIER_THREADS=2	# This will be ignored if AUTOTUNE is true
 
+########################################################
+# MULTI-CLIENT CONFIGURATION (Optional)
+########################################################
+# Additional memtier client machines (comma-separated IPs)
+# Leave empty for single-client mode (default)
+# Example: "192.168.1.10,192.168.1.11,192.168.1.12"
+# Note: All clients use same LOGIN_ID, SSH_KEY_PATH, SSH_KEY_NAME, 
+# MEMTIER_SOCKET, and HOME_DIR as primary client
+ADDITIONAL_CLIENT_IPS=""
+
 #######################
 # Data Collection Tools
 #######################
