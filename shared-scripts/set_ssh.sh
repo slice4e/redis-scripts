@@ -76,6 +76,12 @@ if [[ -n "${ADDITIONAL_CLIENT_IPS}" ]]; then
 	IFS=',' read -ra CLIENT_IPS_ARRAY <<< "$ADDITIONAL_CLIENT_IPS"
 	
 	for ip in "${CLIENT_IPS_ARRAY[@]}"; do
+		# Skip SSH setup for localhost/loopback addresses
+		if [[ "$ip" == "127.0.0.1" || "$ip" == "localhost" ]]; then
+			echo "Skipping SSH setup for localhost ($ip)"
+			continue
+		fi
+		
 		if ! setup_ssh_to_host "${ip}" "${LOGIN_ID}" "${SSH_KEY_PATH}" "${SSH_KEY_NAME}" "client"; then
 			echo "Failed to setup SSH to client $ip. Exiting..."
 			exit 1

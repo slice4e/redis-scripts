@@ -3,7 +3,15 @@
 
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
 
-echo "Check pre-requisites on server"
+# Check if this is a client-only installation
+if [[ "${CLIENT_ONLY}" == "true" ]]; then
+    echo "Check pre-requisites on client"
+    # Skip Redis server installation on clients, go directly to client prerequisites
+    skip_redis_installation=true
+else
+    echo "Check pre-requisites on server"
+    skip_redis_installation=false
+fi
 
 if $SSH_COMMAND command -v "apt" &>/dev/null; then
 	USE_APT=true
@@ -11,7 +19,8 @@ else
 	USE_APT=false
 fi
 
-if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
+# Only install Redis server if this is not a client-only installation
+if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	echo "Redis is not installed. Attempting to install."
 	if [[ $USE_APT == true ]]; then
 		$SSH_COMMAND apt-get update
@@ -37,7 +46,8 @@ if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	fi
 
 fi
-if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
+# Only check Redis installation if this is not a client-only installation
+if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	echo "Redis is not installed. Unable to automatically install it. Failing."
 	exit 1
 fi
@@ -272,6 +282,13 @@ install_remote_client_prerequisites() {
     
     for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
         local client_ip="${CLIENT_IPS[$i]}"
+        
+        # Skip localhost - prerequisites are already installed on the primary client
+        if [[ "$client_ip" == "127.0.0.1" || "$client_ip" == "localhost" ]]; then
+            echo "Skipping prerequisite installation for localhost ($client_ip) - already installed"
+            continue
+        fi
+        
         local ssh_cmd="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${client_ip}"
         
         echo "Installing prerequisites on client $client_ip"
@@ -280,10 +297,12 @@ install_remote_client_prerequisites() {
         scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${config_file} ${LOGIN_ID}@${client_ip}:/tmp/memtier_client.config
         
         # Copy this script to the remote client
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${HOME_DIR}/redis-scripts/shared-scripts/install_prereqs.sh ${LOGIN_ID}@${client_ip}:/tmp/
+        local script_path="${SCRIPT_BASE_DIR:-${HOME_DIR}/redis-scripts/shared-scripts}/install_prereqs.sh"
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q "${script_path}" ${LOGIN_ID}@${client_ip}:/tmp/
         
         # Run install_prereqs.sh on the remote client (it will handle the client section)
-        $ssh_cmd "source /tmp/memtier_client.config && source /tmp/install_prereqs.sh"
+        # Set CLIENT_ONLY flag to skip Redis server installation on clients
+        $ssh_cmd "source /tmp/memtier_client.config && export CLIENT_ONLY=true && source /tmp/install_prereqs.sh"
         
         if [ $? -ne 0 ]; then
             echo "Error: Failed to install prerequisites on client $client_ip"

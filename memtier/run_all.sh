@@ -14,7 +14,10 @@ if [ ! -f "$config_file" ]; then
 fi
 source $config_file
 
-source ${HOME_DIR}/redis-scripts/shared-scripts/set_ssh.sh
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Source set_ssh.sh from the shared-scripts directory relative to the script location
+source "${SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
 
 #---------------------------------------------------------- Multi-Client Helper Functions -------------------------------------------------------
 
@@ -31,7 +34,11 @@ setup_multi_client() {
     IFS=',' read -ra CLIENT_IPS <<< "$ADDITIONAL_CLIENT_IPS"
     CLIENT_SSH_CMDS=()
     for ip in "${CLIENT_IPS[@]}"; do
-        CLIENT_SSH_CMDS+=("ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${ip}")
+        if [[ "$ip" == "127.0.0.1" || "$ip" == "localhost" ]]; then
+            CLIENT_SSH_CMDS+=("bash -c")  # Local execution
+        else
+            CLIENT_SSH_CMDS+=("ssh -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${ip}")
+        fi
     done
     
     NUM_CLIENTS=$((${#CLIENT_IPS[@]} + 1))  # +1 for primary client
@@ -109,10 +116,18 @@ wait_for_remote_clients() {
     
     for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
         local ssh_cmd="${CLIENT_SSH_CMDS[$i]}"
+        local client_ip="${CLIENT_IPS[$i]}"
         
-        while $ssh_cmd "ps -ef | grep -q memtier_benchmark"; do
-            sleep 5
-        done
+        # Handle localhost clients differently
+        if [[ "$client_ip" == "127.0.0.1" || "$client_ip" == "localhost" ]]; then
+            while ps -ef | grep -q "[m]emtier_benchmark"; do
+                sleep 5
+            done
+        else
+            while $ssh_cmd "ps -ef | grep -q '[m]emtier_benchmark'"; do
+                sleep 5
+            done
+        fi
         echo "Client ${CLIENT_IPS[$i]} completed"
     done
 }
@@ -126,7 +141,7 @@ setup_multi_client
 if [[ ${MULTI_CLIENT_MODE} == true ]]; then
     echo "Server distribution (even-split):"
     for ((i=0; i<$NUM_CLIENTS; i++)); do
-        local range=$(get_client_servers $i)
+        range=$(get_client_servers $i)
         if [ $i -eq 0 ]; then
             echo "  Primary client: servers $range"
         else
@@ -161,9 +176,11 @@ fi
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
 # Note: install_prereqs.sh now automatically handles remote client installation
 # when CLIENT_IPS array is populated (set by set_ssh.sh in multi-client mode)
-source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
+# Set SCRIPT_BASE_DIR for use by install_prereqs.sh
+export SCRIPT_BASE_DIR="$(cd "${SCRIPT_DIR}/../shared-scripts" && pwd)"
+source "${SCRIPT_DIR}/../shared-scripts/install_prereqs.sh"
 
-source $HOME_DIR/redis-scripts/shared-scripts/check_numa.sh
+source "${SCRIPT_DIR}/../shared-scripts/check_numa.sh"
 
 #---------------------------------------------------------- Disable Huge Pages -------------------------------------------------------
 # This is very important. Without disabling huge pages, we can get into a difficult to reproduce situation of bad performance. 
@@ -262,7 +279,7 @@ fi
 
 #--------------------------set network interrupts ---------------------------------------------------
 if [[ $SET_IRQ == true ]]; then
-	source $HOME_DIR/redis-scripts/shared-scripts/set_irq.sh
+	source "${SCRIPT_DIR}/../shared-scripts/set_irq.sh"
 fi
 
 $SSH_COMMAND mkdir -p ${REDIS_PATH}/log
@@ -463,7 +480,7 @@ do
 		done
 		
 		# Then launch on primary client (for its assigned servers)
-		local server_range=$(get_client_servers 0)
+		server_range=$(get_client_servers 0)
 		IFS='-' read -r start_server end_server <<< "$server_range"
 		
 		instances=$start_server
@@ -667,14 +684,14 @@ if [[ $RUN_EMON == true ]] ; then
 	#dcsomc -n -x alanstu -d ${RESULTS_PATH} -G ${RESULTS_FOLDER}_redis_2lm_${NUM_SERVERS}
 	CUR_DIR=`pwd`
 	cd ${RESULTS_PATH}
-	source $HOME_DIR/redis-scripts/shared-scripts/emon_process.sh
+	source "${SCRIPT_DIR}/../shared-scripts/emon_process.sh"
 	cd $CUR_DIR
 	echo "Done post processing EMON..."
 fi
 
 CUR_DIR=`pwd`
 cd ${RESULTS_PATH}
-source $HOME_DIR/redis-scripts/shared-scripts/post_process.sh
+source "${SCRIPT_DIR}/../shared-scripts/post_process.sh"
 cd $CUR_DIR
 
 
