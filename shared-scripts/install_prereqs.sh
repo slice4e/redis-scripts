@@ -283,9 +283,18 @@ install_remote_client_prerequisites() {
     for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
         local client_ip="${CLIENT_IPS[$i]}"
         
+        # Trim whitespace from IP address
+        client_ip=$(echo "$client_ip" | xargs)
+        
         # Skip localhost - prerequisites are already installed on the primary client
         if [[ "$client_ip" == "127.0.0.1" || "$client_ip" == "localhost" ]]; then
             echo "Skipping prerequisite installation for localhost ($client_ip) - already installed"
+            continue
+        fi
+        
+        # Skip server IP - prerequisites are already installed when setting up the server
+        if [[ "$client_ip" == "$SERVER_IP" ]]; then
+            echo "Skipping prerequisite installation for server ($client_ip) - already installed during server setup"
             continue
         fi
         

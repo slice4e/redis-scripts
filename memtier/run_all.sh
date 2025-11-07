@@ -34,6 +34,8 @@ setup_multi_client() {
     IFS=',' read -ra CLIENT_IPS <<< "$ADDITIONAL_CLIENT_IPS"
     CLIENT_SSH_CMDS=()
     for ip in "${CLIENT_IPS[@]}"; do
+        # Trim whitespace from IP address
+        ip=$(echo "$ip" | xargs)
         if [[ "$ip" == "127.0.0.1" || "$ip" == "localhost" ]]; then
             CLIENT_SSH_CMDS+=("bash -c")  # Local execution
         else
