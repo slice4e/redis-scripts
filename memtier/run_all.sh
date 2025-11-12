@@ -12,7 +12,16 @@ if [ ! -f "$config_file" ]; then
 	  echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
 	  exit 1
 fi
+# Store environment variable before loading config
+ENV_BENCHMARK_DURATION="${BENCHMARK_DURATION:-}"
+
 source $config_file
+
+# Override config values with environment variables if set
+if [ ! -z "$ENV_BENCHMARK_DURATION" ]; then
+    echo "Using BENCHMARK_DURATION from environment: $ENV_BENCHMARK_DURATION seconds (overriding config value: $BENCHMARK_DURATION)"
+    BENCHMARK_DURATION=$ENV_BENCHMARK_DURATION
+fi
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,6 +60,14 @@ setup_multi_client() {
 # Calculate server range for each client (even split)
 get_client_servers() {
     local client_idx=$1  # 0 = primary, 1+ = additional clients
+    
+    # If we have fewer servers than clients, use round-robin assignment
+    if [ $NUM_SERVERS -lt $NUM_CLIENTS ]; then
+        local server_for_client=$(( ($client_idx % $NUM_SERVERS) + 1 ))
+        echo "${server_for_client}-${server_for_client}"
+        return
+    fi
+    
     local servers_per_client=$(($NUM_SERVERS / $NUM_CLIENTS))
     local remainder=$(($NUM_SERVERS % $NUM_CLIENTS))
     
@@ -91,9 +108,14 @@ launch_remote_memtier() {
     for ((server=$start_server; server<=$end_server; server++)); do
         local port=$(($START_PORT + $server))
         
-        # Reuse existing memtier command pattern
-        remote_cmd+="${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${server}.log >/dev/null & "
+        # Use memtier from PATH on remote client (it may be installed in different location)
+        # Use environment variable for BENCHMARK_DURATION if set, otherwise use config value
+        local test_duration="${BENCHMARK_DURATION:-300}"
+        remote_cmd+="memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$test_duration --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=/tmp/benchmark_${server}.log >/dev/null & "
     done
+    
+    # Debug: show the remote command
+    echo "DEBUG: Executing remote command: $remote_cmd"
     
     # Execute remotely and return immediately (background on remote)
     $ssh_cmd "$remote_cmd" &
@@ -367,26 +389,56 @@ do
 
 
 	#--------------------------start memtier benchmark FILL ---------------------------------------------
-	instances=1
-	for cpu in $MEMTIER_CPUS
-	do
-		port=$(($START_PORT + ${instances}))
-		echo -e "starting memtier benchmark $instances on vCPU $cpu"
+	
+	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+		# In multi-client mode, only primary client performs fill to avoid conflicts
+		# Additional clients will wait for fill to complete
+		echo "Multi-client mode: Primary client performing fill phase"
 		
-		#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-		cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-		cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+		# Launch fill on primary client (for its assigned servers)
+		server_range=$(get_client_servers 0)
+		IFS='-' read -r start_server end_server <<< "$server_range"
+		
+		instances=$start_server
+		for cpu in $MEMTIER_CPUS
+		do
+			if [ $instances -gt $end_server ]; then break; fi
+			
+			port=$(($START_PORT + ${instances}))
+			echo -e "starting memtier benchmark $instances on vCPU $cpu"
+			
+			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
 
-		cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
-		instances=$((instances + 1))
-		echo -e $cmd
-		$cmd >/dev/null &
-		
-		if [ $instances -gt $NUM_SERVERS ]
-		then
-			break
-		fi
-	done
+			cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+			instances=$((instances + 1))
+			echo -e $cmd
+			$cmd >/dev/null &
+		done
+	else
+		# Single client mode - original logic
+		instances=1
+		for cpu in $MEMTIER_CPUS
+		do
+			port=$(($START_PORT + ${instances}))
+			echo -e "starting memtier benchmark $instances on vCPU $cpu"
+			
+			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+
+			cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+			instances=$((instances + 1))
+			echo -e $cmd
+			$cmd >/dev/null &
+			
+			if [ $instances -gt $NUM_SERVERS ]
+			then
+				break
+			fi
+		done
+	fi
 
 	while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
 		echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"

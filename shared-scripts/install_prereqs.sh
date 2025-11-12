@@ -176,7 +176,7 @@ else
 	USE_APT=false
 fi
 
-if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then
+if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v memtier_benchmark &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
 	if [[ $USE_APT == true ]]; then
 		apt-get update
@@ -298,9 +298,15 @@ install_remote_client_prerequisites() {
             continue
         fi
         
-        local ssh_cmd="ssh -t -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${client_ip}"
+        local ssh_cmd="ssh -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${client_ip}"
         
         echo "Installing prerequisites on client $client_ip"
+        
+        # First check if memtier is already available on the remote client
+        if $ssh_cmd "command -v memtier_benchmark &>/dev/null"; then
+            echo "Memtier already installed on client $client_ip - skipping installation"
+            continue
+        fi
         
         # Copy the config file to the remote client
         scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${config_file} ${LOGIN_ID}@${client_ip}:/tmp/memtier_client.config
@@ -311,7 +317,7 @@ install_remote_client_prerequisites() {
         
         # Run install_prereqs.sh on the remote client (it will handle the client section)
         # Set CLIENT_ONLY flag to skip Redis server installation on clients
-        $ssh_cmd "source /tmp/memtier_client.config && export CLIENT_ONLY=true && source /tmp/install_prereqs.sh"
+        ssh -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${client_ip} "source /tmp/memtier_client.config && export CLIENT_ONLY=true && source /tmp/install_prereqs.sh"
         
         if [ $? -ne 0 ]; then
             echo "Error: Failed to install prerequisites on client $client_ip"
