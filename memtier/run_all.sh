@@ -92,7 +92,7 @@ get_client_servers() {
 # Launch memtier on remote client via SSH (reuse existing patterns)
 launch_remote_memtier() {
     local client_idx=$1  # 1-based for additional clients
-    local phase=$2       # "benchmark"
+    local phase=$2       # "fill" or "benchmark"
     local iteration=$3
     
     local ssh_cmd="${CLIENT_SSH_CMDS[$((client_idx-1))]}"
@@ -103,15 +103,19 @@ launch_remote_memtier() {
     
     echo "Launching $phase on client $client_ip for servers $start_server to $end_server"
     
-    # Build command string for remote execution (similar to existing pattern)
+    # Build command string for remote execution
     local remote_cmd=""
     for ((server=$start_server; server<=$end_server; server++)); do
         local port=$(($START_PORT + $server))
         
-        # Use memtier from PATH on remote client (it may be installed in different location)
-        # Use environment variable for BENCHMARK_DURATION if set, otherwise use config value
-        local test_duration="${BENCHMARK_DURATION:-300}"
-        remote_cmd+="memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$test_duration --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=/tmp/benchmark_${server}.log >/dev/null & "
+        if [ "$phase" = "fill" ]; then
+            # Fill phase: use -n allkeys and write-only ratio
+            remote_cmd+="memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=$MEMTIER_PIPELINE --key-pattern=P:P --ratio=1:0 --out-file=/tmp/fill_${server}_run${iteration}.log >/dev/null & "
+        else
+            # Benchmark phase: use test-time and read/write ratio
+            local test_duration="${BENCHMARK_DURATION:-300}"
+            remote_cmd+="memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$test_duration --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=/tmp/benchmark_${server}_run${iteration}.log >/dev/null & "
+        fi
     done
     
     # Debug: show the remote command
@@ -121,6 +125,40 @@ launch_remote_memtier() {
     $ssh_cmd "$remote_cmd" &
 }
 
+# Wait for remote clients to complete fill phase
+wait_for_remote_fill() {
+    echo "Waiting for remote clients to complete fill phase..."
+    
+    for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
+        local client_ip="${CLIENT_IPS[$i]}"
+        local ssh_cmd="${CLIENT_SSH_CMDS[$i]}"
+        
+        # Wait for memtier processes to finish on remote client with timeout
+        echo "Waiting for fill to complete on client $client_ip"
+        local timeout=60  # 60 seconds timeout
+        local count=0
+        
+        while [ $count -lt $timeout ]; do
+            # Check for actual memtier_benchmark processes (not bash containing the string)
+            if $ssh_cmd "pgrep '^memtier_benchmark' > /dev/null"; then
+                echo "Fill still running on $client_ip, waiting..."
+                sleep 2
+                count=$((count + 2))
+            else
+                break
+            fi
+        done
+        
+        if [ $count -ge $timeout ]; then
+            echo "Warning: Timeout waiting for fill on client $client_ip"
+        else
+            echo "Fill completed on client $client_ip"
+        fi
+    done
+    
+    echo "All remote clients completed fill phase"
+}
+
 # Collect results from additional clients (reuse SCP pattern from server collection)
 collect_client_results() {
     local iteration=$1
@@ -128,9 +166,31 @@ collect_client_results() {
     for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
         local client_ip="${CLIENT_IPS[$i]}"
         echo "Collecting results from client $client_ip"
+        
+        # Create client-specific file names to avoid conflicts
+        local client_suffix=$(echo $client_ip | tr '.' '_')
+        
+        # Collect benchmark results for this specific run
         scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
-            ${LOGIN_ID}@${client_ip}:${RESULTS_PATH}/run${iteration}/* \
+            ${LOGIN_ID}@${client_ip}:/tmp/benchmark_*_run${iteration}.log \
             ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
+            
+        # Also collect fill results for this specific run
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
+            ${LOGIN_ID}@${client_ip}:/tmp/fill_*_run${iteration}.log \
+            ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
+            
+        # Rename downloaded files to include client IP to avoid conflicts
+        cd ${RESULTS_PATH}/run${iteration}/
+        for file in benchmark_*_run${iteration}.log fill_*_run${iteration}.log; do
+            if [[ -f "$file" && "$file" != *"client_${client_suffix}"* ]]; then
+                # Extract the base name and add client suffix
+                base_name="${file%_run${iteration}.log}"
+                new_name="${base_name}_client_${client_suffix}_run${iteration}.log"
+                mv "$file" "$new_name" 2>/dev/null
+                echo "Renamed $file to $new_name"
+            fi
+        done
     done
 }
 
@@ -144,16 +204,75 @@ wait_for_remote_clients() {
         
         # Handle localhost clients differently
         if [[ "$client_ip" == "127.0.0.1" || "$client_ip" == "localhost" ]]; then
-            while ps -ef | grep -q "[m]emtier_benchmark"; do
+            while pgrep -f "memtier_benchmark" > /dev/null 2>&1; do
                 sleep 5
             done
         else
-            while $ssh_cmd "ps -ef | grep -q '[m]emtier_benchmark'"; do
+            # Use pgrep to avoid matching bash processes containing "memtier_benchmark"
+            while $ssh_cmd "pgrep -f '^[^ ]*memtier_benchmark' > /dev/null 2>&1"; do
                 sleep 5
             done
         fi
-        echo "Client ${CLIENT_IPS[$i]} completed"
+        echo "Client $client_ip completed"
     done
+}
+
+# Aggregate results from multiple clients into combined files
+aggregate_multi_client_results() {
+    echo "Aggregating results from multiple clients..."
+    
+    for iteration in 1 2 3; do
+        local run_dir="${RESULTS_PATH}/run${iteration}"
+        if [ ! -d "$run_dir" ]; then
+            continue
+        fi
+        
+        echo "Processing run${iteration}..."
+        cd "$run_dir"
+        
+        # Find all benchmark log files (local and remote clients)
+        local benchmark_files=$(ls benchmark_*.log 2>/dev/null)
+        if [ -z "$benchmark_files" ]; then
+            echo "No benchmark files found in run${iteration}"
+            continue
+        fi
+        
+        # Extract and sum ops/sec and average latency from all clients
+        local total_ops=0
+        local total_latency=0
+        local client_count=0
+        
+        for file in $benchmark_files; do
+            echo "Processing $file..."
+            
+            # Extract ops/sec (from Totals line)
+            local ops=$(grep "Totals" "$file" | awk '{print $2}' 2>/dev/null)
+            # Extract latency (from Totals line)
+            local latency=$(grep "Totals" "$file" | awk '{print $5}' 2>/dev/null)
+            
+            if [ -n "$ops" ] && [ -n "$latency" ]; then
+                total_ops=$(echo "$total_ops + $ops" | bc -l)
+                total_latency=$(echo "$total_latency + $latency" | bc -l)
+                client_count=$((client_count + 1))
+                echo "  Client ops/sec: $ops, latency: $latency"
+            fi
+        done
+        
+        if [ $client_count -gt 0 ]; then
+            # Calculate average latency
+            local avg_latency=$(echo "scale=5; $total_latency / $client_count" | bc -l)
+            
+            echo "Run${iteration} totals: ${total_ops} ops/sec, ${avg_latency} avg latency (${client_count} clients)"
+            
+            # Create aggregated result file
+            echo "Multi-client aggregated results for run${iteration}:" > "aggregated_run${iteration}.txt"
+            echo "Total Ops/sec: $total_ops" >> "aggregated_run${iteration}.txt"
+            echo "Average Latency: $avg_latency" >> "aggregated_run${iteration}.txt"
+            echo "Number of clients: $client_count" >> "aggregated_run${iteration}.txt"
+        fi
+    done
+    
+    echo "Multi-client aggregation complete."
 }
 
 #---------------------------------------------------------- End Multi-Client Helper Functions -------------------------------------------------------
@@ -391,9 +510,13 @@ do
 	#--------------------------start memtier benchmark FILL ---------------------------------------------
 	
 	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
-		# In multi-client mode, only primary client performs fill to avoid conflicts
-		# Additional clients will wait for fill to complete
-		echo "Multi-client mode: Primary client performing fill phase"
+		# In multi-client mode, all clients need to perform fill to have consistent data
+		echo "Multi-client mode: All clients performing fill phase"
+		
+		# Launch fill on additional clients first (in background)
+		for ((i=1; i<$NUM_CLIENTS; i++)); do
+			launch_remote_memtier $i "fill" $iteration
+		done
 		
 		# Launch fill on primary client (for its assigned servers)
 		server_range=$(get_client_servers 0)
@@ -440,10 +563,16 @@ do
 		done
 	fi
 
+	# Wait for local memtier processes to finish
 	while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
 		echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"
 		sleep 5
 	done
+	
+	# If multi-client mode, also wait for remote clients to complete fill
+	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+		wait_for_remote_fill
+	fi
 	
 	#-------------------------- Auto-tune memtier benchmark BENCHMARK----------------------------------------
 	# Run memtier by gradually increasing the load until we violate the SLA. Pick a point, just before that. 
@@ -741,6 +870,12 @@ if [[ $RUN_EMON == true ]] ; then
 	source "${SCRIPT_DIR}/../shared-scripts/emon_process.sh"
 	cd $CUR_DIR
 	echo "Done post processing EMON..."
+fi
+
+# Aggregate multi-client results if in multi-client mode
+if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+    echo "Aggregating multi-client results..."
+    aggregate_multi_client_results
 fi
 
 CUR_DIR=`pwd`
