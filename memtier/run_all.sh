@@ -193,7 +193,6 @@ collect_client_results() {
 
 # Wait for remote memtier processes to complete
 wait_for_remote_clients() {
-    echo "Waiting for remote clients to complete..."
     
     for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
         local ssh_cmd="${CLIENT_SSH_CMDS[$i]}"
@@ -206,7 +205,8 @@ wait_for_remote_clients() {
             done
         else
             # Use pgrep to avoid matching bash processes containing "memtier_benchmark"
-            while $ssh_cmd "pgrep -f '^[^ ]*memtier_benchmark' > /dev/null 2>&1"; do
+            while $ssh_cmd "pgrep -f memtier_benchmark" > /dev/null 2>&1; do
+				echo "Waiting for remote clients to complete..."
                 sleep 5
             done
         fi
