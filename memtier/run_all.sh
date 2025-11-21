@@ -118,9 +118,6 @@ launch_remote_memtier() {
         fi
     done
     
-    # Debug: show the remote command
-    echo "DEBUG: Executing remote command: $remote_cmd"
-    
     # Execute remotely and return immediately (background on remote)
     $ssh_cmd "$remote_cmd" &
 }
