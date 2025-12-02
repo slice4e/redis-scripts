@@ -30,6 +30,21 @@ source "${SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
 
 #---------------------------------------------------------- Multi-Client Helper Functions -------------------------------------------------------
 
+# Clean up old result files on remote clients from previous benchmark runs
+cleanup_remote_client_files() {
+    echo "Cleaning up old result files on remote clients..."
+    
+    for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
+        local client_ip="${CLIENT_IPS[$i]}"
+        local ssh_cmd="${CLIENT_SSH_CMDS[$i]}"
+        
+        echo "Cleaning /tmp/*_run*.log on client $client_ip"
+        $ssh_cmd "rm -f /tmp/benchmark_*_run*.log /tmp/fill_*_run*.log" 2>/dev/null || true
+    done
+    
+    echo "Remote client cleanup complete."
+}
+
 # Setup multi-client mode based on variables set by set_ssh.sh
 setup_multi_client() {
     if [[ -z "${ADDITIONAL_CLIENT_IPS}" ]]; then
@@ -214,64 +229,6 @@ wait_for_remote_clients() {
     done
 }
 
-# Aggregate results from multiple clients into combined files
-aggregate_multi_client_results() {
-    echo "Aggregating results from multiple clients..."
-    
-    for iteration in 1 2 3; do
-        local run_dir="${RESULTS_PATH}/run${iteration}"
-        if [ ! -d "$run_dir" ]; then
-            continue
-        fi
-        
-        echo "Processing run${iteration}..."
-        cd "$run_dir"
-        
-        # Find all benchmark log files (local and remote clients)
-        local benchmark_files=$(ls benchmark_*.log 2>/dev/null)
-        if [ -z "$benchmark_files" ]; then
-            echo "No benchmark files found in run${iteration}"
-            continue
-        fi
-        
-        # Extract and sum ops/sec and average latency from all clients
-        local total_ops=0
-        local total_latency=0
-        local client_count=0
-        
-        for file in $benchmark_files; do
-            echo "Processing $file..."
-            
-            # Extract ops/sec (from Totals line)
-            local ops=$(grep "Totals" "$file" | awk '{print $2}' 2>/dev/null)
-            # Extract latency (from Totals line)
-            local latency=$(grep "Totals" "$file" | awk '{print $5}' 2>/dev/null)
-            
-            if [ -n "$ops" ] && [ -n "$latency" ]; then
-                total_ops=$(echo "$total_ops + $ops" | bc -l)
-                total_latency=$(echo "$total_latency + $latency" | bc -l)
-                client_count=$((client_count + 1))
-                echo "  Client ops/sec: $ops, latency: $latency"
-            fi
-        done
-        
-        if [ $client_count -gt 0 ]; then
-            # Calculate average latency
-            local avg_latency=$(echo "scale=5; $total_latency / $client_count" | bc -l)
-            
-            echo "Run${iteration} totals: ${total_ops} ops/sec, ${avg_latency} avg latency (${client_count} clients)"
-            
-            # Create aggregated result file
-            echo "Multi-client aggregated results for run${iteration}:" > "aggregated_run${iteration}.txt"
-            echo "Total Ops/sec: $total_ops" >> "aggregated_run${iteration}.txt"
-            echo "Average Latency: $avg_latency" >> "aggregated_run${iteration}.txt"
-            echo "Number of clients: $client_count" >> "aggregated_run${iteration}.txt"
-        fi
-    done
-    
-    echo "Multi-client aggregation complete."
-}
-
 #---------------------------------------------------------- End Multi-Client Helper Functions -------------------------------------------------------
 
 # Setup multi-client mode if configured
@@ -420,6 +377,11 @@ fi
 #--------------------------set network interrupts ---------------------------------------------------
 if [[ $SET_IRQ == true ]]; then
 	source "${SCRIPT_DIR}/../shared-scripts/set_irq.sh"
+fi
+
+# Clean up old result files on remote clients before starting new benchmark run
+if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+	cleanup_remote_client_files
 fi
 
 $SSH_COMMAND mkdir -p ${REDIS_PATH}/log
@@ -849,8 +811,14 @@ done
 
 #-------------------------- Copy Results from remote server ------------------------------------------------------------
 if [[ ${SERVER_REMOTE} == true ]] ; then
-	echo "Copying data from remote server. " 
-	scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:${RESULTS_PATH}/* ${RESULTS_PATH}/
+	# Check if there are any files to copy
+	file_count=$($SSH_COMMAND "ls -1 ${RESULTS_PATH} 2>/dev/null | wc -l")
+	if [ "$file_count" -gt 0 ]; then
+		echo "Copying data from remote server. " 
+		scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:${RESULTS_PATH}/* ${RESULTS_PATH}/
+	else
+		echo "No files to copy from remote server (directory is empty)."
+	fi
 	#$SSH_COMMAND "rm -rf ${RESULTS_PATH}"
 fi
 
@@ -867,12 +835,6 @@ if [[ $RUN_EMON == true ]] ; then
 	source "${SCRIPT_DIR}/../shared-scripts/emon_process.sh"
 	cd $CUR_DIR
 	echo "Done post processing EMON..."
-fi
-
-# Aggregate multi-client results if in multi-client mode
-if [[ ${MULTI_CLIENT_MODE} == true ]]; then
-    echo "Aggregating multi-client results..."
-    aggregate_multi_client_results
 fi
 
 CUR_DIR=`pwd`
