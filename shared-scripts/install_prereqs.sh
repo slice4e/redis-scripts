@@ -3,7 +3,15 @@
 
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
 
-echo "Check pre-requisites on server"
+# Check if this is a client-only installation
+if [[ "${CLIENT_ONLY}" == "true" ]]; then
+    echo "Check pre-requisites on client"
+    # Skip Redis server installation on clients, go directly to client prerequisites
+    skip_redis_installation=true
+else
+    echo "Check pre-requisites on server"
+    skip_redis_installation=false
+fi
 
 if $SSH_COMMAND command -v "apt" &>/dev/null; then
 	USE_APT=true
@@ -11,7 +19,8 @@ else
 	USE_APT=false
 fi
 
-if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
+# Only install Redis server if this is not a client-only installation
+if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	echo "Redis is not installed. Attempting to install."
 	if [[ $USE_APT == true ]]; then
 		$SSH_COMMAND apt-get update
@@ -37,7 +46,8 @@ if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	fi
 
 fi
-if ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
+# Only check Redis installation if this is not a client-only installation
+if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	echo "Redis is not installed. Unable to automatically install it. Failing."
 	exit 1
 fi
@@ -166,7 +176,7 @@ else
 	USE_APT=false
 fi
 
-if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then
+if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v memtier_benchmark &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
 	if [[ $USE_APT == true ]]; then
 		apt-get update
@@ -255,3 +265,79 @@ fi
 
 
 echo "All prerequisites are installed on the client."
+
+#---------------------------------------------------------- Remote Client Prerequisites --------------------------------------------------------
+
+# Function to install prerequisites on remote memtier client machines
+# This function is called when MULTI_CLIENT_MODE is enabled
+install_remote_client_prerequisites() {
+    if [[ -z "${ADDITIONAL_CLIENT_IPS}" ]]; then
+        return
+    fi
+    
+    echo "Installing prerequisites on additional client machines..."
+    
+    # Build arrays from ADDITIONAL_CLIENT_IPS configuration variable
+    IFS=',' read -ra CLIENT_IPS <<< "$ADDITIONAL_CLIENT_IPS"
+    
+    for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
+        local client_ip="${CLIENT_IPS[$i]}"
+        
+        # Trim whitespace from IP address
+        client_ip=$(echo "$client_ip" | xargs)
+        
+        # Skip localhost - prerequisites are already installed on the primary client
+        if [[ "$client_ip" == "127.0.0.1" || "$client_ip" == "localhost" ]]; then
+            echo "Skipping prerequisite installation for localhost ($client_ip) - already installed"
+            continue
+        fi
+        
+        # Skip server IP - prerequisites are already installed when setting up the server
+        if [[ "$client_ip" == "$SERVER_IP" ]]; then
+            echo "Skipping prerequisite installation for server ($client_ip) - already installed during server setup"
+            continue
+        fi
+        
+        local ssh_cmd="ssh -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${client_ip}"
+        
+        echo "Installing prerequisites on client $client_ip"
+        
+        # First check if memtier is already available on the remote client
+        if $ssh_cmd "command -v memtier_benchmark &>/dev/null"; then
+            echo "Memtier already installed on client $client_ip - skipping installation"
+            continue
+        fi
+        
+        # Copy the config file to the remote client
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${config_file} ${LOGIN_ID}@${client_ip}:/tmp/memtier_client.config
+        
+        # Copy this script to the remote client
+        local script_path="${SCRIPT_BASE_DIR:-${HOME_DIR}/redis-scripts/shared-scripts}/install_prereqs.sh"
+        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q "${script_path}" ${LOGIN_ID}@${client_ip}:/tmp/
+        
+        # Run install_prereqs.sh on the remote client (it will handle the client section)
+        # Set CLIENT_ONLY flag to skip Redis server installation on clients
+        ssh -o PreferredAuthentications=publickey -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} -q ${LOGIN_ID}@${client_ip} "source /tmp/memtier_client.config && export CLIENT_ONLY=true && source /tmp/install_prereqs.sh"
+        
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to install prerequisites on client $client_ip"
+            exit 1
+        fi
+        
+        # Create results directory on client
+        $ssh_cmd "mkdir -p ${RESULTS_PATH}"
+        
+        # Clean up temporary files
+        $ssh_cmd "rm -f /tmp/memtier_client.config /tmp/install_prereqs.sh"
+        
+        echo "Prerequisites installed on client $client_ip"
+    done
+    
+    echo "All additional clients ready"
+}
+
+# Call the remote client installation function if ADDITIONAL_CLIENT_IPS is configured
+# This happens when the script is sourced from run_all.sh in multi-client mode
+if [[ -n "${ADDITIONAL_CLIENT_IPS}" ]]; then
+    install_remote_client_prerequisites
+fi
