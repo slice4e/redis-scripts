@@ -23,10 +23,10 @@ if [ ! -z "$ENV_BENCHMARK_DURATION" ]; then
     BENCHMARK_DURATION=$ENV_BENCHMARK_DURATION
 fi
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Use a script-specific directory variable so sourced files cannot clobber it.
+MEMTIER_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source set_ssh.sh from the shared-scripts directory relative to the script location
-source "${SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
+source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
 
 #---------------------------------------------------------- Multi-Client Helper Functions -------------------------------------------------------
 
@@ -274,10 +274,10 @@ fi
 # Note: install_prereqs.sh now automatically handles remote client installation
 # when CLIENT_IPS array is populated (set by set_ssh.sh in multi-client mode)
 # Set SCRIPT_BASE_DIR for use by install_prereqs.sh
-export SCRIPT_BASE_DIR="$(cd "${SCRIPT_DIR}/../shared-scripts" && pwd)"
-source "${SCRIPT_DIR}/../shared-scripts/install_prereqs.sh"
+export SCRIPT_BASE_DIR="$(cd "${MEMTIER_SCRIPT_DIR}/../shared-scripts" && pwd)"
+source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/install_prereqs.sh"
 
-source "${SCRIPT_DIR}/../shared-scripts/check_numa.sh"
+source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/check_numa.sh"
 
 #---------------------------------------------------------- Disable Huge Pages -------------------------------------------------------
 # This is very important. Without disabling huge pages, we can get into a difficult to reproduce situation of bad performance. 
@@ -376,7 +376,7 @@ fi
 
 #--------------------------set network interrupts ---------------------------------------------------
 if [[ $SET_IRQ == true ]]; then
-	source "${SCRIPT_DIR}/../shared-scripts/set_irq.sh"
+	source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/set_irq.sh"
 fi
 
 # Clean up old result files on remote clients before starting new benchmark run
@@ -832,14 +832,14 @@ if [[ $RUN_EMON == true ]] ; then
 	#dcsomc -n -x alanstu -d ${RESULTS_PATH} -G ${RESULTS_FOLDER}_redis_2lm_${NUM_SERVERS}
 	CUR_DIR=`pwd`
 	cd ${RESULTS_PATH}
-	source "${SCRIPT_DIR}/../shared-scripts/emon_process.sh"
+	source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/emon_process.sh"
 	cd $CUR_DIR
 	echo "Done post processing EMON..."
 fi
 
 CUR_DIR=`pwd`
 cd ${RESULTS_PATH}
-source "${SCRIPT_DIR}/../shared-scripts/post_process.sh"
+source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/post_process.sh"
 cd $CUR_DIR
 
 
