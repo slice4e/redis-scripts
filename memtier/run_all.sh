@@ -717,7 +717,8 @@ do
 		echo "Waiting ${EMON_DURATION}s for emon collection..."
 		sleep ${EMON_DURATION}
 		echo "Stopping emon..."
-		$SSH_COMMAND "${EMON_FOLDER}/emon -stop"
+		cmd="${EMON_FOLDER}/emon -stop "
+		$SSH_COMMAND $cmd
 	fi
 
 	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
