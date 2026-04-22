@@ -675,7 +675,7 @@ do
 		echo "Starting emon... (First, try to stop if emon is running)"
 		cmd="${EMON_FOLDER}/emon -stop "
 		$SSH_COMMAND $cmd
-		cmd="${EMON_FOLDER}/emon -collect-edp -f ${RESULTS_PATH}/memtier-emon.dat "
+		cmd="${EMON_FOLDER}/emon -collect-edp -f ${RESULTS_PATH}/memtier-emon.dat -t ${EMON_DURATION} "
 		$SSH_COMMAND $cmd &
 	fi
 
@@ -749,10 +749,10 @@ do
 	$SSH_COMMAND rm -f ${RDB_PATH}/*.rdb
 
 
-	if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then 
-		cmd="${EMON_FOLDER}/emon -stop "
-		$SSH_COMMAND $cmd 
-	fi
+	#if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then 
+	#	cmd="${EMON_FOLDER}/emon -stop "
+	#	$SSH_COMMAND $cmd 
+	#fi
 
         if [[ $iteration == $ITERATION_NUM ]]; then
 
