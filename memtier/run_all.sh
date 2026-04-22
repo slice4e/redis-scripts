@@ -9,8 +9,8 @@ fi
 
 # Check if the file exists
 if [ ! -f "$config_file" ]; then
-	  echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
-	  exit 1
+	echo "Error: The config file '$config_file' does not exist. Please use the config file template to create one."
+	exit 1
 fi
 # Store environment variable before loading config
 ENV_BENCHMARK_DURATION="${BENCHMARK_DURATION:-}"
@@ -19,8 +19,8 @@ source $config_file
 
 # Override config values with environment variables if set
 if [ ! -z "$ENV_BENCHMARK_DURATION" ]; then
-    echo "Using BENCHMARK_DURATION from environment: $ENV_BENCHMARK_DURATION seconds (overriding config value: $BENCHMARK_DURATION)"
-    BENCHMARK_DURATION=$ENV_BENCHMARK_DURATION
+	echo "Using BENCHMARK_DURATION from environment: $ENV_BENCHMARK_DURATION seconds (overriding config value: $BENCHMARK_DURATION)"
+	BENCHMARK_DURATION=$ENV_BENCHMARK_DURATION
 fi
 
 # Use a script-specific directory variable so sourced files cannot clobber it.
@@ -221,7 +221,7 @@ wait_for_remote_clients() {
         else
             # Use pgrep to avoid matching bash processes containing "memtier_benchmark"
             while $ssh_cmd "pgrep -f memtier_benchmark" > /dev/null 2>&1; do
-				echo "Waiting for remote clients to complete..."
+                echo "Waiting for remote clients to complete..."
                 sleep 5
             done
         fi
@@ -236,27 +236,27 @@ setup_multi_client
 
 # Display server assignments if multi-client
 if [[ ${MULTI_CLIENT_MODE} == true ]]; then
-    echo "Server distribution (even-split):"
-    for ((i=0; i<$NUM_CLIENTS; i++)); do
-        range=$(get_client_servers $i)
-        if [ $i -eq 0 ]; then
-            echo "  Primary client: servers $range"
-        else
-            echo "  Client ${CLIENT_IPS[$((i-1))]}: servers $range"
-        fi
-    done
+	echo "Server distribution (even-split):"
+	for ((i=0; i<$NUM_CLIENTS; i++)); do
+		range=$(get_client_servers $i)
+		if [ $i -eq 0 ]; then
+			echo "  Primary client: servers $range"
+		else
+			echo "  Client ${CLIENT_IPS[$((i-1))]}: servers $range"
+		fi
+	done
 fi
 
 if [ "$SSH_CONNECTED" != "true" ]; then
-    echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
-    exit 1
+	echo "Couldn't connect to server, please verify whether server is up or your ssh passwordless login to \"${SERVER_IP}\" is setup properly."
+	exit 1
 fi
 
 $SSH_COMMAND pkill redis-server
 while [ `$SSH_COMMAND ps -e | grep -c redis-server` -gt 0 ];do
 	ret=`$SSH_COMMAND ps -e | grep -c redis-server`
 	echo -e "Waiting for $ret redis-server(s) to stop"
-        sleep 5
+	sleep 5
 done
 
 mkdir -p ${RESULTS_PATH}
@@ -266,8 +266,8 @@ fi
 cp $config_file ${RESULTS_PATH}
 
 if [ $PIN == "sub-numa" ]; then
-    IFS=',' read -ra nodes_array <<< "$NUMA_NODES"
-    nodes_array_len=${#nodes_array[@]}
+	IFS=',' read -ra nodes_array <<< "$NUMA_NODES"
+	nodes_array_len=${#nodes_array[@]}
 fi
 
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
@@ -398,71 +398,69 @@ do
 
 	#--------------------------start master servers------------------------------------------------------
 	instances=1
-    if [ ${PIN} == "cpu" ]; then
-        for cpu in $CPUS
-            do
-                port=$(($START_PORT + ${instances}))
-                ret=$($SSH_COMMAND lsof -i:$port)
-                ret_code=$(echo $? | tr -d '[:space:]') 
-                
-                #In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-                cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-                if [[ ${SERVER_REMOTE} == true ]] ; then
-                    cpu_numa_node=$($SSH_COMMAND "$cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]'")  
-                else
-                    cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]" )
-                fi
+	if [ ${PIN} == "cpu" ]; then
+		for cpu in $CPUS
+		do
+			port=$(($START_PORT + ${instances}))
+			ret=$($SSH_COMMAND lsof -i:$port)
+			ret_code=$(echo $? | tr -d '[:space:]')
 
-                if [[ $ret_code == 1 ]]; then
-                    echo -e "starting redis server $instances on vCPU $cpu"
-                    cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
-                    echo -e $cmd
+			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
+			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				cpu_numa_node=$($SSH_COMMAND "$cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]'")
+			else
+				cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]" )
+			fi
 
-                    #NOTE: Do not start the Redis servers using SSH if they are not remote. 
-                    #For some unknown reason that leads to a performace degradation. 
-                    if [[ ${SERVER_REMOTE} == true ]] ; then
-                        $SSH_COMMAND $cmd & 
-                    else
-                        $cmd &
-                    fi
-                    instances=$((instances + 1))
-                else
-                    echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
-                    exit 1      
-                fi
+			if [[ $ret_code == 1 ]]; then
+				echo -e "starting redis server $instances on vCPU $cpu"
+				cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+				echo -e $cmd
 
-                if [ $instances -gt $NUM_SERVERS ]
-                then
-                    break
-                fi
-            done
-    elif [ ${PIN} == "sub-numa" ]; then
-        iter_var=0
-        while [ "$instances" -le $NUM_SERVERS ]; do
-            port=$(($START_PORT + ${instances}))
-            ret=$($SSH_COMMAND lsof -i:$port)
-            ret_code=$(echo $? | tr -d '[:space:]') 
-            if [[ $ret_code == 1 ]]; then
-                echo -e "starting redis server $instances on sub-numa ${nodes_array[$iter_var]}"
-                cmd="numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
-                echo -e $cmd
-                if [[ ${SERVER_REMOTE} == true ]] ; then
-                    $SSH_COMMAND $cmd & 
-                else
-                    $cmd &
-                fi
-                iter_var=$((iter_var+1))
-            else
-                echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
-                exit 1   
-            fi
-            if [ "$iter_var" -eq "$nodes_array_len" ]; then
-                iter_var=0
-            fi
-            ((instances++))
-        done
+				#NOTE: Do not start the Redis servers using SSH if they are not remote.
+				#For some unknown reason that leads to a performace degradation.
+				if [[ ${SERVER_REMOTE} == true ]] ; then
+					$SSH_COMMAND $cmd &
+				else
+					$cmd &
+				fi
+				instances=$((instances + 1))
+			else
+				echo "Port: $port is already in use. Will not be able to start redis-server. Exiting."
+				exit 1
+			fi
 
-    fi
+			if [ $instances -gt $NUM_SERVERS ]; then
+				break
+			fi
+		done
+	elif [ ${PIN} == "sub-numa" ]; then
+		iter_var=0
+		while [ "$instances" -le $NUM_SERVERS ]; do
+			port=$(($START_PORT + ${instances}))
+			ret=$($SSH_COMMAND lsof -i:$port)
+			ret_code=$(echo $? | tr -d '[:space:]')
+			if [[ $ret_code == 1 ]]; then
+				echo -e "starting redis server $instances on sub-numa ${nodes_array[$iter_var]}"
+				cmd="numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+				echo -e $cmd
+				if [[ ${SERVER_REMOTE} == true ]] ; then
+					$SSH_COMMAND $cmd &
+				else
+					$cmd &
+				fi
+				iter_var=$((iter_var+1))
+			else
+				echo "Port: $port is already in use. Will not be able to start redis-server. Exiting."
+				exit 1
+			fi
+			if [ "$iter_var" -eq "$nodes_array_len" ]; then
+				iter_var=0
+			fi
+			((instances++))
+		done
+	fi
 
 	while [ $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') -lt $NUM_SERVERS ];do
 		echo -e "Waiting for all redis servers to start"
@@ -671,7 +669,7 @@ do
 		done
 	fi
 
-	if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then 
+	if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then
 		echo "Starting emon... (First, try to stop if emon is running)"
 		cmd="${EMON_FOLDER}/emon -stop "
 		$SSH_COMMAND $cmd
@@ -679,42 +677,40 @@ do
 		$SSH_COMMAND $cmd &
 	fi
 
-        # Run perf and sar only with the last iteration
-        if [[ $iteration == $ITERATION_NUM ]]; then
-            sleep 5
-	    
-	    if [[ $RUN_SAR == true ]]; then
-		if [[ ${SERVER_REMOTE} == true ]] ; then
-			echo "Starting sar..."
-			cmd="sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log"
-			$SSH_COMMAND $cmd &
-			cmd="sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log"
-			$SSH_COMMAND $cmd &
-		else
-			echo "Starting sar..."
-			sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log & 
-			sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log & 
-            		#cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log"
-			#$SSH_COMMAND $cmd &
-            		#cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log"
-			#$SSH_COMMAND $cmd &
-		fi
-	    fi
-	    
-	    if [[ $RUN_PERF == true ]]; then
-            	echo "Starting perf..."
-            	cmd="perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
-		if [[ ${SERVER_REMOTE} == true ]] ; then
-			$SSH_COMMAND $cmd  
-		else
-			$cmd
-		fi
-            	#perf record -o ${RESULTS_PATH}/run${iteration}-perf-ins.data -a -g -e instructions:ppp -- sleep 30 &> /dev/null
-            	echo "Perf recording complete."
-            	
-	    fi
+	# Run perf and sar only with the last iteration
+	if [[ $iteration == $ITERATION_NUM ]]; then
+		sleep 5
 
-        fi
+		if [[ $RUN_SAR == true ]]; then
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				echo "Starting sar..."
+				cmd="sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log"
+				$SSH_COMMAND $cmd &
+				cmd="sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log"
+				$SSH_COMMAND $cmd &
+			else
+				echo "Starting sar..."
+				sar 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-cpu.log &
+				sar 1 -r ${SAR_DURATION} > ${RESULTS_PATH}/sar-mem.log &
+				#cmd="sar -d 1 ${SAR_DURATION} -p --dev=sda > ${RESULTS_PATH}/sar-disk.log"
+				#$SSH_COMMAND $cmd &
+				#cmd="sar -n DEV --iface=enp3s0f1 1 ${SAR_DURATION} > ${RESULTS_PATH}/sar-net.log"
+				#$SSH_COMMAND $cmd &
+			fi
+		fi
+
+		if [[ $RUN_PERF == true ]]; then
+			echo "Starting perf..."
+			cmd="perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				$SSH_COMMAND $cmd
+			else
+				$cmd
+			fi
+			#perf record -o ${RESULTS_PATH}/run${iteration}-perf-ins.data -a -g -e instructions:ppp -- sleep 30 &> /dev/null
+			echo "Perf recording complete."
+		fi
+	fi
 
 	# Stop emon after EMON_DURATION seconds (after all tools are started, before waiting for workload)
 	if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then
@@ -755,56 +751,51 @@ do
 	done
 	$SSH_COMMAND rm -f ${RDB_PATH}/*.rdb
 
+	if [[ $iteration == $ITERATION_NUM ]]; then
 
+		if [[ $RUN_PERF == true ]]; then
+			echo "Creating perf results..."
+			cmd="perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt"
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				$SSH_COMMAND $cmd
+			else
+				perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt
+			fi
+			cmd="perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt"
+			if [[ ${SERVER_REMOTE} == true ]] ; then
+				$SSH_COMMAND $cmd
+			else
+				perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt
+			fi
+			#perf report -i ${RESULTS_PATH}/run${iteration}-perf-ins.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-ins.txt
 
+			if [[ $RUN_FLAMEGRAPH == true ]]; then
+				echo "Creating flame graphs"
+				cmd="perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded"
+				if [[ ${SERVER_REMOTE} == true ]] ; then
+					$SSH_COMMAND $cmd
+				else
+					perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded
+				fi
+				cmd="${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg"
+				if [[ ${SERVER_REMOTE} == true ]] ; then
+					$SSH_COMMAND $cmd
+				else
+					${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg
+				fi
+				cmd="rm -f ${RESULTS_PATH}/run${iteration}.perf-folded"
+				if [[ ${SERVER_REMOTE} == true ]] ; then
+					$SSH_COMMAND $cmd
+				else
+					rm -f ${RESULTS_PATH}/run${iteration}.perf-folded
+				fi
 
-        if [[ $iteration == $ITERATION_NUM ]]; then
-
-	    if [[ $RUN_PERF == true ]]; then
-            	echo "Creating perf results..."
-		cmd="perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt"
-		if [[ ${SERVER_REMOTE} == true ]] ; then
-            		$SSH_COMMAND $cmd
-		else
-			perf report --hierarchy -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-hierarchy.txt
+				#perf script -i ${RESULTS_PATH}/run${iteration}-perf-ins.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-ins-folded
+				#${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-ins-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-ins-folded.svg
+				#rm -f ${RESULTS_PATH}/run${iteration}.perf-ins-folded
+			fi
 		fi
-		cmd="perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt"
-		if [[ ${SERVER_REMOTE} == true ]] ; then
-            		$SSH_COMMAND $cmd
-		else
-			perf report --max-stack 0 -i ${RESULTS_PATH}/run${iteration}-perf.data > ${RESULTS_PATH}/memtier-run${iteration}-perf.txt
-		fi
-            	#perf report -i ${RESULTS_PATH}/run${iteration}-perf-ins.data > ${RESULTS_PATH}/memtier-run${iteration}-perf-ins.txt
-
-	    	if [[ $RUN_FLAMEGRAPH == true ]]; then
-            		echo "Creating flame graphs"
-			cmd="perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded"
-			if [[ ${SERVER_REMOTE} == true ]] ; then
-				$SSH_COMMAND $cmd
-			else
-				perf script -i ${RESULTS_PATH}/run${iteration}-perf.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-folded
-			fi
-			cmd="${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg"
-			if [[ ${SERVER_REMOTE} == true ]] ; then
-				$SSH_COMMAND $cmd
-			else
-				${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-folded.svg
-			fi
-			cmd="rm -f ${RESULTS_PATH}/run${iteration}.perf-folded"
-			if [[ ${SERVER_REMOTE} == true ]] ; then
-				$SSH_COMMAND $cmd
-			else
-				rm -f ${RESULTS_PATH}/run${iteration}.perf-folded
-			fi
-
-	            	#perf script -i ${RESULTS_PATH}/run${iteration}-perf-ins.data | ${flamegraph_folder}/stackcollapse-perf.pl > ${RESULTS_PATH}/run${iteration}.perf-ins-folded
-        	    	#${flamegraph_folder}/flamegraph.pl ${RESULTS_PATH}/run${iteration}.perf-ins-folded > ${RESULTS_PATH}/memtier-run${iteration}.perf-ins-folded.svg
-            		#rm -f ${RESULTS_PATH}/run${iteration}.perf-ins-folded
-	    	fi
-	    fi
-
-        fi
-
+	fi
 
 	#-------------------------- Process Results ------------------------------------------------------------
 
@@ -851,7 +842,3 @@ CUR_DIR=`pwd`
 cd ${RESULTS_PATH}
 source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/post_process.sh"
 cd $CUR_DIR
-
-
-
-
