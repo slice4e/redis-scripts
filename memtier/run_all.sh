@@ -675,7 +675,7 @@ do
 		echo "Starting emon... (First, try to stop if emon is running)"
 		cmd="${EMON_FOLDER}/emon -stop "
 		$SSH_COMMAND $cmd
-		cmd="${EMON_FOLDER}/emon -collect-edp -f ${RESULTS_PATH}/memtier-emon.dat -t ${EMON_DURATION} "
+		cmd="${EMON_FOLDER}/emon -collect-edp -f ${RESULTS_PATH}/memtier-emon.dat"
 		$SSH_COMMAND $cmd &
 	fi
 
@@ -716,6 +716,13 @@ do
 
         fi
 
+	# Stop emon after EMON_DURATION seconds (after all tools are started, before waiting for workload)
+	if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then
+		echo "Waiting ${EMON_DURATION}s for emon collection..."
+		sleep ${EMON_DURATION}
+		echo "Stopping emon..."
+		$SSH_COMMAND "${EMON_FOLDER}/emon -stop"
+	fi
 
 	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
 		# Wait for local memtier to finish
@@ -749,10 +756,7 @@ do
 	$SSH_COMMAND rm -f ${RDB_PATH}/*.rdb
 
 
-	#if [ $iteration == 1 ] && [ $RUN_EMON == true ]; then 
-	#	cmd="${EMON_FOLDER}/emon -stop "
-	#	$SSH_COMMAND $cmd 
-	#fi
+
 
         if [[ $iteration == $ITERATION_NUM ]]; then
 
