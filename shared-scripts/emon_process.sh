@@ -34,10 +34,9 @@ do
     echo "Edp processing completed, moving results..."
     echo "mv summary.xlsx $EMON_RESULT_FOLDER/$filename-summary.xlsx"
     mv summary.xlsx ../$EMON_RESULT_FOLDER/$filename-summary.xlsx
-    mv __edp_system_view_summary.csv ../$EMON_RESULT_FOLDER/$filename-system_view.csv
-    mv __edp_socket_view_summary.csv ../$EMON_RESULT_FOLDER/$filename-socket_view.csv
-    mv __edp_thread_view_summary.csv ../$EMON_RESULT_FOLDER/$filename-thread_view.csv
-    #rm -f __edp_core_view_details.csv  __edp_core_view_summary.csv  __edp_socket_view_details.csv  __edp_system_view_details.csv  __edp_thread_view_details.csv  emon.dat  
+    for f in __edp_*.csv; do
+        mv "$f" "../$EMON_RESULT_FOLDER/${filename}-${f#__edp_}"
+    done
     rm -f $EMON_TMP_CONFIG
     cd ..
     echo "Completed - ${i}"
