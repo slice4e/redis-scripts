@@ -26,10 +26,12 @@ if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$R
 		$SSH_COMMAND apt-get update
 		$SSH_COMMAND apt install make -y
 		$SSH_COMMAND apt install gcc -y
+		$SSH_COMMAND apt install g++ -y
 		$SSH_COMMAND apt install pkg-config -y
 	else
 		$SSH_COMMAND yum install make -y
 		$SSH_COMMAND yum install gcc -y
+		$SSH_COMMAND yum install gcc-c++ -y
 		$SSH_COMMAND yum install pkg-config -y
 	fi
 	$SSH_COMMAND git clone --recursive https://github.com/redis/redis.git --branch $REDIS_BRANCH $REDIS_PATH
