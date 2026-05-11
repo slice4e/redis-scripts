@@ -163,12 +163,11 @@ if [[ $RUN_EMON == true ]] ; then
 			$SSH_COMMAND yum install python3-pip -y
 		fi
 		$SSH_COMMAND pip3 install --upgrade pip
-		$SSH_COMMAND pip3 install tdigest
-		$SSH_COMMAND pip3 install numpy pandas polars pyarrow openpyxl defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
+		$SSH_COMMAND pip3 install "numpy<2.0; python_version == '3.9'" "numpy; python_version != '3.9'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
     		exit 1
 	else
-		if ! $SSH_COMMAND python3 -c "import pandas, polars, pyarrow, openpyxl" &>/dev/null; then
-			echo "EMON is installed but pandas/polars/pyarrow/openpyxl is missing. Installing EMON python dependencies."
+		if ! $SSH_COMMAND python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
+			echo "EMON is installed but one or more MPP python dependencies are missing. Installing EMON python dependencies."
 			if [[ $USE_APT == true ]]; then
 				$SSH_COMMAND apt install python3-dev -y
 				$SSH_COMMAND apt install python3-pip -y
@@ -177,8 +176,7 @@ if [[ $RUN_EMON == true ]] ; then
 				$SSH_COMMAND yum install python3-pip -y
 			fi
 			$SSH_COMMAND pip3 install --upgrade pip
-			$SSH_COMMAND pip3 install tdigest
-			$SSH_COMMAND pip3 install numpy pandas polars pyarrow openpyxl defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
+			$SSH_COMMAND pip3 install "numpy<2.0; python_version == '3.9'" "numpy; python_version != '3.9'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
 		fi
 	fi
 fi
@@ -269,6 +267,7 @@ if [[ $RUN_EMON == true ]] ; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		pip3 install --upgrade pip
+		pip3 install "numpy<2.0; python_version == '3.9'" "numpy; python_version != '3.9'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
 		if [[ $USE_APT == true ]]; then
 			apt install python3-dev -y
 			apt install python3-pip -y
@@ -276,12 +275,10 @@ if [[ $RUN_EMON == true ]] ; then
 			yum install python3-devel -y
 			yum install python3-pip -y
 		fi
-		pip3 install tdigest
-		pip3 install numpy pandas polars pyarrow openpyxl defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
     		exit 1
 	else
-		if ! python3 -c "import pandas, polars, pyarrow, openpyxl" &>/dev/null; then
-			echo "EMON is installed but pandas/polars/pyarrow/openpyxl is missing. Installing EMON python dependencies."
+		if ! python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
+			echo "EMON is installed but one or more MPP python dependencies are missing. Installing EMON python dependencies."
 			if [[ $USE_APT == true ]]; then
 				apt install python3-dev -y
 				apt install python3-pip -y
@@ -290,8 +287,7 @@ if [[ $RUN_EMON == true ]] ; then
 				yum install python3-pip -y
 			fi
 			pip3 install --upgrade pip
-			pip3 install tdigest
-			pip3 install numpy pandas polars pyarrow openpyxl defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
+			pip3 install "numpy<2.0; python_version == '3.9'" "numpy; python_version != '3.9'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
 		fi
 	fi
 fi
