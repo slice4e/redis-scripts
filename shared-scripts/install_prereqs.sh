@@ -164,11 +164,11 @@ if [[ $RUN_EMON == true ]] ; then
 		fi
 		$SSH_COMMAND pip3 install --upgrade pip
 		$SSH_COMMAND pip3 install tdigest
-		$SSH_COMMAND pip3 install numpy pandas polars pyarrow defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
+		$SSH_COMMAND pip3 install numpy pandas polars pyarrow openpyxl defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
     		exit 1
 	else
-		if ! $SSH_COMMAND python3 -c "import pandas, polars, pyarrow" &>/dev/null; then
-			echo "EMON is installed but pandas/polars/pyarrow is missing. Installing EMON python dependencies."
+		if ! $SSH_COMMAND python3 -c "import pandas, polars, pyarrow, openpyxl" &>/dev/null; then
+			echo "EMON is installed but pandas/polars/pyarrow/openpyxl is missing. Installing EMON python dependencies."
 			if [[ $USE_APT == true ]]; then
 				$SSH_COMMAND apt install python3-dev -y
 				$SSH_COMMAND apt install python3-pip -y
@@ -178,7 +178,7 @@ if [[ $RUN_EMON == true ]] ; then
 			fi
 			$SSH_COMMAND pip3 install --upgrade pip
 			$SSH_COMMAND pip3 install tdigest
-			$SSH_COMMAND pip3 install numpy pandas polars pyarrow defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
+			$SSH_COMMAND pip3 install numpy pandas polars pyarrow openpyxl defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
 		fi
 	fi
 fi
@@ -277,11 +277,11 @@ if [[ $RUN_EMON == true ]] ; then
 			yum install python3-pip -y
 		fi
 		pip3 install tdigest
-		pip3 install numpy pandas polars pyarrow defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
+		pip3 install numpy pandas polars pyarrow openpyxl defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
     		exit 1
 	else
-		if ! python3 -c "import pandas, polars, pyarrow" &>/dev/null; then
-			echo "EMON is installed but pandas/polars/pyarrow is missing. Installing EMON python dependencies."
+		if ! python3 -c "import pandas, polars, pyarrow, openpyxl" &>/dev/null; then
+			echo "EMON is installed but pandas/polars/pyarrow/openpyxl is missing. Installing EMON python dependencies."
 			if [[ $USE_APT == true ]]; then
 				apt install python3-dev -y
 				apt install python3-pip -y
@@ -291,7 +291,7 @@ if [[ $RUN_EMON == true ]] ; then
 			fi
 			pip3 install --upgrade pip
 			pip3 install tdigest
-			pip3 install numpy pandas polars pyarrow defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
+			pip3 install numpy pandas polars pyarrow openpyxl defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm
 		fi
 	fi
 fi
