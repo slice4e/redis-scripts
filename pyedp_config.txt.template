@@ -8,7 +8,8 @@
 ##################################################################################
 
 #Python path, change it according to the path where python is installed in your system
-PYTHON_PATH="python3"
+# If using the venv created by install_prereqs.sh, use the venv python path below
+PYTHON_PATH="/root/redis/.venv/emon/bin/python3"
 
 #EMON data file name, you may need to change if the file name is different
 EMON_DATA=emon.dat

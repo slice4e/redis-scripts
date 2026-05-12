@@ -151,32 +151,33 @@ if [[ $RUN_PERF == true ]]; then
 	fi
 fi
 
+EMON_VENV_PATH="${HOME_DIR}/.venv/emon"
+export EMON_VENV_PATH
+
 if [[ $RUN_EMON == true ]] ; then
 	if ! $SSH_COMMAND command -v "${EMON_FOLDER}/emon" &>/dev/null; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		if [[ $USE_APT == true ]]; then
-			$SSH_COMMAND apt install python3-dev -y
-			$SSH_COMMAND apt install python3-pip -y
+			$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
 		else
-			$SSH_COMMAND yum install python3-devel -y
-			$SSH_COMMAND yum install python3-pip -y
+			$SSH_COMMAND yum install python3-devel python3-pip -y
 		fi
-		$SSH_COMMAND pip3 install --upgrade pip
-		$SSH_COMMAND pip3 install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
+		$SSH_COMMAND "python3 -m venv ${EMON_VENV_PATH}"
+		$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install --upgrade pip"
+		$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install 'numpy<2.0; python_version < \"3.10\"' 'numpy; python_version >= \"3.10\"' pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest"
     		exit 1
 	else
-		if ! $SSH_COMMAND python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
-			echo "EMON is installed but one or more MPP python dependencies are missing. Installing EMON python dependencies."
+		if ! $SSH_COMMAND "${EMON_VENV_PATH}/bin/python3 -c 'import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest'" &>/dev/null; then
+			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
 			if [[ $USE_APT == true ]]; then
-				$SSH_COMMAND apt install python3-dev -y
-				$SSH_COMMAND apt install python3-pip -y
+				$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
 			else
-				$SSH_COMMAND yum install python3-devel -y
-				$SSH_COMMAND yum install python3-pip -y
+				$SSH_COMMAND yum install python3-devel python3-pip -y
 			fi
-			$SSH_COMMAND pip3 install --upgrade pip
-			$SSH_COMMAND pip3 install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
+			$SSH_COMMAND "python3 -m venv ${EMON_VENV_PATH}"
+			$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install --upgrade pip"
+			$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install 'numpy<2.0; python_version < \"3.10\"' 'numpy; python_version >= \"3.10\"' pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest"
 		fi
 	fi
 fi
@@ -235,10 +236,12 @@ if [[ $RUN_BENCH_SPEC == true ]] ; then
 			yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 			systemctl start docker
 		fi
-		pip3 install --upgrade pip
-		python3 -m pip install cryptography==38.0.4
-		pip install pyopenssl --upgrade
-		pip3 install redis-benchmarks-specification --ignore-installed blinker
+		python3 -m venv ${HOME_DIR}/.venv/bench-spec
+		${HOME_DIR}/.venv/bench-spec/bin/pip install --upgrade pip
+		${HOME_DIR}/.venv/bench-spec/bin/pip install cryptography==38.0.4
+		${HOME_DIR}/.venv/bench-spec/bin/pip install pyopenssl --upgrade
+		${HOME_DIR}/.venv/bench-spec/bin/pip install redis-benchmarks-specification --ignore-installed blinker
+		ln -sf ${HOME_DIR}/.venv/bench-spec/bin/redis-benchmarks-spec-client-runner /usr/local/bin/redis-benchmarks-spec-client-runner
 	fi
 	if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 		echo "The prerequisite Redis Benchmarks Specification is not installed. Unable to automatically install it. Failing."
@@ -266,28 +269,26 @@ if [[ $RUN_EMON == true ]] ; then
 	if ! command -v "${EMON_FOLDER}/emon" &>/dev/null; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
-		pip3 install --upgrade pip
-		pip3 install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
 		if [[ $USE_APT == true ]]; then
-			apt install python3-dev -y
-			apt install python3-pip -y
+			apt install python3-dev python3-pip python3-venv -y
 		else
-			yum install python3-devel -y
-			yum install python3-pip -y
+			yum install python3-devel python3-pip -y
 		fi
+		python3 -m venv ${EMON_VENV_PATH}
+		${EMON_VENV_PATH}/bin/pip install --upgrade pip
+		${EMON_VENV_PATH}/bin/pip install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
     		exit 1
 	else
-		if ! python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
-			echo "EMON is installed but one or more MPP python dependencies are missing. Installing EMON python dependencies."
+		if ! ${EMON_VENV_PATH}/bin/python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
+			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
 			if [[ $USE_APT == true ]]; then
-				apt install python3-dev -y
-				apt install python3-pip -y
+				apt install python3-dev python3-pip python3-venv -y
 			else
-				yum install python3-devel -y
-				yum install python3-pip -y
+				yum install python3-devel python3-pip -y
 			fi
-			pip3 install --upgrade pip
-			pip3 install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
+			python3 -m venv ${EMON_VENV_PATH}
+			${EMON_VENV_PATH}/bin/pip install --upgrade pip
+			${EMON_VENV_PATH}/bin/pip install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
 		fi
 	fi
 fi
