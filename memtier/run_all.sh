@@ -268,6 +268,9 @@ cp $config_file ${RESULTS_PATH}
 if [ $PIN == "sub-numa" ]; then
 	IFS=',' read -ra nodes_array <<< "$NUMA_NODES"
 	nodes_array_len=${#nodes_array[@]}
+elif [ $PIN == "core" ]; then
+	IFS=',' read -ra server_cores_array <<< "$SERVER_CORES"
+	IFS=',' read -ra memtier_cores_array <<< "$MEMTIER_CORES"
 fi
 
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
@@ -321,13 +324,20 @@ if [ "$PIN" == "sub-numa" ]; then
 		CPUS="$CPUS $node_cpus"
 	done
 	CPUS=$(echo $CPUS)  # trim leading space
+elif [ "$PIN" == "core" ]; then
+	echo "Core pinning mode with server cores: $SERVER_CORES"
+	CPUS="${server_cores_array[*]}"
+	NUM_CPUS=${#server_cores_array[@]}
 else
 	NUM_CPUS=$($SSH_COMMAND numactl --hardware | grep "node [$SERVER_SOCKET] cpus" | awk -F ':' '{print $2}' | wc -w | tr -d '[:space:]')
 	CPUS=$($SSH_COMMAND numactl --hardware | grep "node [${SERVER_SOCKET}] cpus" | awk -F ':' '{print $2}' | tr -d '\n' | tr -d '\r')
 fi
 
 # Step 2: Discover memtier client CPUs (always local)
-if [[ ${SERVER_REMOTE} != true ]] && [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
+if [ "$PIN" == "core" ]; then
+	echo "Core pinning mode with memtier cores: $MEMTIER_CORES"
+	MEMTIER_CPUS="${memtier_cores_array[*]}"
+elif [[ ${SERVER_REMOTE} != true ]] && [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
 	echo "Redis server and memtier benchmark are on the same socket."
 	# Split the socket: Redis gets the first half, memtier gets the second half (reversed)
 	SPLIT_SOCKET=$((NUM_CPUS / 2))
@@ -398,7 +408,7 @@ do
 
 	#--------------------------start master servers------------------------------------------------------
 	instances=1
-	if [ ${PIN} == "cpu" ]; then
+	if [ ${PIN} == "cpu" ] || [ ${PIN} == "core" ]; then
 		for cpu in $CPUS
 		do
 			port=$(($START_PORT + ${instances}))
