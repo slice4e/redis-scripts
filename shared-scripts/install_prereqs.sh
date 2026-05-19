@@ -278,12 +278,16 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 	cd $MEMTIER_BASE_PATH
 	git clone https://github.com/RedisLabs/memtier_benchmark.git --branch $MEMTIER_BRANCH
 	cd $MEMTIER_PATH
-	# Ensure pkg.m4 is found by aclocal (needed for PKG_CHECK_MODULES macro)
-	export ACLOCAL_PATH="/usr/share/aclocal${ACLOCAL_PATH:+:$ACLOCAL_PATH}"
-	autoreconf -ivf
-	# Ensure locally-built libs in /usr/local are found
-	export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-	./configure --disable-tls CPPFLAGS="-I/usr/local/include" CFLAGS="-I/usr/local/include" CXXFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -L/usr/local/lib64"
+	if [[ $CLI_PKG == "zypper" ]]; then
+		# SUSE: ensure pkg.m4 is found and locally-built libs are visible
+		export ACLOCAL_PATH="/usr/share/aclocal${ACLOCAL_PATH:+:$ACLOCAL_PATH}"
+		autoreconf -ivf
+		export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+		./configure --disable-tls CPPFLAGS="-I/usr/local/include" CFLAGS="-I/usr/local/include" CXXFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -L/usr/local/lib64"
+	else
+		autoreconf -ivf
+		./configure
+	fi
 	make
 	make install
 	cd $CUR_DIR
