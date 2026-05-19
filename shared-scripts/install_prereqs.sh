@@ -233,6 +233,43 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		zypper --no-refresh install -y autoconf automake make gcc-c++ libtool
 		zypper --no-refresh install -y pcre2-devel zlib-devel libevent-devel pkg-config
 		zypper --no-refresh install -y libopenssl-devel || zypper --no-refresh install -y libopenssl-3-devel || true
+
+		# Fallback: if autotools/libs not available via zypper, build from source
+		if ! command -v autoreconf &>/dev/null; then
+			echo "autotools not available via zypper, building from source..."
+			DEPS_BUILD_DIR=$(mktemp -d)
+			pushd $DEPS_BUILD_DIR
+			curl -sL https://ftp.gnu.org/gnu/m4/m4-1.4.19.tar.gz | tar xz && cd m4-1.4.19 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			curl -sL https://ftp.gnu.org/gnu/autoconf/autoconf-2.72.tar.gz | tar xz && cd autoconf-2.72 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			curl -sL https://ftp.gnu.org/gnu/automake/automake-1.17.tar.gz | tar xz && cd automake-1.17 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			curl -sL https://ftp.gnu.org/gnu/libtool/libtool-2.5.4.tar.gz | tar xz && cd libtool-2.5.4 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			popd
+			rm -rf $DEPS_BUILD_DIR
+			ldconfig
+		fi
+
+		# Build missing library deps from source if not available
+		if ! pkg-config --exists libevent 2>/dev/null; then
+			echo "libevent-devel not available, building from source..."
+			DEPS_BUILD_DIR=$(mktemp -d)
+			pushd $DEPS_BUILD_DIR
+			curl -sL https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz | tar xz
+			cd libevent-2.1.12-stable && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			popd
+			rm -rf $DEPS_BUILD_DIR
+			ldconfig
+		fi
+
+		if ! pkg-config --exists libpcre2-8 2>/dev/null && ! pkg-config --exists libpcre 2>/dev/null; then
+			echo "pcre-devel not available, building from source..."
+			DEPS_BUILD_DIR=$(mktemp -d)
+			pushd $DEPS_BUILD_DIR
+			curl -sL https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz | tar xz
+			cd pcre2-10.44 && ./configure --prefix=/usr/local --enable-jit && make -j$(nproc) && make install && cd ..
+			popd
+			rm -rf $DEPS_BUILD_DIR
+			ldconfig
+		fi
 	else
 		yum install autoconf automake make gcc-c++ -y 
 		yum install pcre-devel zlib-devel libmemcached-devel libevent-devel openssl-devel -y 
