@@ -178,13 +178,20 @@ if [[ $RUN_EMON == true ]] ; then
 		if [[ $SRV_PKG == "apt" ]]; then
 			$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
 		elif [[ $SRV_PKG == "zypper" ]]; then
-			# SLES uses versioned python packages; try common names, ignore failures
-			PYVER=$($SSH_COMMAND python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
-			$SSH_COMMAND zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" || true
+			# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
+			# Prefer python311 or python39 if available.
+			if $SSH_COMMAND command -v python3.11 &>/dev/null; then
+				SRV_PYTHON3=python3.11; PYVER=311
+			elif $SSH_COMMAND command -v python3.9 &>/dev/null; then
+				SRV_PYTHON3=python3.9; PYVER=39
+			else
+				SRV_PYTHON3=python3; PYVER=$($SSH_COMMAND python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+			fi
+			$SSH_COMMAND zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
 		else
 			$SSH_COMMAND yum install python3-devel python3-pip -y
 		fi
-		$SSH_COMMAND "python3 -m venv ${EMON_VENV_PATH}"
+		$SSH_COMMAND "${SRV_PYTHON3:-python3} -m venv ${EMON_VENV_PATH}"
 		$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install --upgrade pip"
 		$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install 'numpy<2.0; python_version < \"3.10\"' 'numpy; python_version >= \"3.10\"' pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest"
     		exit 1
@@ -194,13 +201,19 @@ if [[ $RUN_EMON == true ]] ; then
 			if [[ $SRV_PKG == "apt" ]]; then
 				$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
 			elif [[ $SRV_PKG == "zypper" ]]; then
-				# SLES uses versioned python packages; try common names, ignore failures
-				PYVER=$($SSH_COMMAND python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
-				$SSH_COMMAND zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" || true
+				# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
+				if $SSH_COMMAND command -v python3.11 &>/dev/null; then
+					SRV_PYTHON3=python3.11; PYVER=311
+				elif $SSH_COMMAND command -v python3.9 &>/dev/null; then
+					SRV_PYTHON3=python3.9; PYVER=39
+				else
+					SRV_PYTHON3=python3; PYVER=$($SSH_COMMAND python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+				fi
+				$SSH_COMMAND zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
 			else
 				$SSH_COMMAND yum install python3-devel python3-pip -y
 			fi
-			$SSH_COMMAND "python3 -m venv ${EMON_VENV_PATH}"
+			$SSH_COMMAND "${SRV_PYTHON3:-python3} -m venv ${EMON_VENV_PATH}"
 			$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install --upgrade pip"
 			$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install 'numpy<2.0; python_version < \"3.10\"' 'numpy; python_version >= \"3.10\"' pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest"
 		fi
@@ -389,13 +402,20 @@ if [[ $RUN_EMON == true ]] ; then
 		if [[ $CLI_PKG == "apt" ]]; then
 			apt install python3-dev python3-pip python3-venv -y
 		elif [[ $CLI_PKG == "zypper" ]]; then
-			# SLES uses versioned python packages; try common names, ignore failures
-			PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
-			zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" || true
+			# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
+			# Prefer python311 or python39 if available.
+			if command -v python3.11 &>/dev/null; then
+				PYTHON3=python3.11; PYVER=311
+			elif command -v python3.9 &>/dev/null; then
+				PYTHON3=python3.9; PYVER=39
+			else
+				PYTHON3=python3; PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+			fi
+			zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
 		else
 			yum install python3-devel python3-pip -y
 		fi
-		python3 -m venv ${EMON_VENV_PATH}
+		${PYTHON3:-python3} -m venv ${EMON_VENV_PATH}
 		${EMON_VENV_PATH}/bin/pip install --upgrade pip
 		${EMON_VENV_PATH}/bin/pip install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
     		exit 1
@@ -405,13 +425,20 @@ if [[ $RUN_EMON == true ]] ; then
 			if [[ $CLI_PKG == "apt" ]]; then
 				apt install python3-dev python3-pip python3-venv -y
 			elif [[ $CLI_PKG == "zypper" ]]; then
-				# SLES uses versioned python packages; try common names, ignore failures
-				PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
-				zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" || true
+				# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
+				# Prefer python311 or python39 if available.
+				if command -v python3.11 &>/dev/null; then
+					PYTHON3=python3.11; PYVER=311
+				elif command -v python3.9 &>/dev/null; then
+					PYTHON3=python3.9; PYVER=39
+				else
+					PYTHON3=python3; PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+				fi
+				zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
 			else
 				yum install python3-devel python3-pip -y
 			fi
-			python3 -m venv ${EMON_VENV_PATH}
+			${PYTHON3:-python3} -m venv ${EMON_VENV_PATH}
 			${EMON_VENV_PATH}/bin/pip install --upgrade pip
 			${EMON_VENV_PATH}/bin/pip install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
 		fi
