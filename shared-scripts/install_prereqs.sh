@@ -254,6 +254,10 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 			popd
 			rm -rf $DEPS_BUILD_DIR
 			ldconfig
+			if [[ ! -f /usr/local/include/event2/event.h ]]; then
+				echo "ERROR: libevent build failed - event2/event.h not found after install"
+				exit 1
+			fi
 		fi
 
 		if [[ ! -f /usr/local/include/pcre2.h ]]; then
@@ -303,8 +307,13 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		autoreconf -ivf
 		./configure
 	fi
-	make
-	make install
+	if [[ $CLI_PKG == "zypper" ]]; then
+		make CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -Wl,-rpath,/usr/local/lib"
+		make install
+	else
+		make
+		make install
+	fi
 	cd $CUR_DIR
 
 fi
