@@ -178,7 +178,9 @@ if [[ $RUN_EMON == true ]] ; then
 		if [[ $SRV_PKG == "apt" ]]; then
 			$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
 		elif [[ $SRV_PKG == "zypper" ]]; then
-			$SSH_COMMAND zypper --no-refresh install -y python3-devel python3-pip python3-virtualenv
+			# SLES uses versioned python packages; try common names, ignore failures
+			PYVER=$($SSH_COMMAND python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+			$SSH_COMMAND zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" || true
 		else
 			$SSH_COMMAND yum install python3-devel python3-pip -y
 		fi
@@ -192,7 +194,9 @@ if [[ $RUN_EMON == true ]] ; then
 			if [[ $SRV_PKG == "apt" ]]; then
 				$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
 			elif [[ $SRV_PKG == "zypper" ]]; then
-				$SSH_COMMAND zypper --no-refresh install -y python3-devel python3-pip python3-virtualenv
+				# SLES uses versioned python packages; try common names, ignore failures
+				PYVER=$($SSH_COMMAND python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+				$SSH_COMMAND zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" || true
 			else
 				$SSH_COMMAND yum install python3-devel python3-pip -y
 			fi
@@ -385,7 +389,9 @@ if [[ $RUN_EMON == true ]] ; then
 		if [[ $CLI_PKG == "apt" ]]; then
 			apt install python3-dev python3-pip python3-venv -y
 		elif [[ $CLI_PKG == "zypper" ]]; then
-			zypper --no-refresh install -y python3-devel python3-pip python3-virtualenv
+			# SLES uses versioned python packages; try common names, ignore failures
+			PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+			zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" || true
 		else
 			yum install python3-devel python3-pip -y
 		fi
@@ -399,7 +405,9 @@ if [[ $RUN_EMON == true ]] ; then
 			if [[ $CLI_PKG == "apt" ]]; then
 				apt install python3-dev python3-pip python3-venv -y
 			elif [[ $CLI_PKG == "zypper" ]]; then
-				zypper --no-refresh install -y python3-devel python3-pip python3-virtualenv
+				# SLES uses versioned python packages; try common names, ignore failures
+				PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+				zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" || true
 			else
 				yum install python3-devel python3-pip -y
 			fi
