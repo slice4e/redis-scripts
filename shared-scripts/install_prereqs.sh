@@ -22,6 +22,7 @@ elif $SSH_COMMAND command -v "zypper" &>/dev/null; then
 	$SSH_COMMAND bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
 	# Add openSUSE Leap 15.6 OSS repo as fallback for dev packages if not already present
 	$SSH_COMMAND bash -c 'zypper lr --uri 2>/dev/null | grep -q "download.opensuse.org" || zypper ar -f -G https://download.opensuse.org/distribution/leap/15.6/repo/oss/ opensuse-leap-oss 2>/dev/null' || true
+	$SSH_COMMAND bash -c 'zypper --gpg-auto-import-keys refresh opensuse-leap-oss 2>/dev/null' || true
 else
 	SRV_PKG="yum"
 fi
@@ -218,6 +219,7 @@ elif command -v "zypper" &>/dev/null; then
 	bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
 	# Add openSUSE Leap 15.6 OSS repo as fallback for dev packages if not already present
 	bash -c 'zypper lr --uri 2>/dev/null | grep -q "download.opensuse.org" || zypper ar -f -G https://download.opensuse.org/distribution/leap/15.6/repo/oss/ opensuse-leap-oss 2>/dev/null' || true
+	bash -c 'zypper --gpg-auto-import-keys refresh opensuse-leap-oss 2>/dev/null' || true
 else
 	CLI_PKG="yum"
 fi
