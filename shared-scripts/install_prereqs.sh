@@ -31,7 +31,7 @@ if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$R
 		$SSH_COMMAND apt install g++ -y
 		$SSH_COMMAND apt install pkg-config -y
 	elif [[ $SRV_PKG == "zypper" ]]; then
-		$SSH_COMMAND zypper install -y make gcc gcc-c++ pkg-config
+		$SSH_COMMAND zypper --no-refresh install -y make gcc gcc-c++ pkg-config
 	else
 		$SSH_COMMAND yum install make -y
 		$SSH_COMMAND yum install gcc -y
@@ -64,7 +64,7 @@ if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
 		$SSH_COMMAND apt-get update
 		$SSH_COMMAND apt install numactl -y
 	elif [[ $SRV_PKG == "zypper" ]]; then
-		$SSH_COMMAND zypper install -y numactl
+		$SSH_COMMAND zypper --no-refresh install -y numactl
 	else
 		$SSH_COMMAND yum install numactl -y
 	fi
@@ -80,7 +80,7 @@ if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
 		$SSH_COMMAND apt-get update
 		$SSH_COMMAND apt install lsof -y
 	elif [[ $SRV_PKG == "zypper" ]]; then
-		$SSH_COMMAND zypper install -y lsof
+		$SSH_COMMAND zypper --no-refresh install -y lsof
 	else
 		$SSH_COMMAND yum install lsof -y
 	fi
@@ -97,7 +97,7 @@ if [[ $RUN_SAR == true ]]; then
 			$SSH_COMMAND apt-get update
 			$SSH_COMMAND apt install sysstat -y
 		elif [[ $SRV_PKG == "zypper" ]]; then
-			$SSH_COMMAND zypper install -y sysstat
+			$SSH_COMMAND zypper --no-refresh install -y sysstat
 		else
 			$SSH_COMMAND yum install sysstat -y
 		fi
@@ -130,7 +130,7 @@ if [[ $RUN_PERF == true ]]; then
 				$SSH_COMMAND apt install linux-tools-common -y
 				$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
 			elif [[ $SRV_PKG == "zypper" ]]; then
-				$SSH_COMMAND zypper install -y perf
+				$SSH_COMMAND zypper --no-refresh install -y perf
 			else
 				$SSH_COMMAND yum install perf -y
 			fi
@@ -143,7 +143,7 @@ if [[ $RUN_PERF == true ]]; then
 				apt install linux-tools-common -y
 				apt install linux-tools-`uname -r` -y
 			elif [[ $SRV_PKG == "zypper" ]]; then
-				zypper install -y perf
+				zypper --no-refresh install -y perf
 			else
 				yum install perf -y
 			fi
@@ -175,7 +175,7 @@ if [[ $RUN_EMON == true ]] ; then
 		if [[ $SRV_PKG == "apt" ]]; then
 			$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
 		elif [[ $SRV_PKG == "zypper" ]]; then
-			$SSH_COMMAND zypper install -y python3-devel python3-pip python3-virtualenv
+			$SSH_COMMAND zypper --no-refresh install -y python3-devel python3-pip python3-virtualenv
 		else
 			$SSH_COMMAND yum install python3-devel python3-pip -y
 		fi
@@ -189,7 +189,7 @@ if [[ $RUN_EMON == true ]] ; then
 			if [[ $SRV_PKG == "apt" ]]; then
 				$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
 			elif [[ $SRV_PKG == "zypper" ]]; then
-				$SSH_COMMAND zypper install -y python3-devel python3-pip python3-virtualenv
+				$SSH_COMMAND zypper --no-refresh install -y python3-devel python3-pip python3-virtualenv
 			else
 				$SSH_COMMAND yum install python3-devel python3-pip -y
 			fi
@@ -218,8 +218,8 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		apt-get update
 		apt-get install build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev libssl-dev -y
 	elif [[ $CLI_PKG == "zypper" ]]; then
-		zypper install -y autoconf automake make gcc-c++ libtool
-		zypper install -y pcre-devel zlib-devel libevent-devel libopenssl-devel pkg-config
+		zypper --no-refresh install -y autoconf automake make gcc-c++ libtool
+		zypper --no-refresh install -y pcre-devel zlib-devel libevent-devel libopenssl-devel pkg-config
 	else
 		yum install autoconf automake make gcc-c++ -y 
 		yum install pcre-devel zlib-devel libmemcached-devel libevent-devel openssl-devel -y 
@@ -252,7 +252,7 @@ if [[ $RUN_BENCH_SPEC == true ]] ; then
 			apt install python3-pip -y
 			apt install docker.io -y
 		elif [[ $CLI_PKG == "zypper" ]]; then
-			zypper install -y python3-pip docker
+			zypper --no-refresh install -y python3-pip docker
 			systemctl start docker
 		else
 			yum install -y yum-utils
@@ -298,7 +298,7 @@ if [[ $RUN_EMON == true ]] ; then
 		if [[ $CLI_PKG == "apt" ]]; then
 			apt install python3-dev python3-pip python3-venv -y
 		elif [[ $CLI_PKG == "zypper" ]]; then
-			zypper install -y python3-devel python3-pip python3-virtualenv
+			zypper --no-refresh install -y python3-devel python3-pip python3-virtualenv
 		else
 			yum install python3-devel python3-pip -y
 		fi
@@ -312,7 +312,7 @@ if [[ $RUN_EMON == true ]] ; then
 			if [[ $CLI_PKG == "apt" ]]; then
 				apt install python3-dev python3-pip python3-venv -y
 			elif [[ $CLI_PKG == "zypper" ]]; then
-				zypper install -y python3-devel python3-pip python3-virtualenv
+				zypper --no-refresh install -y python3-devel python3-pip python3-virtualenv
 			else
 				yum install python3-devel python3-pip -y
 			fi
