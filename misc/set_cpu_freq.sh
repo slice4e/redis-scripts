@@ -36,6 +36,10 @@ show_available() {
 save_settings() {
     local num_cpus=$(get_num_cpus)
     > "$BACKUP_FILE"
+    # Save intel_pstate status if applicable
+    if [[ -f /sys/devices/system/cpu/intel_pstate/status ]]; then
+        echo "intel_pstate $(cat /sys/devices/system/cpu/intel_pstate/status)" >> "$BACKUP_FILE"
+    fi
     for ((i=0; i<num_cpus; i++)); do
         local gov=$(cat /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_governor)
         local min=$(cat /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_min_freq)
@@ -55,12 +59,23 @@ set_frequency() {
     fi
 
     echo "Setting all ${num_cpus} cores to ${freq} KHz..."
+
+    # If intel_pstate is active, switch to passive mode so governors work properly.
+    # In active mode with HWP, the CPU ignores OS frequency requests.
+    if [[ -f /sys/devices/system/cpu/intel_pstate/status ]]; then
+        local pstate_status=$(cat /sys/devices/system/cpu/intel_pstate/status)
+        if [[ "$pstate_status" != "passive" ]]; then
+            echo "Switching intel_pstate from '${pstate_status}' to 'passive' mode..."
+            echo "passive" > /sys/devices/system/cpu/intel_pstate/status
+        fi
+    fi
+
     for ((i=0; i<num_cpus; i++)); do
         echo "userspace" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_governor 2>/dev/null
         if [[ $? -eq 0 ]]; then
             echo "$freq" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_setspeed
         else
-            # intel_pstate or similar: pin min/max to the target frequency.
+            # Pin min/max to the target frequency.
             # Order matters: widen the range first, then narrow it.
             local cur_max=$(cat /sys/devices/system/cpu/cpu${i}/cpufreq/cpuinfo_max_freq)
             echo "performance" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_governor
@@ -70,6 +85,8 @@ set_frequency() {
         fi
     done
 
+    # Brief settle time then verify
+    sleep 0.5
     echo "Done. Verifying cpu0: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq) KHz"
 }
 
@@ -80,7 +97,14 @@ restore_settings() {
     fi
 
     echo "Restoring CPU frequency settings from ${BACKUP_FILE}..."
-    while read -r cpu gov min max; do
+    while read -r first rest; do
+        if [[ "$first" == "intel_pstate" ]]; then
+            echo "Restoring intel_pstate to '${rest}' mode..."
+            echo "$rest" > /sys/devices/system/cpu/intel_pstate/status 2>/dev/null
+            continue
+        fi
+        local cpu="$first"
+        read -r gov min max <<< "$rest"
         # Widen range first to avoid "busy" errors from ordering conflicts
         local cur_max=$(cat /sys/devices/system/cpu/cpu${cpu}/cpufreq/cpuinfo_max_freq)
         echo "$cur_max" > /sys/devices/system/cpu/cpu${cpu}/cpufreq/scaling_max_freq 2>/dev/null
