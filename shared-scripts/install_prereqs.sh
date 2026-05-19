@@ -228,9 +228,12 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		zypper --no-refresh install -y pcre2-devel zlib-devel libevent-devel pkg-config
 		zypper --no-refresh install -y libopenssl-devel || zypper --no-refresh install -y libopenssl-3-devel || true
 
-		# Fallback: if autotools/libs not available via zypper, build from source
+		# Fallback: if autotools/libs not available via zypper, build from source.
+		# This handles restricted-network environments where zypper repos may be
+		# unreachable (e.g. SLES with no SCC subscription or network-isolated hosts).
+		# Source tarballs are fetched from the 'build-deps' branch of the repo.
 		if ! command -v autoreconf &>/dev/null; then
-			echo "autotools not available via zypper, building from source..."
+			echo "[FALLBACK] autotools not available via zypper, building from source (m4, autoconf, automake, libtool)..."
 			DEPS_BUILD_DIR=$(mktemp -d)
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
 			pushd ${DEPS_BUILD_DIR}/deps-repo
@@ -245,7 +248,7 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 
 		# Build missing library deps from source if not available
 		if [[ ! -f /usr/local/include/event2/event.h ]]; then
-			echo "libevent-devel not available, building from source..."
+			echo "[FALLBACK] libevent-devel not available, building from source (--disable-openssl since memtier uses --disable-tls)..."
 			DEPS_BUILD_DIR=$(mktemp -d)
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
 			pushd ${DEPS_BUILD_DIR}/deps-repo
@@ -261,7 +264,7 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		fi
 
 		if [[ ! -f /usr/local/include/pcre2.h ]]; then
-			echo "pcre-devel not available, building from source..."
+			echo "[FALLBACK] pcre2-devel not available, building from source..."
 			DEPS_BUILD_DIR=$(mktemp -d)
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
 			pushd ${DEPS_BUILD_DIR}/deps-repo
@@ -283,7 +286,12 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 	git clone https://github.com/RedisLabs/memtier_benchmark.git --branch $MEMTIER_BRANCH
 	cd $MEMTIER_PATH
 	if [[ $CLI_PKG == "zypper" ]]; then
-		# SUSE: ensure pkg.m4 is found and locally-built libs are visible
+		# SUSE/zypper: custom build path for memtier_benchmark.
+		# - OpenSSL/TLS disabled (--disable-tls) 
+		# - libevent built without OpenSSL support (--disable-openssl) to match
+		# - Manually specify include/lib paths for locally-built deps
+		# TODO: remove these workarounds once zypper repos are properly configured
+		echo "[INFO] Building memtier with --disable-tls, using locally-built libevent/pcre2"
 		export ACLOCAL_PATH="/usr/share/aclocal${ACLOCAL_PATH:+:$ACLOCAL_PATH}"
 		autoreconf -ivf
 		# Bypass pkg-config entirely - point directly to locally-built libs
