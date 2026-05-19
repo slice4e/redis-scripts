@@ -54,16 +54,19 @@ set_frequency() {
         save_settings
     fi
 
-    echo "Setting all ${num_cpus} cores to ${freq} KHz using userspace governor..."
+    echo "Setting all ${num_cpus} cores to ${freq} KHz..."
     for ((i=0; i<num_cpus; i++)); do
         echo "userspace" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_governor 2>/dev/null
-        if [[ $? -ne 0 ]]; then
-            # userspace governor not available, use performance + min/max pinning
+        if [[ $? -eq 0 ]]; then
+            echo "$freq" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_setspeed
+        else
+            # intel_pstate or similar: pin min/max to the target frequency.
+            # Order matters: widen the range first, then narrow it.
+            local cur_max=$(cat /sys/devices/system/cpu/cpu${i}/cpufreq/cpuinfo_max_freq)
             echo "performance" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_governor
+            echo "$cur_max" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_max_freq 2>/dev/null
             echo "$freq" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_min_freq
             echo "$freq" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_max_freq
-        else
-            echo "$freq" > /sys/devices/system/cpu/cpu${i}/cpufreq/scaling_setspeed
         fi
     done
 
@@ -78,9 +81,12 @@ restore_settings() {
 
     echo "Restoring CPU frequency settings from ${BACKUP_FILE}..."
     while read -r cpu gov min max; do
-        echo "$gov" > /sys/devices/system/cpu/cpu${cpu}/cpufreq/scaling_governor
+        # Widen range first to avoid "busy" errors from ordering conflicts
+        local cur_max=$(cat /sys/devices/system/cpu/cpu${cpu}/cpufreq/cpuinfo_max_freq)
+        echo "$cur_max" > /sys/devices/system/cpu/cpu${cpu}/cpufreq/scaling_max_freq 2>/dev/null
         echo "$min" > /sys/devices/system/cpu/cpu${cpu}/cpufreq/scaling_min_freq
         echo "$max" > /sys/devices/system/cpu/cpu${cpu}/cpufreq/scaling_max_freq
+        echo "$gov" > /sys/devices/system/cpu/cpu${cpu}/cpufreq/scaling_governor
     done < "$BACKUP_FILE"
 
     rm -f "$BACKUP_FILE"
