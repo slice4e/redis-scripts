@@ -244,7 +244,7 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		fi
 
 		# Build missing library deps from source if not available
-		if [[ ! -f /usr/local/include/event2/event.h ]] && ! pkg-config --exists libevent 2>/dev/null; then
+		if [[ ! -f /usr/local/include/event2/event.h ]]; then
 			echo "libevent-devel not available, building from source..."
 			DEPS_BUILD_DIR=$(mktemp -d)
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
@@ -256,7 +256,7 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 			ldconfig
 		fi
 
-		if [[ ! -f /usr/local/include/pcre2.h ]] && ! pkg-config --exists libpcre2-8 2>/dev/null && ! pkg-config --exists libpcre 2>/dev/null; then
+		if [[ ! -f /usr/local/include/pcre2.h ]]; then
 			echo "pcre-devel not available, building from source..."
 			DEPS_BUILD_DIR=$(mktemp -d)
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
@@ -287,14 +287,14 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		export LIBEVENT_LIBS="-L/usr/local/lib -levent"
 		export LIBPCRE2_CFLAGS="-I/usr/local/include"
 		export LIBPCRE2_LIBS="-L/usr/local/lib -lpcre2-8"
-		# Satisfy OpenSSL-related pkg-config checks (TLS won't be used with --disable-openssl)
+		# Satisfy OpenSSL-related pkg-config checks (TLS disabled, won't be used)
 		export LIBEVENT_OPENSSL_CFLAGS=" "
 		export LIBEVENT_OPENSSL_LIBS=" "
 		export LIBSSL_CFLAGS=" "
 		export LIBSSL_LIBS=" "
 		export LIBCRYPTO_CFLAGS=" "
 		export LIBCRYPTO_LIBS=" "
-		./configure --disable-openssl \
+		./configure --disable-tls \
 			CPPFLAGS="-I/usr/local/include" \
 			CFLAGS="-I/usr/local/include" \
 			CXXFLAGS="-I/usr/local/include" \
