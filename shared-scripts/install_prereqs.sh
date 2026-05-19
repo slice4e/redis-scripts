@@ -14,20 +14,24 @@ else
 fi
 
 if $SSH_COMMAND command -v "apt" &>/dev/null; then
-	USE_APT=true
+	SRV_PKG="apt"
+elif $SSH_COMMAND command -v "zypper" &>/dev/null; then
+	SRV_PKG="zypper"
 else
-	USE_APT=false
+	SRV_PKG="yum"
 fi
 
 # Only install Redis server if this is not a client-only installation
 if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	echo "Redis is not installed. Attempting to install."
-	if [[ $USE_APT == true ]]; then
+	if [[ $SRV_PKG == "apt" ]]; then
 		$SSH_COMMAND apt-get update
 		$SSH_COMMAND apt install make -y
 		$SSH_COMMAND apt install gcc -y
 		$SSH_COMMAND apt install g++ -y
 		$SSH_COMMAND apt install pkg-config -y
+	elif [[ $SRV_PKG == "zypper" ]]; then
+		$SSH_COMMAND zypper install -y make gcc gcc-c++ pkg-config
 	else
 		$SSH_COMMAND yum install make -y
 		$SSH_COMMAND yum install gcc -y
@@ -56,9 +60,11 @@ fi
 
 if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
 	echo "The prerequisite numactl is not installed. Attempting to install."
-	if [[ $USE_APT == true ]]; then
+	if [[ $SRV_PKG == "apt" ]]; then
 		$SSH_COMMAND apt-get update
 		$SSH_COMMAND apt install numactl -y
+	elif [[ $SRV_PKG == "zypper" ]]; then
+		$SSH_COMMAND zypper install -y numactl
 	else
 		$SSH_COMMAND yum install numactl -y
 	fi
@@ -70,9 +76,11 @@ fi
 
 if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
 	echo "The prerequisite lsof is not installed. Attempting to install."
-	if [[ $USE_APT == true ]]; then
+	if [[ $SRV_PKG == "apt" ]]; then
 		$SSH_COMMAND apt-get update
 		$SSH_COMMAND apt install lsof -y
+	elif [[ $SRV_PKG == "zypper" ]]; then
+		$SSH_COMMAND zypper install -y lsof
 	else
 		$SSH_COMMAND yum install lsof -y
 	fi
@@ -85,9 +93,11 @@ fi
 if [[ $RUN_SAR == true ]]; then
 	if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
 		echo "The prerequisite sysstat is not installed. Attempting to install."
-		if [[ $USE_APT == true ]]; then
+		if [[ $SRV_PKG == "apt" ]]; then
 			$SSH_COMMAND apt-get update
 			$SSH_COMMAND apt install sysstat -y
+		elif [[ $SRV_PKG == "zypper" ]]; then
+			$SSH_COMMAND zypper install -y sysstat
 		else
 			$SSH_COMMAND yum install sysstat -y
 		fi
@@ -102,7 +112,7 @@ if [[ $RUN_FLAMEGRAPH == true ]]; then
 	if ! $SSH_COMMAND command -v "${flamegraph_folder}/flamegraph.pl" &>/dev/null; then
 		echo "The prerequisite FlameGraph is not installed. Attempting to install."
 		$SSH_COMMAND git clone https://github.com/brendangregg/FlameGraph ${flamegraph_folder}
-		if [[ $USE_APT == false ]]; then
+		if [[ $SRV_PKG == "yum" ]]; then
 			$SSH_COMMAND yum install perl-open.noarch -y
 		fi
 	fi
@@ -116,9 +126,11 @@ if [[ $RUN_PERF == true ]]; then
 	if [[ ${SERVER_REMOTE} == true ]] ; then
 		if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
 			echo "The prerequisite Perf is not installed. Attempting to install."
-			if [[ $USE_APT == true ]]; then
+			if [[ $SRV_PKG == "apt" ]]; then
 				$SSH_COMMAND apt install linux-tools-common -y
 				$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
+			elif [[ $SRV_PKG == "zypper" ]]; then
+				$SSH_COMMAND zypper install -y perf
 			else
 				$SSH_COMMAND yum install perf -y
 			fi
@@ -127,9 +139,11 @@ if [[ $RUN_PERF == true ]]; then
 		fi
 	else
 		if ! command -v "perf" &>/dev/null; then
-			if [[ $USE_APT == true ]]; then
+			if [[ $SRV_PKG == "apt" ]]; then
 				apt install linux-tools-common -y
 				apt install linux-tools-`uname -r` -y
+			elif [[ $SRV_PKG == "zypper" ]]; then
+				zypper install -y perf
 			else
 				yum install perf -y
 			fi
@@ -158,8 +172,10 @@ if [[ $RUN_EMON == true ]] ; then
 	if ! $SSH_COMMAND command -v "${EMON_FOLDER}/emon" &>/dev/null; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
-		if [[ $USE_APT == true ]]; then
+		if [[ $SRV_PKG == "apt" ]]; then
 			$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
+		elif [[ $SRV_PKG == "zypper" ]]; then
+			$SSH_COMMAND zypper install -y python3-devel python3-pip python3-virtualenv
 		else
 			$SSH_COMMAND yum install python3-devel python3-pip -y
 		fi
@@ -170,8 +186,10 @@ if [[ $RUN_EMON == true ]] ; then
 	else
 		if ! $SSH_COMMAND "${EMON_VENV_PATH}/bin/python3 -c 'import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest'" &>/dev/null; then
 			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
-			if [[ $USE_APT == true ]]; then
+			if [[ $SRV_PKG == "apt" ]]; then
 				$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
+			elif [[ $SRV_PKG == "zypper" ]]; then
+				$SSH_COMMAND zypper install -y python3-devel python3-pip python3-virtualenv
 			else
 				$SSH_COMMAND yum install python3-devel python3-pip -y
 			fi
@@ -187,16 +205,21 @@ echo "All prerequisites are installed on the server."
 
 echo "Check pre-requisites on the client"
 if command -v "apt" &>/dev/null; then
-	USE_APT=true
+	CLI_PKG="apt"
+elif command -v "zypper" &>/dev/null; then
+	CLI_PKG="zypper"
 else
-	USE_APT=false
+	CLI_PKG="yum"
 fi
 
 if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v memtier_benchmark &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
-	if [[ $USE_APT == true ]]; then
+	if [[ $CLI_PKG == "apt" ]]; then
 		apt-get update
 		apt-get install build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev libssl-dev -y
+	elif [[ $CLI_PKG == "zypper" ]]; then
+		zypper install -y autoconf automake make gcc-c++ libtool
+		zypper install -y pcre-devel zlib-devel libevent-devel libopenssl-devel pkg-config
 	else
 		yum install autoconf automake make gcc-c++ -y 
 		yum install pcre-devel zlib-devel libmemcached-devel libevent-devel openssl-devel -y 
@@ -224,10 +247,13 @@ if [[ $RUN_BENCH_SPEC == true ]] ; then
 	if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 		echo "The prerequisite Redis Benchmarks Specification is not installed. Attempting to install."
 
-		if [[ $USE_APT == true ]]; then
+		if [[ $CLI_PKG == "apt" ]]; then
 			apt-get update
 			apt install python3-pip -y
 			apt install docker.io -y
+		elif [[ $CLI_PKG == "zypper" ]]; then
+			zypper install -y python3-pip docker
+			systemctl start docker
 		else
 			yum install -y yum-utils
 			yum install -y yum-utils
@@ -269,8 +295,10 @@ if [[ $RUN_EMON == true ]] ; then
 	if ! command -v "${EMON_FOLDER}/emon" &>/dev/null; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
-		if [[ $USE_APT == true ]]; then
+		if [[ $CLI_PKG == "apt" ]]; then
 			apt install python3-dev python3-pip python3-venv -y
+		elif [[ $CLI_PKG == "zypper" ]]; then
+			zypper install -y python3-devel python3-pip python3-virtualenv
 		else
 			yum install python3-devel python3-pip -y
 		fi
@@ -281,8 +309,10 @@ if [[ $RUN_EMON == true ]] ; then
 	else
 		if ! ${EMON_VENV_PATH}/bin/python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
 			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
-			if [[ $USE_APT == true ]]; then
+			if [[ $CLI_PKG == "apt" ]]; then
 				apt install python3-dev python3-pip python3-venv -y
+			elif [[ $CLI_PKG == "zypper" ]]; then
+				zypper install -y python3-devel python3-pip python3-virtualenv
 			else
 				yum install python3-devel python3-pip -y
 			fi
