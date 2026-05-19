@@ -287,6 +287,9 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		export LIBEVENT_LIBS="-L/usr/local/lib -levent"
 		export LIBPCRE2_CFLAGS="-I/usr/local/include"
 		export LIBPCRE2_LIBS="-L/usr/local/lib -lpcre2-8"
+		# Satisfy libevent_openssl check even without OpenSSL (TLS won't be used)
+		export LIBEVENT_OPENSSL_CFLAGS=" "
+		export LIBEVENT_OPENSSL_LIBS=" "
 		./configure --disable-openssl \
 			CPPFLAGS="-I/usr/local/include" \
 			CFLAGS="-I/usr/local/include" \
