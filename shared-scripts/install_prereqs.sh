@@ -283,7 +283,7 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 	autoreconf -ivf
 	# Ensure locally-built libs in /usr/local are found
 	export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-	./configure CFLAGS="-I/usr/local/include" CXXFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -L/usr/local/lib64"
+	./configure --disable-tls CPPFLAGS="-I/usr/local/include" CFLAGS="-I/usr/local/include" CXXFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -L/usr/local/lib64"
 	make
 	make install
 	cd $CUR_DIR
