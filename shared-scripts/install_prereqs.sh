@@ -17,9 +17,9 @@ if $SSH_COMMAND command -v "apt" &>/dev/null; then
 	SRV_PKG="apt"
 elif $SSH_COMMAND command -v "zypper" &>/dev/null; then
 	SRV_PKG="zypper"
-	# Disable unreachable SCC services/repos to avoid timeouts
+	# Disable SCC services to prevent refresh timeouts; set repos to no-refresh but keep them enabled
 	$SSH_COMMAND bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
-	$SSH_COMMAND bash -c 'for repo in $(zypper lr --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper mr -d "$repo" 2>/dev/null; done' || true
+	$SSH_COMMAND bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
 else
 	SRV_PKG="yum"
 fi
@@ -211,9 +211,9 @@ if command -v "apt" &>/dev/null; then
 	CLI_PKG="apt"
 elif command -v "zypper" &>/dev/null; then
 	CLI_PKG="zypper"
-	# Disable unreachable SCC services/repos to avoid timeouts
+	# Disable SCC services to prevent refresh timeouts; set repos to no-refresh but keep them enabled
 	bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
-	bash -c 'for repo in $(zypper lr --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper mr -d "$repo" 2>/dev/null; done' || true
+	bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
 else
 	CLI_PKG="yum"
 fi
@@ -225,7 +225,7 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		apt-get install build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev libssl-dev -y
 	elif [[ $CLI_PKG == "zypper" ]]; then
 		zypper --no-refresh install -y autoconf automake make gcc-c++ libtool
-		zypper --no-refresh install -y pcre-devel zlib-devel libevent-devel libopenssl-devel pkg-config
+		zypper --no-refresh install -y pcre2-devel zlib-devel libevent-devel libopenssl-3-devel pkg-config
 	else
 		yum install autoconf automake make gcc-c++ -y 
 		yum install pcre-devel zlib-devel libmemcached-devel libevent-devel openssl-devel -y 
