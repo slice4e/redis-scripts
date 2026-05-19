@@ -171,16 +171,21 @@ echo "All prerequisites are installed on the server."
 
 echo "Check pre-requisites on the client"
 if command -v "apt" &>/dev/null; then
-	USE_APT=true
+	PKG_MANAGER="apt"
+elif command -v "zypper" &>/dev/null; then
+	PKG_MANAGER="zypper"
 else
-	USE_APT=false
+	PKG_MANAGER="yum"
 fi
 
 if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v memtier_benchmark &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
-	if [[ $USE_APT == true ]]; then
+	if [[ $PKG_MANAGER == "apt" ]]; then
 		apt-get update
 		apt-get install build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev libssl-dev -y
+	elif [[ $PKG_MANAGER == "zypper" ]]; then
+		zypper install -y autoconf automake make gcc-c++ libtool
+		zypper install -y pcre-devel zlib-devel libevent-devel libopenssl-devel pkg-config
 	else
 		yum install autoconf automake make gcc-c++ -y 
 		yum install pcre-devel zlib-devel libmemcached-devel libevent-devel openssl-devel -y 
@@ -208,10 +213,13 @@ if [[ $RUN_BENCH_SPEC == true ]] ; then
 	if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 		echo "The prerequisite Redis Benchmarks Specification is not installed. Attempting to install."
 
-		if [[ $USE_APT == true ]]; then
+		if [[ $PKG_MANAGER == "apt" ]]; then
 			apt-get update
 			apt install python3-pip -y
 			apt install docker.io -y
+		elif [[ $PKG_MANAGER == "zypper" ]]; then
+			zypper install -y python3-pip docker
+			systemctl start docker
 		else
 			yum install -y yum-utils
 			yum install -y yum-utils
@@ -252,8 +260,10 @@ if [[ $RUN_EMON == true ]] ; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		pip3 install --upgrade pip
-		if [[ $USE_APT == true ]]; then
+		if [[ $PKG_MANAGER == "apt" ]]; then
 			apt install python3-dev -y
+		elif [[ $PKG_MANAGER == "zypper" ]]; then
+			zypper install -y python3-devel
 		else
 			yum install python3-devel -y
 		fi
