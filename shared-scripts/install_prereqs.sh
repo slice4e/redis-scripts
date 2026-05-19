@@ -18,8 +18,8 @@ if $SSH_COMMAND command -v "apt" &>/dev/null; then
 elif $SSH_COMMAND command -v "zypper" &>/dev/null; then
 	SRV_PKG="zypper"
 	# Disable unreachable SCC services/repos to avoid timeouts
-	$SSH_COMMAND "zypper ls --uri 2>/dev/null | awk -F'|' '/suse\.com/{gsub(/^ *| *$/,\"\",\$2); print \$2}' | while read s; do zypper ms -d \"\$s\" 2>/dev/null; done" || true
-	$SSH_COMMAND "zypper lr --uri 2>/dev/null | awk -F'|' '/suse\.com/{gsub(/^ *| *$/,\"\",\$2); print \$2}' | while read r; do zypper mr -d \"\$r\" 2>/dev/null; done" || true
+	$SSH_COMMAND bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
+	$SSH_COMMAND bash -c 'for repo in $(zypper lr --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper mr -d "$repo" 2>/dev/null; done' || true
 else
 	SRV_PKG="yum"
 fi
@@ -212,8 +212,8 @@ if command -v "apt" &>/dev/null; then
 elif command -v "zypper" &>/dev/null; then
 	CLI_PKG="zypper"
 	# Disable unreachable SCC services/repos to avoid timeouts
-	zypper ls --uri 2>/dev/null | awk -F'|' '/suse\.com/{gsub(/^ *| *$/,"",$2); print $2}' | while read s; do zypper ms -d "$s" 2>/dev/null; done || true
-	zypper lr --uri 2>/dev/null | awk -F'|' '/suse\.com/{gsub(/^ *| *$/,"",$2); print $2}' | while read r; do zypper mr -d "$r" 2>/dev/null; done || true
+	bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
+	bash -c 'for repo in $(zypper lr --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper mr -d "$repo" 2>/dev/null; done' || true
 else
 	CLI_PKG="yum"
 fi
