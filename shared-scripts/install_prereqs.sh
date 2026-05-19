@@ -250,7 +250,7 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
 			pushd ${DEPS_BUILD_DIR}/deps-repo
 			tar xzf libevent-2.1.12-stable.tar.gz
-			cd libevent-2.1.12-stable && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			cd libevent-2.1.12-stable && ./configure --prefix=/usr/local --disable-openssl && make -j$(nproc) && make install && cd ..
 			popd
 			rm -rf $DEPS_BUILD_DIR
 			ldconfig
