@@ -20,6 +20,8 @@ elif $SSH_COMMAND command -v "zypper" &>/dev/null; then
 	# Disable SCC services to prevent refresh timeouts; set repos to no-refresh but keep them enabled
 	$SSH_COMMAND bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
 	$SSH_COMMAND bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
+	# Add openSUSE Leap 15.6 OSS repo as fallback for dev packages if not already present
+	$SSH_COMMAND bash -c 'zypper lr --uri 2>/dev/null | grep -q "download.opensuse.org" || zypper ar -f -G https://download.opensuse.org/distribution/leap/15.6/repo/oss/ opensuse-leap-oss 2>/dev/null' || true
 else
 	SRV_PKG="yum"
 fi
@@ -214,6 +216,8 @@ elif command -v "zypper" &>/dev/null; then
 	# Disable SCC services to prevent refresh timeouts; set repos to no-refresh but keep them enabled
 	bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
 	bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
+	# Add openSUSE Leap 15.6 OSS repo as fallback for dev packages if not already present
+	bash -c 'zypper lr --uri 2>/dev/null | grep -q "download.opensuse.org" || zypper ar -f -G https://download.opensuse.org/distribution/leap/15.6/repo/oss/ opensuse-leap-oss 2>/dev/null' || true
 else
 	CLI_PKG="yum"
 fi
@@ -225,7 +229,8 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		apt-get install build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev libssl-dev -y
 	elif [[ $CLI_PKG == "zypper" ]]; then
 		zypper --no-refresh install -y autoconf automake make gcc-c++ libtool
-		zypper --no-refresh install -y pcre2-devel zlib-devel libevent-devel libopenssl-3-devel pkg-config
+		zypper --no-refresh install -y pcre2-devel zlib-devel libevent-devel pkg-config
+		zypper --no-refresh install -y libopenssl-devel || zypper --no-refresh install -y libopenssl-3-devel || true
 	else
 		yum install autoconf automake make gcc-c++ -y 
 		yum install pcre-devel zlib-devel libmemcached-devel libevent-devel openssl-devel -y 
