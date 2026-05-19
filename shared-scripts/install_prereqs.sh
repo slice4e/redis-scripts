@@ -282,8 +282,16 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		# SUSE: ensure pkg.m4 is found and locally-built libs are visible
 		export ACLOCAL_PATH="/usr/share/aclocal${ACLOCAL_PATH:+:$ACLOCAL_PATH}"
 		autoreconf -ivf
-		export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-		./configure --disable-tls CPPFLAGS="-I/usr/local/include" CFLAGS="-I/usr/local/include" CXXFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -L/usr/local/lib64"
+		# Bypass pkg-config entirely - point directly to locally-built libs
+		export LIBEVENT_CFLAGS="-I/usr/local/include"
+		export LIBEVENT_LIBS="-L/usr/local/lib -levent"
+		export LIBPCRE2_CFLAGS="-I/usr/local/include"
+		export LIBPCRE2_LIBS="-L/usr/local/lib -lpcre2-8"
+		./configure --disable-tls \
+			CPPFLAGS="-I/usr/local/include" \
+			CFLAGS="-I/usr/local/include" \
+			CXXFLAGS="-I/usr/local/include" \
+			LDFLAGS="-L/usr/local/lib -L/usr/local/lib64 -Wl,-rpath,/usr/local/lib"
 	else
 		autoreconf -ivf
 		./configure
