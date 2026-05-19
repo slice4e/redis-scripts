@@ -232,12 +232,12 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		if ! command -v autoreconf &>/dev/null; then
 			echo "autotools not available via zypper, building from source..."
 			DEPS_BUILD_DIR=$(mktemp -d)
-			DEPS_BASE_URL="https://github.com/slice4e/redis-scripts/releases/download/build-deps-v1"
-			pushd $DEPS_BUILD_DIR
-			curl -sL ${DEPS_BASE_URL}/m4-1.4.19.tar.gz | tar xz && cd m4-1.4.19 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
-			curl -sL ${DEPS_BASE_URL}/autoconf-2.72.tar.gz | tar xz && cd autoconf-2.72 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
-			curl -sL ${DEPS_BASE_URL}/automake-1.17.tar.gz | tar xz && cd automake-1.17 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
-			curl -sL ${DEPS_BASE_URL}/libtool-2.5.4.tar.gz | tar xz && cd libtool-2.5.4 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
+			pushd ${DEPS_BUILD_DIR}/deps-repo
+			tar xzf m4-1.4.19.tar.gz && cd m4-1.4.19 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			tar xzf autoconf-2.72.tar.gz && cd autoconf-2.72 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			tar xzf automake-1.17.tar.gz && cd automake-1.17 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			tar xzf libtool-2.5.4.tar.gz && cd libtool-2.5.4 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
 			popd
 			rm -rf $DEPS_BUILD_DIR
 			ldconfig
@@ -247,9 +247,9 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		if ! pkg-config --exists libevent 2>/dev/null; then
 			echo "libevent-devel not available, building from source..."
 			DEPS_BUILD_DIR=$(mktemp -d)
-			DEPS_BASE_URL="https://github.com/slice4e/redis-scripts/releases/download/build-deps-v1"
-			pushd $DEPS_BUILD_DIR
-			curl -sL ${DEPS_BASE_URL}/libevent-2.1.12-stable.tar.gz | tar xz
+			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
+			pushd ${DEPS_BUILD_DIR}/deps-repo
+			tar xzf libevent-2.1.12-stable.tar.gz
 			cd libevent-2.1.12-stable && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
 			popd
 			rm -rf $DEPS_BUILD_DIR
@@ -259,9 +259,9 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 		if ! pkg-config --exists libpcre2-8 2>/dev/null && ! pkg-config --exists libpcre 2>/dev/null; then
 			echo "pcre-devel not available, building from source..."
 			DEPS_BUILD_DIR=$(mktemp -d)
-			DEPS_BASE_URL="https://github.com/slice4e/redis-scripts/releases/download/build-deps-v1"
-			pushd $DEPS_BUILD_DIR
-			curl -sL ${DEPS_BASE_URL}/pcre2-10.44.tar.gz | tar xz
+			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
+			pushd ${DEPS_BUILD_DIR}/deps-repo
+			tar xzf pcre2-10.44.tar.gz
 			cd pcre2-10.44 && ./configure --prefix=/usr/local --enable-jit && make -j$(nproc) && make install && cd ..
 			popd
 			rm -rf $DEPS_BUILD_DIR
