@@ -107,6 +107,13 @@ main() {
     setup_benchmark_execution
     run_complete_benchmark
     
+    # Copy the config file used into the results directory for reference
+    local config_file="${1:-./config.file}"
+    local results_path="$VECTORDB_BENCHMARK_PATH/results"
+    if [[ -d "$results_path" && -f "$config_file" ]]; then
+        cp "$config_file" "$results_path/config.file"
+        log_info "Config file copied to $results_path/config.file"
+    fi
 
     log_success "Vector database benchmark completed successfully!"
 }
