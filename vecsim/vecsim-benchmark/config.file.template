@@ -12,7 +12,7 @@
 ##########################
 HOME_PATH=$HOME
 REDIS_PATH=$HOME_PATH/redis
-REDIS_BRANCH=8.2.0   	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+REDIS_BRANCH=unstable  	#this branch will be installed in case Redis is not already installed in REDIS_PATH
 VECTOR_SEARCH=redisearch     # set this to either redisearch or vectorsets 
 PORT=9000
 
@@ -43,7 +43,7 @@ CLUSTER_TIMEOUT=50000
 ##########################
 # RediSearch Settings
 ##########################
-REDISEARCH_WORKERS=1
+REDISEARCH_WORKERS=16
 
 ##########################
 # Redis Enterprise settings #
@@ -84,16 +84,6 @@ DATASET="dbpedia-1536-1M"
 EXPERIMENT_CONFIGURATION="dbpedia-cal-hnsw-float16"
 REPETITIONS=1
 QUERIES=10000
-
-# Choose the parameters of Redis index:
-# M -> Number of maximum allowed outgoing edges for each node in the graph in each layer. on layer zero the maximal number of outgoing edges will be 2M
-# EF_CONSTRUCTION -> Number of maximum allowed potential outgoing edges candidates for each node in the graph, during the graph building.
-# Available combinations: M16 EF128, M32 EF 128, M32 EF256, M32 EF512, M64 EF256, M64 EF512
-
-M=32
-EF_CONSTRUCTION=256
-PARALLEL=8
-EF_SEARCH=128
 
 # Additional Vector DB Benchmark Parameters (optional)
 # Any additional parameters to pass to vector-db-benchmark run.py
