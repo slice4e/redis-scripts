@@ -45,6 +45,12 @@ fi
 #-----------------------------------------------------------------------------------------------------------------------
 DATASET=$(grep -E '^\s*DATASET=' "$CONFIG_FILE" | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'" | xargs)
 EXPERIMENT_CONFIGURATION=$(grep -E '^\s*EXPERIMENT_CONFIGURATION=' "$CONFIG_FILE" | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'" | xargs)
+VECTORDB_BENCHMARK_PATH=$(grep -E '^\s*VECTORDB_BENCHMARK_PATH=' "$CONFIG_FILE" | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'" | xargs)
+# Expand $HOME_PATH if used in VECTORDB_BENCHMARK_PATH
+HOME_PATH=$(grep -E '^\s*HOME_PATH=' "$CONFIG_FILE" | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'" | xargs)
+HOME_PATH="${HOME_PATH:-$HOME}"
+VECTORDB_BENCHMARK_PATH="${VECTORDB_BENCHMARK_PATH//\$HOME_PATH/$HOME_PATH}"
+VECTORDB_BENCHMARK_PATH="${VECTORDB_BENCHMARK_PATH:-$HOME/vector-db-benchmark}"
 
 if [[ -z "$DATASET" || -z "$EXPERIMENT_CONFIGURATION" ]]; then
     echo "Error: Could not read DATASET or EXPERIMENT_CONFIGURATION from config file."
@@ -98,6 +104,11 @@ for fraction in "${UPDATE_FRACTIONS[@]}"; do
     # Always do a full run (upload + search) since updates/inserts modify the data
     sed -i 's/^\s*SKIP_UPLOAD=.*/SKIP_UPLOAD=0/' "$WORKING_CONFIG"
 
+    # Clear the vector-db-benchmark results directory before each run
+    VDB_RESULTS="$VECTORDB_BENCHMARK_PATH/results"
+    rm -rf "$VDB_RESULTS"
+    mkdir -p "$VDB_RESULTS"
+
     # Run the benchmark
     echo "Config: $(grep VECTORDB_BENCHMARK_PARAMS "$WORKING_CONFIG")"
     echo "SKIP_UPLOAD: $(grep SKIP_UPLOAD "$WORKING_CONFIG")"
@@ -108,11 +119,9 @@ for fraction in "${UPDATE_FRACTIONS[@]}"; do
     DEST_DIR="$RESULTS_DIR/$DATASET/$EXPERIMENT_CONFIGURATION/update_${fraction}/cluster_nodes_1"
     mkdir -p "$DEST_DIR"
 
-    # Copy results from vector-db-benchmark results directory
-    VDB_RESULTS="$HOME/vector-db-benchmark/results"
+    # Copy the entire results directory from vector-db-benchmark
     if [[ -d "$VDB_RESULTS" ]]; then
-        # Copy the latest results for this experiment
-        find "$VDB_RESULTS" -maxdepth 1 -name "*.json" -newer "$WORKING_CONFIG" -exec cp {} "$DEST_DIR/" \;
+        cp -r "$VDB_RESULTS"/* "$DEST_DIR/" 2>/dev/null || true
     fi
 
     # Copy the log
