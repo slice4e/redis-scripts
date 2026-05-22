@@ -135,3 +135,8 @@ echo "========================================================================"
 echo " Sweep complete!"
 echo " Results: $RESULTS_DIR"
 echo "========================================================================"
+
+# Generate chart
+echo ""
+echo " Generating RPS chart..."
+python3 "$SCRIPT_DIR/chart_rps_by_interval.py" "$RESULTS_DIR"
