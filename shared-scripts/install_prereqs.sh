@@ -18,28 +18,44 @@ if $SSH_COMMAND command -v "apt" &>/dev/null; then
 elif $SSH_COMMAND command -v "zypper" &>/dev/null; then
 	SRV_PKG="zypper"
 	# Disable SCC services to prevent refresh timeouts; set repos to no-refresh but keep them enabled
-	$SSH_COMMAND bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
-	$SSH_COMMAND bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
+	$SSH_COMMAND sudo bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
+	$SSH_COMMAND sudo bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
 else
 	SRV_PKG="yum"
+fi
+
+if ! $SSH_COMMAND command -v "git" &>/dev/null; then
+	echo "The prerequisite git is not installed on the server. Attempting to install."
+	if [[ $SRV_PKG == "apt" ]]; then
+		$SSH_COMMAND sudo apt-get update
+		$SSH_COMMAND sudo apt install git -y
+	elif [[ $SRV_PKG == "zypper" ]]; then
+		$SSH_COMMAND sudo zypper --no-refresh install -y git
+	else
+		$SSH_COMMAND sudo yum install git -y
+	fi
+fi
+if ! $SSH_COMMAND command -v "git" &>/dev/null; then
+	echo "The prerequisite git is not installed on the server. Unable to automatically install it. Failing."
+	exit 1
 fi
 
 # Only install Redis server if this is not a client-only installation
 if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
 	echo "Redis is not installed. Attempting to install."
 	if [[ $SRV_PKG == "apt" ]]; then
-		$SSH_COMMAND apt-get update
-		$SSH_COMMAND apt install make -y
-		$SSH_COMMAND apt install gcc -y
-		$SSH_COMMAND apt install g++ -y
-		$SSH_COMMAND apt install pkg-config -y
+		$SSH_COMMAND sudo apt-get update
+		$SSH_COMMAND sudo apt install make -y
+		$SSH_COMMAND sudo apt install gcc -y
+		$SSH_COMMAND sudo apt install g++ -y
+		$SSH_COMMAND sudo apt install pkg-config -y
 	elif [[ $SRV_PKG == "zypper" ]]; then
-		$SSH_COMMAND zypper --no-refresh install -y make gcc gcc-c++ pkg-config
+		$SSH_COMMAND sudo zypper --no-refresh install -y make gcc gcc-c++ pkg-config
 	else
-		$SSH_COMMAND yum install make -y
-		$SSH_COMMAND yum install gcc -y
-		$SSH_COMMAND yum install gcc-c++ -y
-		$SSH_COMMAND yum install pkg-config -y
+		$SSH_COMMAND sudo yum install make -y
+		$SSH_COMMAND sudo yum install gcc -y
+		$SSH_COMMAND sudo yum install gcc-c++ -y
+		$SSH_COMMAND sudo yum install pkg-config -y
 	fi
 	$SSH_COMMAND git clone --recursive https://github.com/redis/redis.git --branch $REDIS_BRANCH $REDIS_PATH
 	if [[ ${SERVER_REMOTE} == true ]] ; then
@@ -64,12 +80,12 @@ fi
 if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
 	echo "The prerequisite numactl is not installed. Attempting to install."
 	if [[ $SRV_PKG == "apt" ]]; then
-		$SSH_COMMAND apt-get update
-		$SSH_COMMAND apt install numactl -y
+		$SSH_COMMAND sudo apt-get update
+		$SSH_COMMAND sudo apt install numactl -y
 	elif [[ $SRV_PKG == "zypper" ]]; then
-		$SSH_COMMAND zypper --no-refresh install -y numactl
+		$SSH_COMMAND sudo zypper --no-refresh install -y numactl
 	else
-		$SSH_COMMAND yum install numactl -y
+		$SSH_COMMAND sudo yum install numactl -y
 	fi
 fi
 if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
@@ -80,12 +96,12 @@ fi
 if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
 	echo "The prerequisite lsof is not installed. Attempting to install."
 	if [[ $SRV_PKG == "apt" ]]; then
-		$SSH_COMMAND apt-get update
-		$SSH_COMMAND apt install lsof -y
+		$SSH_COMMAND sudo apt-get update
+		$SSH_COMMAND sudo apt install lsof -y
 	elif [[ $SRV_PKG == "zypper" ]]; then
-		$SSH_COMMAND zypper --no-refresh install -y lsof
+		$SSH_COMMAND sudo zypper --no-refresh install -y lsof
 	else
-		$SSH_COMMAND yum install lsof -y
+		$SSH_COMMAND sudo yum install lsof -y
 	fi
 fi
 if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
@@ -97,12 +113,12 @@ if [[ $RUN_SAR == true ]]; then
 	if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
 		echo "The prerequisite sysstat is not installed. Attempting to install."
 		if [[ $SRV_PKG == "apt" ]]; then
-			$SSH_COMMAND apt-get update
-			$SSH_COMMAND apt install sysstat -y
+			$SSH_COMMAND sudo apt-get update
+			$SSH_COMMAND sudo apt install sysstat -y
 		elif [[ $SRV_PKG == "zypper" ]]; then
-			$SSH_COMMAND zypper --no-refresh install -y sysstat
+			$SSH_COMMAND sudo zypper --no-refresh install -y sysstat
 		else
-			$SSH_COMMAND yum install sysstat -y
+			$SSH_COMMAND sudo yum install sysstat -y
 		fi
 	fi
 	if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
@@ -116,7 +132,7 @@ if [[ $RUN_FLAMEGRAPH == true ]]; then
 		echo "The prerequisite FlameGraph is not installed. Attempting to install."
 		$SSH_COMMAND git clone https://github.com/brendangregg/FlameGraph ${flamegraph_folder}
 		if [[ $SRV_PKG == "yum" ]]; then
-			$SSH_COMMAND yum install perl-open.noarch -y
+			$SSH_COMMAND sudo yum install perl-open.noarch -y
 		fi
 	fi
 	if ! $SSH_COMMAND command -v "${flamegraph_folder}/flamegraph.pl" &>/dev/null; then
@@ -130,28 +146,28 @@ if [[ $RUN_PERF == true ]]; then
 		if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
 			echo "The prerequisite Perf is not installed. Attempting to install."
 			if [[ $SRV_PKG == "apt" ]]; then
-				$SSH_COMMAND apt install linux-tools-common -y
-				$SSH_COMMAND "apt install linux-tools-`uname -r` -y"
+				$SSH_COMMAND sudo apt install linux-tools-common -y
+				$SSH_COMMAND "sudo apt install linux-tools-`uname -r` -y"
 			elif [[ $SRV_PKG == "zypper" ]]; then
-				$SSH_COMMAND zypper --no-refresh install -y perf
+				$SSH_COMMAND sudo zypper --no-refresh install -y perf
 			else
-				$SSH_COMMAND yum install perf -y
+				$SSH_COMMAND sudo yum install perf -y
 			fi
-			$SSH_COMMAND "echo 0 > /proc/sys/kernel/perf_event_paranoid"
-			$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" >> /etc/sysctl.conf"
+			$SSH_COMMAND "echo 0 | sudo tee /proc/sys/kernel/perf_event_paranoid > /dev/null"
+			$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" | sudo tee -a /etc/sysctl.conf > /dev/null"
 		fi
 	else
 		if ! command -v "perf" &>/dev/null; then
 			if [[ $SRV_PKG == "apt" ]]; then
-				apt install linux-tools-common -y
-				apt install linux-tools-`uname -r` -y
+				sudo apt install linux-tools-common -y
+				sudo apt install linux-tools-`uname -r` -y
 			elif [[ $SRV_PKG == "zypper" ]]; then
-				zypper --no-refresh install -y perf
+				sudo zypper --no-refresh install -y perf
 			else
-				yum install perf -y
+				sudo yum install perf -y
 			fi
-			echo 0 > /proc/sys/kernel/perf_event_paranoid
-			echo "kernel.perf_event_paranid = 1" >> /etc/sysctl.conf
+			echo 0 | sudo tee /proc/sys/kernel/perf_event_paranoid > /dev/null
+			echo "kernel.perf_event_paranid = 1" | sudo tee -a /etc/sysctl.conf > /dev/null
 		fi
 	fi
 
@@ -176,7 +192,7 @@ if [[ $RUN_EMON == true ]] ; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		if [[ $SRV_PKG == "apt" ]]; then
-			$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
+			$SSH_COMMAND sudo apt install python3-dev python3-pip python3-venv -y
 		elif [[ $SRV_PKG == "zypper" ]]; then
 			# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
 			# Prefer python311 or python39 if available.
@@ -187,9 +203,9 @@ if [[ $RUN_EMON == true ]] ; then
 			else
 				SRV_PYTHON3=python3; PYVER=$($SSH_COMMAND python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
 			fi
-			$SSH_COMMAND zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
+			$SSH_COMMAND sudo zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
 		else
-			$SSH_COMMAND yum install python3-devel python3-pip -y
+			$SSH_COMMAND sudo yum install python3-devel python3-pip -y
 		fi
 		$SSH_COMMAND "${SRV_PYTHON3:-python3} -m venv ${EMON_VENV_PATH}"
 		$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install --upgrade pip"
@@ -199,7 +215,7 @@ if [[ $RUN_EMON == true ]] ; then
 		if ! $SSH_COMMAND "${EMON_VENV_PATH}/bin/python3 -c 'import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest'" &>/dev/null; then
 			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
 			if [[ $SRV_PKG == "apt" ]]; then
-				$SSH_COMMAND apt install python3-dev python3-pip python3-venv -y
+				$SSH_COMMAND sudo apt install python3-dev python3-pip python3-venv -y
 			elif [[ $SRV_PKG == "zypper" ]]; then
 				# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
 				if $SSH_COMMAND command -v python3.11 &>/dev/null; then
@@ -209,9 +225,9 @@ if [[ $RUN_EMON == true ]] ; then
 				else
 					SRV_PYTHON3=python3; PYVER=$($SSH_COMMAND python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
 				fi
-				$SSH_COMMAND zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
+				$SSH_COMMAND sudo zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
 			else
-				$SSH_COMMAND yum install python3-devel python3-pip -y
+				$SSH_COMMAND sudo yum install python3-devel python3-pip -y
 			fi
 			$SSH_COMMAND "${SRV_PYTHON3:-python3} -m venv ${EMON_VENV_PATH}"
 			$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install --upgrade pip"
@@ -229,21 +245,40 @@ if command -v "apt" &>/dev/null; then
 elif command -v "zypper" &>/dev/null; then
 	CLI_PKG="zypper"
 	# Disable SCC services to prevent refresh timeouts; set repos to no-refresh but keep them enabled
-	bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
-	bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
+	sudo bash -c 'for svc in $(zypper ls --uri 2>/dev/null | grep -i "suse\.com" | cut -d"|" -f2 | tr -d " "); do zypper ms -d "$svc" 2>/dev/null; done' || true
+	sudo bash -c 'zypper mr --no-refresh --all 2>/dev/null' || true
 else
 	CLI_PKG="yum"
+fi
+
+if ! command -v "git" &>/dev/null; then
+	echo "The prerequisite git is not installed on the client. Attempting to install."
+	if [[ $CLI_PKG == "apt" ]]; then
+		sudo apt-get update
+		sudo apt install git -y
+	elif [[ $CLI_PKG == "zypper" ]]; then
+		sudo zypper --no-refresh install -y git
+	else
+		sudo yum install git -y
+	fi
+fi
+if ! command -v "git" &>/dev/null; then
+	echo "The prerequisite git is not installed on the client. Unable to automatically install it. Failing."
+	exit 1
 fi
 
 if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v memtier_benchmark &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
 	if [[ $CLI_PKG == "apt" ]]; then
-		apt-get update
-		apt-get install build-essential autoconf automake libpcre3-dev libevent-dev pkg-config zlib1g-dev libssl-dev -y
+		sudo apt-get update
+		sudo apt-get install build-essential autoconf automake libevent-dev pkg-config zlib1g-dev libssl-dev -y
+		# libpcre3-dev has been removed from newer Debian/Ubuntu releases (e.g. Debian 13/trixie)
+		# in favor of PCRE2. Try the legacy package first, then fall back to libpcre2-dev.
+		sudo apt-get install libpcre3-dev -y || sudo apt-get install libpcre2-dev -y
 	elif [[ $CLI_PKG == "zypper" ]]; then
-		zypper --no-refresh install -y autoconf automake make gcc-c++ libtool
-		zypper --no-refresh install -y pcre2-devel zlib-devel libevent-devel pkg-config
-		zypper --no-refresh install -y libopenssl-devel || zypper --no-refresh install -y libopenssl-3-devel || true
+		sudo zypper --no-refresh install -y autoconf automake make gcc-c++ libtool
+		sudo zypper --no-refresh install -y pcre2-devel zlib-devel libevent-devel pkg-config
+		sudo zypper --no-refresh install -y libopenssl-devel || sudo zypper --no-refresh install -y libopenssl-3-devel || true
 
 		# Fallback: if autotools/libs not available via zypper, build from source.
 		# This handles restricted-network environments where zypper repos may be
@@ -254,13 +289,13 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 			DEPS_BUILD_DIR=$(mktemp -d)
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
 			pushd ${DEPS_BUILD_DIR}/deps-repo
-			tar xzf m4-1.4.19.tar.gz && cd m4-1.4.19 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
-			tar xzf autoconf-2.72.tar.gz && cd autoconf-2.72 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
-			tar xzf automake-1.17.tar.gz && cd automake-1.17 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
-			tar xzf libtool-2.5.4.tar.gz && cd libtool-2.5.4 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd ..
+			tar xzf m4-1.4.19.tar.gz && cd m4-1.4.19 && ./configure --prefix=/usr/local && make -j$(nproc) && sudo make install && cd ..
+			tar xzf autoconf-2.72.tar.gz && cd autoconf-2.72 && ./configure --prefix=/usr/local && make -j$(nproc) && sudo make install && cd ..
+			tar xzf automake-1.17.tar.gz && cd automake-1.17 && ./configure --prefix=/usr/local && make -j$(nproc) && sudo make install && cd ..
+			tar xzf libtool-2.5.4.tar.gz && cd libtool-2.5.4 && ./configure --prefix=/usr/local && make -j$(nproc) && sudo make install && cd ..
 			popd
 			rm -rf $DEPS_BUILD_DIR
-			ldconfig
+			sudo ldconfig
 		fi
 
 		# Build missing library deps from source if not available
@@ -270,10 +305,10 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
 			pushd ${DEPS_BUILD_DIR}/deps-repo
 			tar xzf libevent-2.1.12-stable.tar.gz
-			cd libevent-2.1.12-stable && ./configure --prefix=/usr/local --disable-openssl && make -j$(nproc) && make install && cd ..
+			cd libevent-2.1.12-stable && ./configure --prefix=/usr/local --disable-openssl && make -j$(nproc) && sudo make install && cd ..
 			popd
 			rm -rf $DEPS_BUILD_DIR
-			ldconfig
+			sudo ldconfig
 			if [[ ! -f /usr/local/include/event2/event.h ]]; then
 				echo "ERROR: libevent build failed - event2/event.h not found after install"
 				exit 1
@@ -286,14 +321,16 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 			git clone --depth=1 --branch=build-deps https://github.com/slice4e/redis-scripts.git ${DEPS_BUILD_DIR}/deps-repo
 			pushd ${DEPS_BUILD_DIR}/deps-repo
 			tar xzf pcre2-10.44.tar.gz
-			cd pcre2-10.44 && ./configure --prefix=/usr/local --enable-jit && make -j$(nproc) && make install && cd ..
+			cd pcre2-10.44 && ./configure --prefix=/usr/local --enable-jit && make -j$(nproc) && sudo make install && cd ..
 			popd
 			rm -rf $DEPS_BUILD_DIR
-			ldconfig
+			sudo ldconfig
 		fi
 	else
-		yum install autoconf automake make gcc-c++ -y 
-		yum install pcre-devel zlib-devel libmemcached-devel libevent-devel openssl-devel -y 
+		sudo yum install autoconf automake make gcc-c++ -y 
+		sudo yum install zlib-devel libmemcached-devel libevent-devel openssl-devel -y 
+		# pcre-devel has been dropped on some newer RHEL/Fedora-based releases in favor of PCRE2.
+		sudo yum install pcre-devel -y || sudo yum install pcre2-devel -y
 	fi
 
 	
@@ -334,10 +371,10 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v 
 	fi
 	if [[ $CLI_PKG == "zypper" ]]; then
 		make CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -Wl,-rpath,/usr/local/lib"
-		make install
+		sudo make install
 	else
 		make
-		make install
+		sudo make install
 	fi
 	cd $CUR_DIR
 
@@ -352,26 +389,26 @@ if [[ $RUN_BENCH_SPEC == true ]] ; then
 		echo "The prerequisite Redis Benchmarks Specification is not installed. Attempting to install."
 
 		if [[ $CLI_PKG == "apt" ]]; then
-			apt-get update
-			apt install python3-pip -y
-			apt install docker.io -y
+			sudo apt-get update
+			sudo apt install python3-pip -y
+			sudo apt install docker.io -y
 		elif [[ $CLI_PKG == "zypper" ]]; then
-			zypper --no-refresh install -y python3-pip docker
-			systemctl start docker
+			sudo zypper --no-refresh install -y python3-pip docker
+			sudo systemctl start docker
 		else
-			yum install -y yum-utils
-			yum install -y yum-utils
-			yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-			yum install python3-pip -y
-			yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-			systemctl start docker
+			sudo yum install -y yum-utils
+			sudo yum install -y yum-utils
+			sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+			sudo yum install python3-pip -y
+			sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+			sudo systemctl start docker
 		fi
 		python3 -m venv ${HOME_DIR}/.venv/bench-spec
 		${HOME_DIR}/.venv/bench-spec/bin/pip install --upgrade pip
 		${HOME_DIR}/.venv/bench-spec/bin/pip install cryptography==38.0.4
 		${HOME_DIR}/.venv/bench-spec/bin/pip install pyopenssl --upgrade
 		${HOME_DIR}/.venv/bench-spec/bin/pip install redis-benchmarks-specification --ignore-installed blinker
-		ln -sf ${HOME_DIR}/.venv/bench-spec/bin/redis-benchmarks-spec-client-runner /usr/local/bin/redis-benchmarks-spec-client-runner
+		sudo ln -sf ${HOME_DIR}/.venv/bench-spec/bin/redis-benchmarks-spec-client-runner /usr/local/bin/redis-benchmarks-spec-client-runner
 	fi
 	if ! command -v "redis-benchmarks-spec-client-runner" &>/dev/null; then
 		echo "The prerequisite Redis Benchmarks Specification is not installed. Unable to automatically install it. Failing."
@@ -384,9 +421,9 @@ if [[ ${RUN_SVR_INFO} == true ]] ; then
 		echo "The prerequisite svr-info is not installed. Attempting to install."
 		CUR_DIR=`pwd`
 		SVR_INFO_BASE_PATH=`dirname $SVR_INFO_PATH`
-		cd $SVR_INFO_BASE_PATH
-		wget -qO- https://github.com/intel/svr-info/releases/latest/download/svr-info.tgz | tar xvz 
-		ln -s ${SVR_INFO_PATH}/svr-info /usr/local/bin/svr-info
+		sudo mkdir -p $SVR_INFO_BASE_PATH
+		wget -qO- https://github.com/intel/svr-info/releases/latest/download/svr-info.tgz | sudo tar xvz -C $SVR_INFO_BASE_PATH
+		sudo ln -s ${SVR_INFO_PATH}/svr-info /usr/local/bin/svr-info
 		cd $CUR_DIR
 	fi
 	if ! command -v "${SVR_INFO_PATH}/svr-info" &>/dev/null; then
@@ -400,7 +437,7 @@ if [[ $RUN_EMON == true ]] ; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		if [[ $CLI_PKG == "apt" ]]; then
-			apt install python3-dev python3-pip python3-venv -y
+			sudo apt install python3-dev python3-pip python3-venv -y
 		elif [[ $CLI_PKG == "zypper" ]]; then
 			# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
 			# Prefer python311 or python39 if available.
@@ -411,9 +448,9 @@ if [[ $RUN_EMON == true ]] ; then
 			else
 				PYTHON3=python3; PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
 			fi
-			zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
+			sudo zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
 		else
-			yum install python3-devel python3-pip -y
+			sudo yum install python3-devel python3-pip -y
 		fi
 		${PYTHON3:-python3} -m venv ${EMON_VENV_PATH}
 		${EMON_VENV_PATH}/bin/pip install --upgrade pip
@@ -423,7 +460,7 @@ if [[ $RUN_EMON == true ]] ; then
 		if ! ${EMON_VENV_PATH}/bin/python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
 			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
 			if [[ $CLI_PKG == "apt" ]]; then
-				apt install python3-dev python3-pip python3-venv -y
+				sudo apt install python3-dev python3-pip python3-venv -y
 			elif [[ $CLI_PKG == "zypper" ]]; then
 				# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
 				# Prefer python311 or python39 if available.
@@ -434,9 +471,9 @@ if [[ $RUN_EMON == true ]] ; then
 				else
 					PYTHON3=python3; PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
 				fi
-				zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
+				sudo zypper --no-refresh install -y "python${PYVER}-devel" "python${PYVER}-pip" "python${PYVER}-base" || true
 			else
-				yum install python3-devel python3-pip -y
+				sudo yum install python3-devel python3-pip -y
 			fi
 			${PYTHON3:-python3} -m venv ${EMON_VENV_PATH}
 			${EMON_VENV_PATH}/bin/pip install --upgrade pip

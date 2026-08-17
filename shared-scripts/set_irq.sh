@@ -5,17 +5,17 @@
 set_irq(){
 	if [ "$1" != "" ]; then
 		echo "Stopping the OS IRQ balancer: "
-		status=$(systemctl status irqbalance.service)
+		status=$(sudo systemctl status irqbalance.service)
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
-		status=$(systemctl stop irqbalance.service)
-		status=$(systemctl status irqbalance.service)
+		status=$(sudo systemctl stop irqbalance.service)
+		status=$(sudo systemctl status irqbalance.service)
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
 
 		echo "Assigning IRQ interruptions to CPUs $@ ...."
 		interrupts=$(cat /proc/interrupts | grep $IRQ_SET_INTERFACE | awk -F ':' '{print $1}')
 		for i in $interrupts
 		do
-			echo $@ > /proc/irq/${i}/smp_affinity_list
+			echo $@ | sudo tee /proc/irq/${i}/smp_affinity_list > /dev/null
 		done
 
 		for i in $interrupts
@@ -33,17 +33,17 @@ set_irq_remote(){
 	if [ "$1" != "" ]; then
 
 		echo "Stopping the OS IRQ balancer: "
-		status=$($SSH_COMMAND "systemctl status irqbalance.service")
+		status=$($SSH_COMMAND "sudo systemctl status irqbalance.service")
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
-		status=$($SSH_COMMAND "systemctl stop irqbalance.service")
-		status=$($SSH_COMMAND "systemctl status irqbalance.service")
+		status=$($SSH_COMMAND "sudo systemctl stop irqbalance.service")
+		status=$($SSH_COMMAND "sudo systemctl status irqbalance.service")
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
 
 		echo "Assigning IRQ interruptions to CPUs $@ ...."
 		interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_SET_INTERFACE | awk -F ':' '{print \$1}' | tr -d '\r' | tr -d '\n' ")
 		for i in $interrupts
 		do
-			cmd="echo $@ > /proc/irq/${i}/smp_affinity_list"
+			cmd="echo $@ | sudo tee /proc/irq/${i}/smp_affinity_list > /dev/null"
 			$($SSH_COMMAND $cmd)
 		done
 

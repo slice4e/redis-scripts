@@ -1,7 +1,7 @@
 ########################################################
 # SERVER SIDE configs
 ########################################################
-HOME_DIR=/root/redis
+HOME_DIR=/home/$USER/redis
 REDIS_PATH=$HOME_DIR/redis-7.2
 REDIS_BRANCH=7.2   	# This branch will be installed in case Redis is not already installed in REDIS_PATH
 # REDIS_BUILD_FLAGS='REDIS_CFLAGS="-fno-plt" REDIS_LDFLAGS="-fno-plt"'  # if building redis, we can pass build flags
@@ -10,11 +10,11 @@ PIN="sub-numa"      # Set this variable to "sub-numa", "cpu", or "core"
 NUMA_NODES=0,1      # Use this variable if PIN==sub-numa, provide numa nodes after semicolon (if single numa node use: "NUMA_NODES=0,")
 SERVER_SOCKET=0 	  # Use this variable if PIN==cpu, to assign more than one socket, e.g. in the case of SNC, separate by coma: 0,1
 SERVER_CORES=""    # Use this variable if PIN==core, comma-separated list of cores for Redis servers, e.g. "0,2,4,6,8,10"
-MEMTIER_CORES=""   # Use this variable if PIN==core, comma-separated list of cores for memtier clients, e.g. "1,3,5,7,9,11"
+MEMTIER_CORES=""   # Use this variable if PIN==core, comma-separated list of cores for memtier clients, e.g. "1,3,5,7,9,11". Set to "all" to leave memtier client processes unpinned (no CPU/NUMA restriction) so they can use every available core.
 START_PORT=9000
 NUM_SERVERS=36 # Each Redis server contributes about 20GB of memory capacity. Verify with top
 
-LOGIN_ID=root
+LOGIN_ID=$USER      # SSH user for the server (and any remote clients). Can be a non-root user as long as it has passwordless (NOPASSWD) sudo, since run_all.sh now uses sudo for privileged operations (package installs, THP, sysctl, perf, IRQ pinning) instead of assuming a root login.
 SERVER_IP="127.0.0.1"  # replace with the IP address of the server. Using a physical interface is prefered to using localhost. 
 SERVER_REMOTE=false # The server and memtier client are on different nodes
 SSH_KEY_PATH=~/.ssh
@@ -74,7 +74,7 @@ RUN_PERF=false
 
 #flame_graph
 RUN_FLAMEGRAPH=false
-flamegraph_folder=/root/FlameGraph
+flamegraph_folder=/home/$USER/FlameGraph
 
 #emon
 RUN_EMON=false

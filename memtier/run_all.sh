@@ -288,27 +288,27 @@ if [[ ${SERVER_REMOTE} == true ]] ; then
 	echo "Current huge pages policy" 
 	$SSH_COMMAND cat /sys/kernel/mm/transparent_hugepage/enabled
 	echo "Setting Transparent Huge Pages policy to never." 
-	$SSH_COMMAND "echo never >  /sys/kernel/mm/transparent_hugepage/enabled"
+	$SSH_COMMAND "echo never | sudo tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null"
 	$SSH_COMMAND cat /sys/kernel/mm/transparent_hugepage/enabled
 else
 	echo "Current huge pages policy" 
 	cat /sys/kernel/mm/transparent_hugepage/enabled
 	echo "Setting Transparent Huge Pages policy to never." 
-	echo never >  /sys/kernel/mm/transparent_hugepage/enabled
+	echo never | sudo tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null
 	cat /sys/kernel/mm/transparent_hugepage/enabled
 fi
 
 #---------------------------------------------------------- Enable Memory Overcommit ------------------------------------------------
 if [[ ${SERVER_REMOTE} == true ]] ; then
 	echo "Current memory overcommit setting" 
-	$SSH_COMMAND sysctl vm.overcommit_memory
+	$SSH_COMMAND sudo sysctl vm.overcommit_memory
 	echo "Enable memory overcommit" 
-	$SSH_COMMAND "sysctl vm.overcommit_memory=1"
+	$SSH_COMMAND "sudo sysctl vm.overcommit_memory=1"
 else
 	echo "Current memory overcommit setting" 
-	sysctl vm.overcommit_memory
+	sudo sysctl vm.overcommit_memory
 	echo "Enable memory overcommit" 
-	sysctl vm.overcommit_memory=1
+	sudo sysctl vm.overcommit_memory=1
 fi
 
 #---------------------------check cpu configuration------------------------------------------
@@ -335,8 +335,15 @@ fi
 
 # Step 2: Discover memtier client CPUs (always local)
 if [ "$PIN" == "core" ]; then
-	echo "Core pinning mode with memtier cores: $MEMTIER_CORES"
-	MEMTIER_CPUS="${memtier_cores_array[*]}"
+	if [[ "${MEMTIER_CORES,,}" == "all" ]]; then
+		echo "Memtier cores set to 'all': memtier client processes will not be pinned to specific CPUs/NUMA nodes and may use all available cores."
+		# Produce one "all" placeholder token per Redis server instance so the existing
+		# "for cpu in \$MEMTIER_CPUS" launch loops still iterate the expected number of times.
+		MEMTIER_CPUS=$(printf 'all %.0s' $(seq 1 $NUM_SERVERS))
+	else
+		echo "Core pinning mode with memtier cores: $MEMTIER_CORES"
+		MEMTIER_CPUS="${memtier_cores_array[*]}"
+	fi
 elif [[ ${SERVER_REMOTE} != true ]] && [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
 	echo "Redis server and memtier benchmark are on the same socket."
 	# Split the socket: Redis gets the first half, memtier gets the second half (reversed)
@@ -374,6 +381,20 @@ if [ -z "$MEMTIER_CPUS" ]; then
 	echo "Error identifying memtier server CPUs."
 	exit 1
 fi
+
+# Build the numactl/taskset prefix used to pin a memtier_benchmark process to a specific
+# vCPU. When the token from $MEMTIER_CPUS is the literal "all" (set when MEMTIER_CORES=="all"),
+# no prefix is produced so the process is left unpinned and can use every available core.
+memtier_pin_prefix() {
+	local cpu=$1
+	if [[ "$cpu" == "all" ]]; then
+		return
+	fi
+	local numa_cmd="ls /sys/devices/system/cpu/cpu${cpu}"
+	local cpu_numa_node
+	cpu_numa_node=$($numa_cmd | grep "^node" | grep -o "[0-9]")
+	echo "numactl -m $cpu_numa_node taskset -c $cpu"
+}
 
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 if [[ ${RUN_SVR_INFO} == true ]] ; then
@@ -504,10 +525,9 @@ do
 			echo -e "starting memtier benchmark $instances on vCPU $cpu"
 			
 			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+			pin_prefix=$(memtier_pin_prefix "$cpu")
 
-			cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -521,10 +541,9 @@ do
 			echo -e "starting memtier benchmark $instances on vCPU $cpu"
 			
 			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+			pin_prefix=$(memtier_pin_prefix "$cpu")
 
-			cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -573,10 +592,9 @@ do
 				echo -e "AUTOTUNING. starting memtier benchmark $instances on vCPU $cpu"
 		
 				#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-				cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-				cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+				pin_prefix=$(memtier_pin_prefix "$cpu")
 
-				cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=10 --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/autotune/benchmark_$instances.log"
+				cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=10 --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/autotune/benchmark_$instances.log"
 				instances=$((instances + 1))
 				echo -e $cmd
 				$cmd >/dev/null &
@@ -647,10 +665,9 @@ do
 			port=$(($START_PORT + ${instances}))
 			echo -e "starting memtier benchmark $instances on vCPU $cpu"
 			
-			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+			pin_prefix=$(memtier_pin_prefix "$cpu")
 
-			cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -664,10 +681,9 @@ do
 			echo -e "starting memtier benchmark $instances on vCPU $cpu"
 
 			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-			cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]")
+			pin_prefix=$(memtier_pin_prefix "$cpu")
 
-			cmd="numactl -m $cpu_numa_node taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -711,11 +727,15 @@ do
 
 		if [[ $RUN_PERF == true ]]; then
 			echo "Starting perf..."
-			cmd="perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
+			cmd="sudo perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
 			if [[ ${SERVER_REMOTE} == true ]] ; then
 				$SSH_COMMAND $cmd
+				# perf.data is owned by root since perf record ran via sudo; make it
+				# readable so the subsequent (non-sudo) perf report/script steps can access it.
+				$SSH_COMMAND "sudo chmod a+r ${RESULTS_PATH}/run${iteration}-perf.data"
 			else
 				$cmd
+				sudo chmod a+r ${RESULTS_PATH}/run${iteration}-perf.data
 			fi
 			#perf record -o ${RESULTS_PATH}/run${iteration}-perf-ins.data -a -g -e instructions:ppp -- sleep 30 &> /dev/null
 			echo "Perf recording complete."
