@@ -1,5 +1,27 @@
 #!/bin/bash
 
+# Derive engine-specific install settings if the caller (e.g. run_all.sh) hasn't
+# already done so, so this script also works when sourced directly (e.g. by the
+# benchmark-spec scripts) with only SERVER_TYPE set in the config file.
+if [[ -z "${SERVER_BINARY}" ]]; then
+	SERVER_TYPE="${SERVER_TYPE:-redis}"
+	case "$SERVER_TYPE" in
+		redis)
+			SERVER_BINARY=redis-server
+			SERVER_REPO=https://github.com/redis/redis.git
+			SERVER_CONF_FILE=redis.conf
+			;;
+		valkey)
+			SERVER_BINARY=valkey-server
+			SERVER_REPO=https://github.com/valkey-io/valkey.git
+			SERVER_CONF_FILE=valkey.conf
+			;;
+		*)
+			echo "Error: Unknown SERVER_TYPE '$SERVER_TYPE'. Must be 'redis' or 'valkey'."
+			exit 1
+			;;
+	esac
+fi
 
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
 
@@ -40,9 +62,9 @@ if ! $SSH_COMMAND command -v "git" &>/dev/null; then
 	exit 1
 fi
 
-# Only install Redis server if this is not a client-only installation
-if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
-	echo "Redis is not installed. Attempting to install."
+# Only install the server if this is not a client-only installation
+if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/$SERVER_BINARY" &>/dev/null; then
+	echo "$SERVER_TYPE is not installed. Attempting to install."
 	if [[ $SRV_PKG == "apt" ]]; then
 		$SSH_COMMAND sudo apt-get update
 		$SSH_COMMAND sudo apt install make -y
@@ -57,23 +79,23 @@ if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$R
 		$SSH_COMMAND sudo yum install gcc-c++ -y
 		$SSH_COMMAND sudo yum install pkg-config -y
 	fi
-	$SSH_COMMAND git clone --recursive https://github.com/redis/redis.git --branch $REDIS_BRANCH $REDIS_PATH
+	$SSH_COMMAND git clone --recursive $SERVER_REPO --branch $REDIS_BRANCH $REDIS_PATH
 	if [[ ${SERVER_REMOTE} == true ]] ; then
 		$SSH_COMMAND "cd $REDIS_PATH; make $REDIS_BUILD_FLAGS"
-		$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf | sed \"s/bind/#bind/\" > redis.conf.new"
-		$SSH_COMMAND "cd $REDIS_PATH; cat redis.conf.new | sed \"s/protected-mode yes/protected-mode no/\" > redis.conf.new2"
-		$SSH_COMMAND "cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new"
+		$SSH_COMMAND "cd $REDIS_PATH; cat $SERVER_CONF_FILE | sed \"s/bind/#bind/\" > $SERVER_CONF_FILE.new"
+		$SSH_COMMAND "cd $REDIS_PATH; cat $SERVER_CONF_FILE.new | sed \"s/protected-mode yes/protected-mode no/\" > $SERVER_CONF_FILE.new2"
+		$SSH_COMMAND "cd $REDIS_PATH; mv $SERVER_CONF_FILE.new2 $SERVER_CONF_FILE; rm -f $SERVER_CONF_FILE.new"
 	else
 		cd $REDIS_PATH; make $REDIS_BUILD_FLAGS
-		cd $REDIS_PATH; cat redis.conf | sed s/bind/\#bind/ > redis.conf.new
-		cd $REDIS_PATH; cat redis.conf.new | sed s/protected-mode\ yes/protected-mode\ no/ > redis.conf.new2
-		cd $REDIS_PATH; mv redis.conf.new2 redis.conf; rm -f redis.conf.new
+		cd $REDIS_PATH; cat $SERVER_CONF_FILE | sed s/bind/\#bind/ > $SERVER_CONF_FILE.new
+		cd $REDIS_PATH; cat $SERVER_CONF_FILE.new | sed s/protected-mode\ yes/protected-mode\ no/ > $SERVER_CONF_FILE.new2
+		cd $REDIS_PATH; mv $SERVER_CONF_FILE.new2 $SERVER_CONF_FILE; rm -f $SERVER_CONF_FILE.new
 	fi
 
 fi
-# Only check Redis installation if this is not a client-only installation
-if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/redis-server" &>/dev/null; then
-	echo "Redis is not installed. Unable to automatically install it. Failing."
+# Only check installation if this is not a client-only installation
+if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/$SERVER_BINARY" &>/dev/null; then
+	echo "$SERVER_TYPE is not installed. Unable to automatically install it. Failing."
 	exit 1
 fi
 
@@ -267,7 +289,7 @@ if ! command -v "git" &>/dev/null; then
 	exit 1
 fi
 
-if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null && ! command -v memtier_benchmark &>/dev/null; then
+if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
 	if [[ $CLI_PKG == "apt" ]]; then
 		sudo apt-get update

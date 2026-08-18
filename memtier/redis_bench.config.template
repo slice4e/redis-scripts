@@ -2,8 +2,9 @@
 # SERVER SIDE configs
 ########################################################
 HOME_DIR=/home/$USER/redis
+SERVER_TYPE=redis  # "redis" or "valkey" -- selects which server is installed/started/killed
 REDIS_PATH=$HOME_DIR/redis-7.2
-REDIS_BRANCH=7.2   	# This branch will be installed in case Redis is not already installed in REDIS_PATH
+REDIS_BRANCH=7.2   	# Branch/tag to install in case it is not already installed in REDIS_PATH. For SERVER_TYPE=valkey, use a valkey tag/branch, e.g. "8.1"
 # REDIS_BUILD_FLAGS='REDIS_CFLAGS="-fno-plt" REDIS_LDFLAGS="-fno-plt"'  # if building redis, we can pass build flags
 RDB_PATH=$REDIS_PATH
 PIN="sub-numa"      # Set this variable to "sub-numa", "cpu", or "core"

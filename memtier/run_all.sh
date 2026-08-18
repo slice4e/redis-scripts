@@ -23,6 +23,26 @@ if [ ! -z "$ENV_BENCHMARK_DURATION" ]; then
 	BENCHMARK_DURATION=$ENV_BENCHMARK_DURATION
 fi
 
+# Default to redis for configs predating SERVER_TYPE, then derive the
+# engine-specific binary name, source repo, and config file from it.
+SERVER_TYPE="${SERVER_TYPE:-redis}"
+case "$SERVER_TYPE" in
+	redis)
+		SERVER_BINARY=redis-server
+		SERVER_REPO=https://github.com/redis/redis.git
+		SERVER_CONF_FILE=redis.conf
+		;;
+	valkey)
+		SERVER_BINARY=valkey-server
+		SERVER_REPO=https://github.com/valkey-io/valkey.git
+		SERVER_CONF_FILE=valkey.conf
+		;;
+	*)
+		echo "Error: Unknown SERVER_TYPE '$SERVER_TYPE'. Must be 'redis' or 'valkey'."
+		exit 1
+		;;
+esac
+
 # Use a script-specific directory variable so sourced files cannot clobber it.
 MEMTIER_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source set_ssh.sh from the shared-scripts directory relative to the script location
@@ -252,10 +272,10 @@ if [ "$SSH_CONNECTED" != "true" ]; then
 	exit 1
 fi
 
-$SSH_COMMAND pkill redis-server
-while [ `$SSH_COMMAND ps -e | grep -c redis-server` -gt 0 ];do
-	ret=`$SSH_COMMAND ps -e | grep -c redis-server`
-	echo -e "Waiting for $ret redis-server(s) to stop"
+$SSH_COMMAND pkill $SERVER_BINARY
+while [ `$SSH_COMMAND ps -e | grep -c $SERVER_BINARY` -gt 0 ];do
+	ret=`$SSH_COMMAND ps -e | grep -c $SERVER_BINARY`
+	echo -e "Waiting for $ret $SERVER_BINARY(s) to stop"
 	sleep 5
 done
 
@@ -445,8 +465,8 @@ do
 			fi
 
 			if [[ $ret_code == 1 ]]; then
-				echo -e "starting redis server $instances on vCPU $cpu"
-				cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+				echo -e "starting $SERVER_TYPE server $instances on vCPU $cpu"
+				cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/$SERVER_BINARY $REDIS_PATH/$SERVER_CONF_FILE --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
 				echo -e $cmd
 
 				#NOTE: Do not start the Redis servers using SSH if they are not remote.
@@ -458,7 +478,7 @@ do
 				fi
 				instances=$((instances + 1))
 			else
-				echo "Port: $port is already in use. Will not be able to start redis-server. Exiting."
+				echo "Port: $port is already in use. Will not be able to start $SERVER_BINARY. Exiting."
 				exit 1
 			fi
 
@@ -473,8 +493,8 @@ do
 			ret=$($SSH_COMMAND lsof -i:$port)
 			ret_code=$(echo $? | tr -d '[:space:]')
 			if [[ $ret_code == 1 ]]; then
-				echo -e "starting redis server $instances on sub-numa ${nodes_array[$iter_var]}"
-				cmd="numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+				echo -e "starting $SERVER_TYPE server $instances on sub-numa ${nodes_array[$iter_var]}"
+				cmd="numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $REDIS_PATH/src/$SERVER_BINARY $REDIS_PATH/$SERVER_CONF_FILE --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
 				echo -e $cmd
 				if [[ ${SERVER_REMOTE} == true ]] ; then
 					$SSH_COMMAND $cmd &
@@ -483,7 +503,7 @@ do
 				fi
 				iter_var=$((iter_var+1))
 			else
-				echo "Port: $port is already in use. Will not be able to start redis-server. Exiting."
+				echo "Port: $port is already in use. Will not be able to start $SERVER_BINARY. Exiting."
 				exit 1
 			fi
 			if [ "$iter_var" -eq "$nodes_array_len" ]; then
@@ -493,12 +513,12 @@ do
 		done
 	fi
 
-	while [ $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') -lt $NUM_SERVERS ];do
-		echo -e "Waiting for all redis servers to start"
+	while [ $($SSH_COMMAND ps -e | grep -c $SERVER_BINARY | tr -d '[:space:]') -lt $NUM_SERVERS ];do
+		echo -e "Waiting for all $SERVER_TYPE servers to start"
 		sleep 5
 	done
 
-	echo "$($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]' ) redis servers started"
+	echo "$($SSH_COMMAND ps -e | grep -c $SERVER_BINARY | tr -d '[:space:]' ) $SERVER_TYPE servers started"
 
 
 	#--------------------------start memtier benchmark FILL ---------------------------------------------
@@ -773,11 +793,11 @@ do
 		collect_client_results $iteration
 	fi
 
-	echo "Killing existing redis server instances and remove rdb files..."
+	echo "Killing existing $SERVER_TYPE server instances and remove rdb files..."
 	KILL_SIGNAL=15
-	$SSH_COMMAND killall $KILL_SIGNAL redis-server
-	while [ $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') -gt 1 ];do
-		echo -e "Waiting for $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') Redis servers to die"
+	$SSH_COMMAND killall $KILL_SIGNAL $SERVER_BINARY
+	while [ $($SSH_COMMAND ps -e | grep -c $SERVER_BINARY | tr -d '[:space:]') -gt 1 ];do
+		echo -e "Waiting for $($SSH_COMMAND ps -e | grep -c $SERVER_BINARY | tr -d '[:space:]') $SERVER_TYPE servers to die"
 		sleep 5
 	done
 	$SSH_COMMAND rm -f ${RDB_PATH}/*.rdb
