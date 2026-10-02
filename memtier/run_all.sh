@@ -178,31 +178,39 @@ collect_client_results() {
         
         # Create client-specific file names to avoid conflicts
         local client_suffix=$(echo $client_ip | tr '.' '_')
+        local run_dir="${RESULTS_PATH}/run${iteration}"
+        # Stage this client's files separately, so only they get this client's suffix
+        local stage_dir="${run_dir}/client_${client_suffix}"
+        mkdir -p "$stage_dir"
         
-        # A localhost client already wrote into this RESULTS_PATH; copying a file onto itself would truncate it
-        if [[ "$client_ip" != "127.0.0.1" && "$client_ip" != "localhost" ]]; then
+        if [[ "$client_ip" == "127.0.0.1" || "$client_ip" == "localhost" ]]; then
+            # A localhost client already wrote into this RESULTS_PATH; pick out the files for its servers
+            IFS='-' read -r start_server end_server <<< "$(get_client_servers $((i+1)))"
+            for ((server=start_server; server<=end_server; server++)); do
+                mv "${run_dir}/benchmark_${server}_run${iteration}.log" "${run_dir}/fill_${server}_run${iteration}.log" "$stage_dir"/ 2>/dev/null
+            done
+        else
             # Collect benchmark results for this specific run
             scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
-                ${LOGIN_ID}@${client_ip}:${RESULTS_PATH}/run${iteration}/benchmark_*_run${iteration}.log \
-                ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
+                ${LOGIN_ID}@${client_ip}:${run_dir}/benchmark_*_run${iteration}.log \
+                "$stage_dir"/ 2>/dev/null
                 
             # Also collect fill results for this specific run
             scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
-                ${LOGIN_ID}@${client_ip}:${RESULTS_PATH}/run${iteration}/fill_*_run${iteration}.log \
-                ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
+                ${LOGIN_ID}@${client_ip}:${run_dir}/fill_*_run${iteration}.log \
+                "$stage_dir"/ 2>/dev/null
         fi
             
-        # Rename downloaded files to include client IP to avoid conflicts
-        cd ${RESULTS_PATH}/run${iteration}/
-        for file in benchmark_*_run${iteration}.log fill_*_run${iteration}.log; do
-            if [[ -f "$file" && "$file" != *"client_${client_suffix}"* ]]; then
-                # Extract the base name and add client suffix
-                base_name="${file%_run${iteration}.log}"
-                new_name="${base_name}_client_${client_suffix}_run${iteration}.log"
-                mv "$file" "$new_name" 2>/dev/null
-                echo "Renamed $file to $new_name"
-            fi
+        # Rename this client's files to include its IP
+        cd ${run_dir}/
+        for file in "$stage_dir"/benchmark_*_run${iteration}.log "$stage_dir"/fill_*_run${iteration}.log; do
+            [[ -f "$file" ]] || continue
+            base_name=$(basename "${file%_run${iteration}.log}")
+            new_name="${base_name}_client_${client_suffix}_run${iteration}.log"
+            mv "$file" "$new_name"
+            echo "Renamed $(basename "$file") to $new_name"
         done
+        rmdir "$stage_dir"
     done
 }
 
