@@ -358,8 +358,10 @@ if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then
 	
 	CUR_DIR=`pwd`
 	MEMTIER_BASE_PATH=`dirname $MEMTIER_PATH`
+	# HOME_DIR may not exist yet, e.g. on an additional client in multi-client mode.
+	mkdir -p $MEMTIER_BASE_PATH
 	cd $MEMTIER_BASE_PATH
-	git clone https://github.com/RedisLabs/memtier_benchmark.git --branch $MEMTIER_BRANCH
+	git clone https://github.com/RedisLabs/memtier_benchmark.git --branch $MEMTIER_BRANCH $MEMTIER_PATH
 	cd $MEMTIER_PATH
 	if [[ $CLI_PKG == "zypper" ]]; then
 		# SUSE/zypper: custom build path for memtier_benchmark.
