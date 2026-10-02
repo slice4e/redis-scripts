@@ -578,7 +578,8 @@ install_remote_client_prerequisites() {
 }
 
 # Call the remote client installation function if ADDITIONAL_CLIENT_IPS is configured
-# This happens when the script is sourced from run_all.sh in multi-client mode
-if [[ -n "${ADDITIONAL_CLIENT_IPS}" ]]; then
+# This happens when the script is sourced from run_all.sh in multi-client mode.
+# Skip when CLIENT_ONLY=true: we are already running on a remote client, and recursing would re-install every client from it.
+if [[ -n "${ADDITIONAL_CLIENT_IPS}" && "${CLIENT_ONLY}" != "true" ]]; then
     install_remote_client_prerequisites
 fi
