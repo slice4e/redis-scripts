@@ -272,10 +272,15 @@ if [ "$SSH_CONNECTED" != "true" ]; then
 	exit 1
 fi
 
-$SSH_COMMAND pkill $SERVER_BINARY
-while [ `$SSH_COMMAND ps -e | grep -c $SERVER_BINARY` -gt 0 ];do
-	ret=`$SSH_COMMAND ps -e | grep -c $SERVER_BINARY`
-	echo -e "Waiting for $ret $SERVER_BINARY(s) to stop"
+# Only match servers started from this REDIS_PATH, so other users' servers on a shared host are left alone.
+SERVER_PATTERN="^${REDIS_PATH}/src/${SERVER_BINARY}"
+count_servers() {
+	$SSH_COMMAND pgrep -c -f "$SERVER_PATTERN" | tr -d '[:space:]'
+}
+
+$SSH_COMMAND pkill -f "$SERVER_PATTERN"
+while [ "$(count_servers)" -gt 0 ];do
+	echo -e "Waiting for $(count_servers) $SERVER_BINARY(s) to stop"
 	sleep 5
 done
 
@@ -513,12 +518,12 @@ do
 		done
 	fi
 
-	while [ $($SSH_COMMAND ps -e | grep -c $SERVER_BINARY | tr -d '[:space:]') -lt $NUM_SERVERS ];do
+	while [ "$(count_servers)" -lt $NUM_SERVERS ];do
 		echo -e "Waiting for all $SERVER_TYPE servers to start"
 		sleep 5
 	done
 
-	echo "$($SSH_COMMAND ps -e | grep -c $SERVER_BINARY | tr -d '[:space:]' ) $SERVER_TYPE servers started"
+	echo "$(count_servers) $SERVER_TYPE servers started"
 
 
 	#--------------------------start memtier benchmark FILL ---------------------------------------------
@@ -795,9 +800,9 @@ do
 
 	echo "Killing existing $SERVER_TYPE server instances and remove rdb files..."
 	KILL_SIGNAL=15
-	$SSH_COMMAND killall $KILL_SIGNAL $SERVER_BINARY
-	while [ $($SSH_COMMAND ps -e | grep -c $SERVER_BINARY | tr -d '[:space:]') -gt 1 ];do
-		echo -e "Waiting for $($SSH_COMMAND ps -e | grep -c $SERVER_BINARY | tr -d '[:space:]') $SERVER_TYPE servers to die"
+	$SSH_COMMAND pkill -$KILL_SIGNAL -f "$SERVER_PATTERN"
+	while [ "$(count_servers)" -gt 0 ];do
+		echo -e "Waiting for $(count_servers) $SERVER_TYPE servers to die"
 		sleep 5
 	done
 	$SSH_COMMAND rm -f ${RDB_PATH}/*.rdb
