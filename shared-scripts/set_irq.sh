@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Drivers such as mlx5 name their IRQs by PCI address, not by interface, so prefer the device's MSI vector list
+irq_list_cmd(){
+	echo "ls /sys/class/net/$1/device/msi_irqs 2>/dev/null || grep $1 /proc/interrupts | awk -F ':' '{print \$1}'"
+}
 
 #Expects one or more cpus to which to assign the IRQs
 set_irq(){
@@ -12,7 +16,8 @@ set_irq(){
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
 
 		echo "Assigning IRQ interruptions to CPUs $@ ...."
-		interrupts=$(cat /proc/interrupts | grep $IRQ_SET_INTERFACE | awk -F ':' '{print $1}')
+		interrupts=$(bash -c "$(irq_list_cmd $IRQ_SET_INTERFACE)")
+		echo "$IRQ_SET_INTERFACE: $(echo $interrupts | wc -w) IRQs" >> ${RESULTS_PATH}/irq_status.txt
 		for i in $interrupts
 		do
 			echo $@ | sudo tee /proc/irq/${i}/smp_affinity_list > /dev/null
@@ -41,7 +46,8 @@ set_irq_remote(){
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
 
 		echo "Assigning IRQ interruptions to CPUs $@ ...."
-		interrupts=$($SSH_COMMAND "cat /proc/interrupts | grep $IRQ_SET_INTERFACE | awk -F ':' '{print \$1}' | tr -d '\r' | tr -d '\n' ")
+		interrupts=$($SSH_COMMAND "$(irq_list_cmd $IRQ_SET_INTERFACE)" | tr -d '\r')
+		echo "$IRQ_SET_INTERFACE: $(echo $interrupts | wc -w) IRQs" >> ${RESULTS_PATH}/irq_status.txt
 		for i in $interrupts
 		do
 			cmd="echo $@ | sudo tee /proc/irq/${i}/smp_affinity_list > /dev/null"
