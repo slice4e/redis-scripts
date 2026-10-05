@@ -52,6 +52,9 @@ source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
 
 # memtier processes started by this run; anchored on the binary path so other users' memtier processes are ignored.
 MEMTIER_PATTERN="^${MEMTIER_PATH}/memtier_benchmark"
+count_local_memtier() {
+    pgrep -c -f "$MEMTIER_PATTERN"
+}
 
 # Setup multi-client mode based on variables set by set_ssh.sh
 setup_multi_client() {
@@ -132,6 +135,10 @@ launch_remote_memtier() {
         out_dir="${RESULTS_PATH}/autotune"
     fi
     local remote_cmd="mkdir -p ${out_dir}; "
+    if [ "$phase" = "autotune" ]; then
+        # Autotune steps reuse file names; a memtier that fails to start must not leave the previous step's log behind
+        remote_cmd+="rm -f ${out_dir}/benchmark_*.log; "
+    fi
     for ((server=$start_server; server<=$end_server; server++)); do
         local port=$(($START_PORT + $server))
         # All clients are assumed to have the primary client's topology, so reuse its memtier CPU list
@@ -615,8 +622,8 @@ do
 	fi
 
 	# Wait for local memtier processes to finish
-	while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
-		echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"
+	while [ $(count_local_memtier) -gt 0 ];do
+		echo -e "Waiting for $(count_local_memtier) memtier_benchmark to finish"
 		sleep 5
 	done
 	
@@ -643,6 +650,7 @@ do
 			
 			echo "AUTOTUNING. -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS"
 			echo "AUTOTUNING. -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS" >> ${RESULTS_PATH}/autotune/autotune.log
+			rm -f ${RESULTS_PATH}/autotune/benchmark_*.log
 
 			if [[ ${MULTI_CLIENT_MODE} == true ]]; then
 				# Tune under the same load as the benchmark: every client drives its share of the servers
@@ -669,13 +677,17 @@ do
 				echo -e $cmd
 				$cmd >/dev/null &
 			done
-			while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
-				echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"
+			while [ $(count_local_memtier) -gt 0 ];do
+				echo -e "Waiting for $(count_local_memtier) memtier_benchmark to finish"
 				sleep 5
 			done
 			if [[ ${MULTI_CLIENT_MODE} == true ]]; then
 				wait_for_remote_clients
 				collect_autotune_results
+			fi
+			autotune_found=$(grep -l Totals ${RESULTS_PATH}/autotune/benchmark_*.log 2>/dev/null | wc -l)
+			if [ $autotune_found -lt $NUM_SERVERS ]; then
+				echo "WARNING: autotune step -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS returned $autotune_found of $NUM_SERVERS results; its latency is not representative" | tee -a ${RESULTS_PATH}/warnings.log ${RESULTS_PATH}/autotune/autotune.log
 			fi
 
 			avg_latency=`cat ${RESULTS_PATH}/autotune/benchmark_* | grep Totals | awk -F " " '{total += $5; count++}END{ print total/count}'`
@@ -687,6 +699,9 @@ do
 			then
 				echo "We have exceeded the SLA using -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . "
 				echo "We have exceeded the SLA using -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS . " >> ${RESULTS_PATH}/autotune/autotune.log
+				if [ $MEMTIER_CLIENTS -eq 1 ] && [ $MEMTIER_THREADS -eq 1 ]; then
+					echo "WARNING: the 1ms SLA is exceeded already at the minimum load (-c 1 -t 1, ${avg_latency} ms); this run is not SLA-compliant. Reduce NUM_SERVERS or MEMTIER_PIPELINE." | tee -a ${RESULTS_PATH}/warnings.log ${RESULTS_PATH}/autotune/autotune.log
+				fi
 				if [ $TOGGLE == true ]; then
 
 					MEMTIER_CLIENTS=$PREV_MEMTIER_CLIENTS
@@ -822,8 +837,8 @@ do
 
 	if [[ ${MULTI_CLIENT_MODE} == true ]]; then
 		# Wait for local memtier to finish
-		while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
-			echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) local memtier to finish"
+		while [ $(count_local_memtier) -gt 0 ];do
+			echo -e "Waiting for $(count_local_memtier) local memtier to finish"
 			sleep 5
 		done
 		
@@ -831,8 +846,8 @@ do
 		wait_for_remote_clients
 	else
 		# Original single-client wait
-		while [ $(ps -ef | grep -c memtier_benchmark) -gt 1 ];do
-			echo -e "Waiting for $(($(ps -ef | grep -c memtier_benchmark)-1)) memtier_benchmark to finish"
+		while [ $(count_local_memtier) -gt 0 ];do
+			echo -e "Waiting for $(count_local_memtier) memtier_benchmark to finish"
 			sleep 5
 		done
 	fi
