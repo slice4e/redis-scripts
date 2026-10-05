@@ -1,25 +1,20 @@
 #!/bin/bash
 
-bash_encode () {
-  esc=${1@Q}
-  echo "${esc:2:-1}"
-}
-
 echo "Ensuring that the Redis server is on the same NUMA node as the network interface..." 
 echo "SERVER_SOCKET: $SERVER_SOCKET" 
+
+# The server's benchmark NIC is the interface that owns SERVER_IP (also used by set_irq.sh)
+SERVER_IFACE=$(${SSH_COMMAND:-bash -c} "ip -o -4 addr show | awk '{split(\$4,a,\"/\"); if (a[1]==\"$SERVER_IP\") print \$2}'" | tr -d '\r')
+echo "Server interface for $SERVER_IP: ${SERVER_IFACE:-not found}"
 
 if [[ $SERVER_IP == "localhost" ]] || [[ $SERVER_IP == "127.0.0.1" ]] ; then
 	echo "Using localhost for network. This is not typically recommended, since we cannot pin IRQs and may lead to performance differences. Even if using a single node, it is preferable to use a physical interface." 
 else
-	path="/sys/class/net/${IRQ_INTERFACE}/device/numa_node"
+	path="/sys/class/net/${SERVER_IFACE}/device/numa_node"
 	if ! $SSH_COMMAND test -e $path; then
 		echo "Unable to discover the numa node for the IRQ interface." 
 	else
-		IRQ_NUMA_NODE=$($SSH_COMMAND cat $path 2>&1) 
-		#bash_encode $IRQ_NUMA_NODE
-		#IRQ_NUMA_NODE=`echo $IRQ_NUMA_NODE | tr -d '\r'`
-		IRQ_NUMA_NODE=`echo $IRQ_NUMA_NODE | tr -d '[:space:]'`
-		#bash_encode $IRQ_NUMA_NODE
+		IRQ_NUMA_NODE=$($SSH_COMMAND cat $path 2>&1 | tr -d '[:space:]')
 		echo "IRQ_NUMA_NODE: $IRQ_NUMA_NODE"
 		echo "IRQ Pinning: $SET_IRQ" 
 

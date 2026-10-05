@@ -18,7 +18,6 @@ SSH_KEY_NAME=id_rsa
 
 #irq affinity
 SET_IRQ=false
-IRQ_INTERFACE="eno1"
 
 
 ########################################################

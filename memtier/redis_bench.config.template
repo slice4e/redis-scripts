@@ -21,9 +21,7 @@ SERVER_REMOTE=false # The server and memtier client are on different nodes
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
 
-SET_IRQ=false  #set to true to pin IRQ affinity
-IRQ_INTERFACE="eno1"	# The network interface of the redis server
-IRQ_INTERFACE_MEMTIER="eno1" # The network interface of memtier client (if remote from server) 
+SET_IRQ=false  # true: pin the NIC IRQs (NIC found from SERVER_IP) to the server CPUs on the server and to the memtier CPUs on every client; stops irqbalance there
 
 ########################################################
 # CLIENT SIDE configs
