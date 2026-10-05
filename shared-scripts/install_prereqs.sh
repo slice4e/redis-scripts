@@ -545,8 +545,8 @@ install_remote_client_prerequisites() {
         
         echo "Installing prerequisites on client $client_ip"
         
-        # First check if memtier is already available on the remote client
-        if $ssh_cmd "command -v memtier_benchmark &>/dev/null"; then
+        # First check if memtier is already built in MEMTIER_PATH on the remote client (run_all.sh runs it from there)
+        if $ssh_cmd "test -x ${MEMTIER_PATH}/memtier_benchmark"; then
             echo "Memtier already installed on client $client_ip - skipping installation"
             continue
         fi

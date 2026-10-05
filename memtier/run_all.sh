@@ -50,20 +50,8 @@ source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
 
 #---------------------------------------------------------- Multi-Client Helper Functions -------------------------------------------------------
 
-# Clean up old result files on remote clients from previous benchmark runs
-cleanup_remote_client_files() {
-    echo "Cleaning up old result files on remote clients..."
-    
-    for ((i=0; i<${#CLIENT_IPS[@]}; i++)); do
-        local client_ip="${CLIENT_IPS[$i]}"
-        local ssh_cmd="${CLIENT_SSH_CMDS[$i]}"
-        
-        echo "Cleaning /tmp/*_run*.log on client $client_ip"
-        $ssh_cmd "rm -f /tmp/benchmark_*_run*.log /tmp/fill_*_run*.log" 2>/dev/null || true
-    done
-    
-    echo "Remote client cleanup complete."
-}
+# memtier processes started by this run; anchored on the binary path so other users' memtier processes are ignored.
+MEMTIER_PATTERN="^${MEMTIER_PATH}/memtier_benchmark"
 
 # Setup multi-client mode based on variables set by set_ssh.sh
 setup_multi_client() {
@@ -138,18 +126,21 @@ launch_remote_memtier() {
     
     echo "Launching $phase on client $client_ip for servers $start_server to $end_server"
     
-    # Build command string for remote execution
-    local remote_cmd=""
+    # Build command string for remote execution; results go under the run's RESULTS_PATH on the client
+    local out_dir="${RESULTS_PATH}/run${iteration}"
+    local remote_cmd="mkdir -p ${out_dir}; "
     for ((server=$start_server; server<=$end_server; server++)); do
         local port=$(($START_PORT + $server))
+        # All clients are assumed to have the primary client's topology, so reuse its memtier CPU list
+        local prefix=$(memtier_pin_prefix "${memtier_cpus_array[$((server - start_server))]}")
         
         if [ "$phase" = "fill" ]; then
             # Fill phase: use -n allkeys and write-only ratio
-            remote_cmd+="memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=$MEMTIER_PIPELINE --key-pattern=P:P --ratio=1:0 --out-file=/tmp/fill_${server}_run${iteration}.log >/dev/null & "
+            remote_cmd+="$prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=$MEMTIER_PIPELINE --key-pattern=P:P --ratio=1:0 --out-file=${out_dir}/fill_${server}_run${iteration}.log >/dev/null & "
         else
             # Benchmark phase: use test-time and read/write ratio
             local test_duration="${BENCHMARK_DURATION:-300}"
-            remote_cmd+="memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$test_duration --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=/tmp/benchmark_${server}_run${iteration}.log >/dev/null & "
+            remote_cmd+="$prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$test_duration --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${out_dir}/benchmark_${server}_run${iteration}.log >/dev/null & "
         fi
     done
     
@@ -165,27 +156,13 @@ wait_for_remote_fill() {
         local client_ip="${CLIENT_IPS[$i]}"
         local ssh_cmd="${CLIENT_SSH_CMDS[$i]}"
         
-        # Wait for memtier processes to finish on remote client with timeout
+        # Wait for this run's memtier processes to finish on the remote client
         echo "Waiting for fill to complete on client $client_ip"
-        local timeout=60  # 60 seconds timeout
-        local count=0
-        
-        while [ $count -lt $timeout ]; do
-            # Check for actual memtier_benchmark processes (not bash containing the string)
-            if $ssh_cmd "pgrep '^memtier_benchmark' > /dev/null"; then
-                echo "Fill still running on $client_ip, waiting..."
-                sleep 2
-                count=$((count + 2))
-            else
-                break
-            fi
+        while $ssh_cmd "pgrep -f '$MEMTIER_PATTERN' > /dev/null"; do
+            echo "Fill still running on $client_ip, waiting..."
+            sleep 2
         done
-        
-        if [ $count -ge $timeout ]; then
-            echo "Warning: Timeout waiting for fill on client $client_ip"
-        else
-            echo "Fill completed on client $client_ip"
-        fi
+        echo "Fill completed on client $client_ip"
     done
     
     echo "All remote clients completed fill phase"
@@ -202,15 +179,18 @@ collect_client_results() {
         # Create client-specific file names to avoid conflicts
         local client_suffix=$(echo $client_ip | tr '.' '_')
         
-        # Collect benchmark results for this specific run
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
-            ${LOGIN_ID}@${client_ip}:/tmp/benchmark_*_run${iteration}.log \
-            ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
-            
-        # Also collect fill results for this specific run
-        scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
-            ${LOGIN_ID}@${client_ip}:/tmp/fill_*_run${iteration}.log \
-            ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
+        # A localhost client already wrote into this RESULTS_PATH; copying a file onto itself would truncate it
+        if [[ "$client_ip" != "127.0.0.1" && "$client_ip" != "localhost" ]]; then
+            # Collect benchmark results for this specific run
+            scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
+                ${LOGIN_ID}@${client_ip}:${RESULTS_PATH}/run${iteration}/benchmark_*_run${iteration}.log \
+                ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
+                
+            # Also collect fill results for this specific run
+            scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} \
+                ${LOGIN_ID}@${client_ip}:${RESULTS_PATH}/run${iteration}/fill_*_run${iteration}.log \
+                ${RESULTS_PATH}/run${iteration}/ 2>/dev/null
+        fi
             
         # Rename downloaded files to include client IP to avoid conflicts
         cd ${RESULTS_PATH}/run${iteration}/
@@ -235,12 +215,11 @@ wait_for_remote_clients() {
         
         # Handle localhost clients differently
         if [[ "$client_ip" == "127.0.0.1" || "$client_ip" == "localhost" ]]; then
-            while pgrep -f "memtier_benchmark" > /dev/null 2>&1; do
+            while pgrep -f "$MEMTIER_PATTERN" > /dev/null 2>&1; do
                 sleep 5
             done
         else
-            # Use pgrep to avoid matching bash processes containing "memtier_benchmark"
-            while $ssh_cmd "pgrep -f memtier_benchmark" > /dev/null 2>&1; do
+            while $ssh_cmd "pgrep -f '$MEMTIER_PATTERN'" > /dev/null 2>&1; do
                 echo "Waiting for remote clients to complete..."
                 sleep 5
             done
@@ -406,6 +385,12 @@ if [ -z "$MEMTIER_CPUS" ]; then
 	echo "Error identifying memtier server CPUs."
 	exit 1
 fi
+read -ra memtier_cpus_array <<< "$MEMTIER_CPUS"
+max_servers_per_client=$(( (NUM_SERVERS + ${NUM_CLIENTS:-1} - 1) / ${NUM_CLIENTS:-1} ))
+if [[ ${#memtier_cpus_array[@]} -lt $max_servers_per_client ]]; then
+	echo "Each client drives up to $max_servers_per_client Redis servers, but only ${#memtier_cpus_array[@]} memtier CPUs are available per client."
+	exit 1
+fi
 
 # Build the numactl/taskset prefix used to pin a memtier_benchmark process to a specific
 # vCPU. When the token from $MEMTIER_CPUS is the literal "all" (set when MEMTIER_CORES=="all"),
@@ -439,11 +424,6 @@ fi
 #--------------------------set network interrupts ---------------------------------------------------
 if [[ $SET_IRQ == true ]]; then
 	source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/set_irq.sh"
-fi
-
-# Clean up old result files on remote clients before starting new benchmark run
-if [[ ${MULTI_CLIENT_MODE} == true ]]; then
-	cleanup_remote_client_files
 fi
 
 $SSH_COMMAND mkdir -p ${REDIS_PATH}/log
