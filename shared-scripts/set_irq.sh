@@ -7,7 +7,7 @@ pin_irqs(){
 	local run=$1 iface=$2
 	shift 2
 	# Drivers such as mlx5 name their IRQs by PCI address, not by interface, so use the device's MSI vector list
-	local irqs=$($run "ls /sys/class/net/$iface/device/msi_irqs 2>/dev/null" | tr -d '\r')
+	local irqs=$($run "ls /sys/class/net/$iface/device/msi_irqs 2>/dev/null" | tr -d '\r' | xargs)
 	$run "sudo systemctl stop irqbalance.service; for i in $irqs; do echo $* | sudo tee /proc/irq/\$i/smp_affinity_list > /dev/null; done"
 	local affinity=$($run "for i in $irqs; do cat /proc/irq/\$i/smp_affinity_list; done | sort -u" | tr -d '\r' | xargs)
 	echo "$($run hostname | tr -d '\r') $iface: $(echo $irqs | wc -w) IRQs pinned to $affinity"
