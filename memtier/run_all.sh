@@ -214,6 +214,27 @@ collect_client_results() {
     done
 }
 
+# The run totals sum whatever benchmark logs exist, so a client that returned fewer would silently undercount
+check_client_results() {
+    local iteration=$1
+    local run_dir="${RESULTS_PATH}/run${iteration}"
+    for ((c=0; c<${NUM_CLIENTS:-1}; c++)); do
+        local suffix=$PRIMARY_CLIENT_SUFFIX
+        local expected=$NUM_SERVERS
+        if [ $c -gt 0 ]; then
+            suffix=$(echo ${CLIENT_IPS[$((c-1))]} | tr '.' '_')
+        fi
+        if [[ ${MULTI_CLIENT_MODE} == true ]]; then
+            IFS='-' read -r start_server end_server <<< "$(get_client_servers $c)"
+            expected=$((end_server - start_server + 1))
+        fi
+        local found=$(grep -l Totals ${run_dir}/benchmark_*_client_${suffix}_run${iteration}.log 2>/dev/null | wc -l)
+        if [ $found -lt $expected ]; then
+            echo "WARNING: client ${suffix//_/.} returned $found of $expected benchmark results for run${iteration}; Total Ops/sec is undercounted" | tee -a ${RESULTS_PATH}/warnings.log
+        fi
+    done
+}
+
 # Wait for remote memtier processes to complete
 wait_for_remote_clients() {
     
@@ -240,6 +261,10 @@ wait_for_remote_clients() {
 
 # Setup multi-client mode if configured
 setup_multi_client
+
+# Name the primary client's logs by the address it uses to reach the server, like the additional clients' logs
+PRIMARY_CLIENT_SUFFIX=$(ip -4 route get "$SERVER_IP" 2>/dev/null | grep -o 'src [0-9.]*' | cut -d' ' -f2 | tr '.' '_')
+PRIMARY_CLIENT_SUFFIX=${PRIMARY_CLIENT_SUFFIX:-$(hostname -s)}
 
 # Display server assignments if multi-client
 if [[ ${MULTI_CLIENT_MODE} == true ]]; then
@@ -540,7 +565,7 @@ do
 			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
 			pin_prefix=$(memtier_pin_prefix "$cpu")
 
-			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -556,7 +581,7 @@ do
 			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
 			pin_prefix=$(memtier_pin_prefix "$cpu")
 
-			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -680,7 +705,7 @@ do
 			
 			pin_prefix=$(memtier_pin_prefix "$cpu")
 
-			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -696,7 +721,7 @@ do
 			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
 			pin_prefix=$(memtier_pin_prefix "$cpu")
 
-			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -843,6 +868,7 @@ do
 
 	#-------------------------- Process Results ------------------------------------------------------------
 
+	check_client_results $iteration
 	echo "Total Ops/sec"
 	total_ops=`cat ${RESULTS_PATH}/run${iteration}/benchmark_* | grep Totals | awk -F " " '{total += $2; count++ } END { print total} '`
 	echo $total_ops
