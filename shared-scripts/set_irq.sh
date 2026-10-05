@@ -5,10 +5,10 @@
 set_irq(){
 	if [ "$1" != "" ]; then
 		echo "Stopping the OS IRQ balancer: "
-		status=$(sudo systemctl status irqbalance.service)
+		status=$(sudo systemctl --no-pager status irqbalance.service)
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
-		status=$(sudo systemctl stop irqbalance.service)
-		status=$(sudo systemctl status irqbalance.service)
+		status=$(sudo systemctl --no-pager stop irqbalance.service)
+		status=$(sudo systemctl --no-pager status irqbalance.service)
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
 
 		echo "Assigning IRQ interruptions to CPUs $@ ...."
@@ -33,10 +33,11 @@ set_irq_remote(){
 	if [ "$1" != "" ]; then
 
 		echo "Stopping the OS IRQ balancer: "
-		status=$($SSH_COMMAND "sudo systemctl status irqbalance.service")
+		# SSH_COMMAND uses ssh -t, so without --no-pager systemctl opens less and waits forever
+		status=$($SSH_COMMAND "sudo systemctl --no-pager status irqbalance.service")
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
-		status=$($SSH_COMMAND "sudo systemctl stop irqbalance.service")
-		status=$($SSH_COMMAND "sudo systemctl status irqbalance.service")
+		status=$($SSH_COMMAND "sudo systemctl --no-pager stop irqbalance.service")
+		status=$($SSH_COMMAND "sudo systemctl --no-pager status irqbalance.service")
 		echo "$status" >> ${RESULTS_PATH}/irq_status.txt
 
 		echo "Assigning IRQ interruptions to CPUs $@ ...."
