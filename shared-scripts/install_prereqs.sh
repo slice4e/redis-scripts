@@ -23,6 +23,9 @@ if [[ -z "${SERVER_BINARY}" ]]; then
 	esac
 fi
 
+# Over ssh -t, needrestart/debconf would otherwise open an interactive dialog and block the run
+APT="sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get -y"
+
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
 
 # Check if this is a client-only installation
@@ -49,8 +52,8 @@ fi
 if ! $SSH_COMMAND command -v "git" &>/dev/null; then
 	echo "The prerequisite git is not installed on the server. Attempting to install."
 	if [[ $SRV_PKG == "apt" ]]; then
-		$SSH_COMMAND sudo apt-get update
-		$SSH_COMMAND sudo apt install git -y
+		$SSH_COMMAND $APT update
+		$SSH_COMMAND $APT install git
 	elif [[ $SRV_PKG == "zypper" ]]; then
 		$SSH_COMMAND sudo zypper --no-refresh install -y git
 	else
@@ -66,11 +69,8 @@ fi
 if [[ "${skip_redis_installation}" != "true" ]] && ! $SSH_COMMAND command -v "$REDIS_PATH/src/$SERVER_BINARY" &>/dev/null; then
 	echo "$SERVER_TYPE is not installed. Attempting to install."
 	if [[ $SRV_PKG == "apt" ]]; then
-		$SSH_COMMAND sudo apt-get update
-		$SSH_COMMAND sudo apt install make -y
-		$SSH_COMMAND sudo apt install gcc -y
-		$SSH_COMMAND sudo apt install g++ -y
-		$SSH_COMMAND sudo apt install pkg-config -y
+		$SSH_COMMAND $APT update
+		$SSH_COMMAND $APT install make gcc g++ pkg-config
 	elif [[ $SRV_PKG == "zypper" ]]; then
 		$SSH_COMMAND sudo zypper --no-refresh install -y make gcc gcc-c++ pkg-config
 	else
@@ -102,8 +102,8 @@ fi
 if ! $SSH_COMMAND command -v "numactl" &>/dev/null; then
 	echo "The prerequisite numactl is not installed. Attempting to install."
 	if [[ $SRV_PKG == "apt" ]]; then
-		$SSH_COMMAND sudo apt-get update
-		$SSH_COMMAND sudo apt install numactl -y
+		$SSH_COMMAND $APT update
+		$SSH_COMMAND $APT install numactl
 	elif [[ $SRV_PKG == "zypper" ]]; then
 		$SSH_COMMAND sudo zypper --no-refresh install -y numactl
 	else
@@ -118,8 +118,8 @@ fi
 if ! $SSH_COMMAND command -v "lsof" &>/dev/null; then
 	echo "The prerequisite lsof is not installed. Attempting to install."
 	if [[ $SRV_PKG == "apt" ]]; then
-		$SSH_COMMAND sudo apt-get update
-		$SSH_COMMAND sudo apt install lsof -y
+		$SSH_COMMAND $APT update
+		$SSH_COMMAND $APT install lsof
 	elif [[ $SRV_PKG == "zypper" ]]; then
 		$SSH_COMMAND sudo zypper --no-refresh install -y lsof
 	else
@@ -135,8 +135,8 @@ if [[ $RUN_SAR == true ]]; then
 	if ! $SSH_COMMAND command -v "sar" &>/dev/null; then
 		echo "The prerequisite sysstat is not installed. Attempting to install."
 		if [[ $SRV_PKG == "apt" ]]; then
-			$SSH_COMMAND sudo apt-get update
-			$SSH_COMMAND sudo apt install sysstat -y
+			$SSH_COMMAND $APT update
+			$SSH_COMMAND $APT install sysstat
 		elif [[ $SRV_PKG == "zypper" ]]; then
 			$SSH_COMMAND sudo zypper --no-refresh install -y sysstat
 		else
@@ -168,8 +168,7 @@ if [[ $RUN_PERF == true ]]; then
 		if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
 			echo "The prerequisite Perf is not installed. Attempting to install."
 			if [[ $SRV_PKG == "apt" ]]; then
-				$SSH_COMMAND sudo apt install linux-tools-common -y
-				$SSH_COMMAND "sudo apt install linux-tools-`uname -r` -y"
+				$SSH_COMMAND "$APT install linux-tools-common linux-tools-\$(uname -r)"
 			elif [[ $SRV_PKG == "zypper" ]]; then
 				$SSH_COMMAND sudo zypper --no-refresh install -y perf
 			else
@@ -181,8 +180,7 @@ if [[ $RUN_PERF == true ]]; then
 	else
 		if ! command -v "perf" &>/dev/null; then
 			if [[ $SRV_PKG == "apt" ]]; then
-				sudo apt install linux-tools-common -y
-				sudo apt install linux-tools-`uname -r` -y
+				$APT install linux-tools-common linux-tools-`uname -r`
 			elif [[ $SRV_PKG == "zypper" ]]; then
 				sudo zypper --no-refresh install -y perf
 			else
@@ -214,7 +212,7 @@ if [[ $RUN_EMON == true ]] ; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		if [[ $SRV_PKG == "apt" ]]; then
-			$SSH_COMMAND sudo apt install python3-dev python3-pip python3-venv -y
+			$SSH_COMMAND $APT install python3-dev python3-pip python3-venv
 		elif [[ $SRV_PKG == "zypper" ]]; then
 			# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
 			# Prefer python311 or python39 if available.
@@ -237,7 +235,7 @@ if [[ $RUN_EMON == true ]] ; then
 		if ! $SSH_COMMAND "${EMON_VENV_PATH}/bin/python3 -c 'import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest'" &>/dev/null; then
 			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
 			if [[ $SRV_PKG == "apt" ]]; then
-				$SSH_COMMAND sudo apt install python3-dev python3-pip python3-venv -y
+				$SSH_COMMAND $APT install python3-dev python3-pip python3-venv
 			elif [[ $SRV_PKG == "zypper" ]]; then
 				# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
 				if $SSH_COMMAND command -v python3.11 &>/dev/null; then
@@ -276,8 +274,8 @@ fi
 if ! command -v "git" &>/dev/null; then
 	echo "The prerequisite git is not installed on the client. Attempting to install."
 	if [[ $CLI_PKG == "apt" ]]; then
-		sudo apt-get update
-		sudo apt install git -y
+		$APT update
+		$APT install git
 	elif [[ $CLI_PKG == "zypper" ]]; then
 		sudo zypper --no-refresh install -y git
 	else
@@ -292,11 +290,11 @@ fi
 if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then
 	echo "The prerequisite memtier-benchmark is not installed. Attempting to install."
 	if [[ $CLI_PKG == "apt" ]]; then
-		sudo apt-get update
-		sudo apt-get install build-essential autoconf automake libevent-dev pkg-config zlib1g-dev libssl-dev -y
+		$APT update
+		$APT install build-essential autoconf automake libevent-dev pkg-config zlib1g-dev libssl-dev
 		# libpcre3-dev has been removed from newer Debian/Ubuntu releases (e.g. Debian 13/trixie)
 		# in favor of PCRE2. Try the legacy package first, then fall back to libpcre2-dev.
-		sudo apt-get install libpcre3-dev -y || sudo apt-get install libpcre2-dev -y
+		$APT install libpcre3-dev || $APT install libpcre2-dev
 	elif [[ $CLI_PKG == "zypper" ]]; then
 		sudo zypper --no-refresh install -y autoconf automake make gcc-c++ libtool
 		sudo zypper --no-refresh install -y pcre2-devel zlib-devel libevent-devel pkg-config
@@ -413,9 +411,8 @@ if [[ $RUN_BENCH_SPEC == true ]] ; then
 		echo "The prerequisite Redis Benchmarks Specification is not installed. Attempting to install."
 
 		if [[ $CLI_PKG == "apt" ]]; then
-			sudo apt-get update
-			sudo apt install python3-pip -y
-			sudo apt install docker.io -y
+			$APT update
+			$APT install python3-pip docker.io
 		elif [[ $CLI_PKG == "zypper" ]]; then
 			sudo zypper --no-refresh install -y python3-pip docker
 			sudo systemctl start docker
@@ -461,7 +458,7 @@ if [[ $RUN_EMON == true ]] ; then
     		echo "EMON is configured to run, but it is not installed on the client. Please install it after this script completes."
 		echo "You will likely need these python packages, so we will go ahead and install them."
 		if [[ $CLI_PKG == "apt" ]]; then
-			sudo apt install python3-dev python3-pip python3-venv -y
+			$APT install python3-dev python3-pip python3-venv
 		elif [[ $CLI_PKG == "zypper" ]]; then
 			# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
 			# Prefer python311 or python39 if available.
@@ -484,7 +481,7 @@ if [[ $RUN_EMON == true ]] ; then
 		if ! ${EMON_VENV_PATH}/bin/python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
 			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
 			if [[ $CLI_PKG == "apt" ]]; then
-				sudo apt install python3-dev python3-pip python3-venv -y
+				$APT install python3-dev python3-pip python3-venv
 			elif [[ $CLI_PKG == "zypper" ]]; then
 				# SLES 15 ships python3 as 3.6 (too old for polars/pyarrow).
 				# Prefer python311 or python39 if available.
