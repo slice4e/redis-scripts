@@ -33,6 +33,8 @@ if [[ "${CLIENT_ONLY}" == "true" ]]; then
     echo "Check pre-requisites on client"
     # Skip Redis server installation on clients, go directly to client prerequisites
     skip_redis_installation=true
+    # Additional clients only run memtier; data collection runs on the server and the primary client
+    RUN_SAR=false RUN_PERF=false RUN_FLAMEGRAPH=false RUN_EMON=false RUN_SVR_INFO=false
 else
     echo "Check pre-requisites on server"
     skip_redis_installation=false
