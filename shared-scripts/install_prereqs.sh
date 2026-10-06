@@ -232,10 +232,11 @@ if [[ $RUN_EMON == true ]] ; then
 		fi
 		$SSH_COMMAND "${SRV_PYTHON3:-python3} -m venv ${EMON_VENV_PATH}"
 		$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install --upgrade pip"
-		$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install 'numpy<2.0; python_version < \"3.10\"' 'numpy; python_version >= \"3.10\"' pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest"
+		$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install 'numpy<2.0; python_version < \"3.10\"' 'numpy; python_version >= \"3.10\"' pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm 'polars<2' pyarrow jinja2 openpyxl certifi tdigest"
     		exit 1
 	else
-		if ! $SSH_COMMAND "${EMON_VENV_PATH}/bin/python3 -c 'import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest'" &>/dev/null; then
+		# EMON MPP 5.23 crashes with polars 2 (ShapeError in detail views)
+		if ! $SSH_COMMAND "${EMON_VENV_PATH}/bin/python3 -c 'import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest; assert int(polars.__version__.split(\".\")[0]) < 2'" &>/dev/null; then
 			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
 			if [[ $SRV_PKG == "apt" ]]; then
 				$SSH_COMMAND $APT install python3-dev python3-pip python3-venv
@@ -254,7 +255,7 @@ if [[ $RUN_EMON == true ]] ; then
 			fi
 			$SSH_COMMAND "${SRV_PYTHON3:-python3} -m venv ${EMON_VENV_PATH}"
 			$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install --upgrade pip"
-			$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install 'numpy<2.0; python_version < \"3.10\"' 'numpy; python_version >= \"3.10\"' pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest"
+			$SSH_COMMAND "${EMON_VENV_PATH}/bin/pip install 'numpy<2.0; python_version < \"3.10\"' 'numpy; python_version >= \"3.10\"' pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm 'polars<2' pyarrow jinja2 openpyxl certifi tdigest"
 		fi
 	fi
 fi
@@ -478,10 +479,10 @@ if [[ $RUN_EMON == true ]] ; then
 		fi
 		${PYTHON3:-python3} -m venv ${EMON_VENV_PATH}
 		${EMON_VENV_PATH}/bin/pip install --upgrade pip
-		${EMON_VENV_PATH}/bin/pip install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
+		${EMON_VENV_PATH}/bin/pip install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm 'polars<2' pyarrow jinja2 openpyxl certifi tdigest
     		exit 1
 	else
-		if ! ${EMON_VENV_PATH}/bin/python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest" &>/dev/null; then
+		if ! ${EMON_VENV_PATH}/bin/python3 -c "import numpy, pandas, defusedxml, pytz, xlsxwriter, jsonschema, multiprocess, tables, natsort, tqdm, polars, pyarrow, jinja2, openpyxl, certifi, tdigest; assert int(polars.__version__.split('.')[0]) < 2" &>/dev/null; then
 			echo "EMON is installed but one or more MPP python dependencies are missing. Installing into venv."
 			if [[ $CLI_PKG == "apt" ]]; then
 				$APT install python3-dev python3-pip python3-venv
@@ -501,7 +502,7 @@ if [[ $RUN_EMON == true ]] ; then
 			fi
 			${PYTHON3:-python3} -m venv ${EMON_VENV_PATH}
 			${EMON_VENV_PATH}/bin/pip install --upgrade pip
-			${EMON_VENV_PATH}/bin/pip install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm polars pyarrow jinja2 openpyxl certifi tdigest
+			${EMON_VENV_PATH}/bin/pip install "numpy<2.0; python_version < '3.10'" "numpy; python_version >= '3.10'" pandas defusedxml pytz xlsxwriter jsonschema multiprocess tables natsort tqdm 'polars<2' pyarrow jinja2 openpyxl certifi tdigest
 		fi
 	fi
 fi

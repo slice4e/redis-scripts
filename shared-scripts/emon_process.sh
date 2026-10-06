@@ -15,10 +15,11 @@ do
     filename=${i%.*}
     test=${i%-emon.dat}
 
-    RESULT_FILE=`ls ${test}-*.csv`
+    # EMON collects during iteration 1; ops are written in scientific notation
+    RESULT_FILE=${test}-run1.csv
     OPS=""
     if [ -f "$RESULT_FILE" ]; then
-	    OPS=`cat $RESULT_FILE | grep -E "Ops/sec" |  awk -F "," '{print $3;}' | sed 's/[.].*//'`
+	    OPS=$(printf '%.0f' $(grep Ops/sec $RESULT_FILE | awk -F, '{print $3}'))
     fi
 
     echo "Creating emon.dat for ${i}"
@@ -34,8 +35,8 @@ do
     echo "Edp processing completed, moving results..."
     echo "mv summary.xlsx $EMON_RESULT_FOLDER/$filename-summary.xlsx"
     mv summary.xlsx ../$EMON_RESULT_FOLDER/$filename-summary.xlsx
-    for f in __edp_*.csv; do
-        mv "$f" "../$EMON_RESULT_FOLDER/${filename}-${f#__edp_}"
+    for f in __mpp_*.csv; do
+        mv "$f" "../$EMON_RESULT_FOLDER/${filename}-${f#__mpp_}"
     done
     rm -f $EMON_TMP_CONFIG
     cd ..
