@@ -929,7 +929,8 @@ done
 #-------------------------- Copy Results from remote server ------------------------------------------------------------
 if [[ ${SERVER_REMOTE} == true ]] ; then
 	# Check if there are any files to copy
-	file_count=$($SSH_COMMAND "ls -1 ${RESULTS_PATH} 2>/dev/null | wc -l")
+	# ssh -t ends the output with \r
+	file_count=$($SSH_COMMAND "ls -1 ${RESULTS_PATH} 2>/dev/null | wc -l" | tr -d '\r')
 	if [ "$file_count" -gt 0 ]; then
 		echo "Copying data from remote server. " 
 		scp -i ${SSH_KEY_PATH}/${SSH_KEY_NAME} ${LOGIN_ID}@${SERVER_IP}:${RESULTS_PATH}/* ${RESULTS_PATH}/

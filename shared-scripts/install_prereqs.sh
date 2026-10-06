@@ -166,8 +166,9 @@ if [[ $RUN_FLAMEGRAPH == true ]]; then
 fi
 
 if [[ $RUN_PERF == true ]]; then
+	# perf --version, not command -v: the /usr/bin/perf wrapper exists even without linux-tools for the running kernel
 	if [[ ${SERVER_REMOTE} == true ]] ; then
-		if ! $SSH_COMMAND command -v "perf" &>/dev/null; then
+		if ! $SSH_COMMAND perf --version &>/dev/null; then
 			echo "The prerequisite Perf is not installed. Attempting to install."
 			if [[ $SRV_PKG == "apt" ]]; then
 				$SSH_COMMAND "$APT install linux-tools-common linux-tools-\$(uname -r)"
@@ -180,7 +181,7 @@ if [[ $RUN_PERF == true ]]; then
 			$SSH_COMMAND "echo \"kernel.perf_event_paranoid = 1\" | sudo tee -a /etc/sysctl.conf > /dev/null"
 		fi
 	else
-		if ! command -v "perf" &>/dev/null; then
+		if ! perf --version &>/dev/null; then
 			if [[ $SRV_PKG == "apt" ]]; then
 				$APT install linux-tools-common linux-tools-`uname -r`
 			elif [[ $SRV_PKG == "zypper" ]]; then
@@ -194,12 +195,12 @@ if [[ $RUN_PERF == true ]]; then
 	fi
 
 	if [[ ${SERVER_REMOTE} == true ]] ; then
-		if ! $SSH_COMMAND command -v "perf" &>/dev/null; then 
+		if ! $SSH_COMMAND perf --version &>/dev/null; then
 			echo "The prerequisite Perf is not installed. Unable to automatically install it. Failing."
 			exit 1
 		fi
 	else
-		if ! command -v "perf" &>/dev/null; then
+		if ! perf --version &>/dev/null; then
 			echo "The prerequisite Perf is not installed. Unable to automatically install it. Failing."
 			exit 1
 		fi
