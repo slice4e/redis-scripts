@@ -811,7 +811,7 @@ do
 
 		if [[ $RUN_PERF == true ]]; then
 			echo "Starting perf..."
-			cmd="sudo perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep 30 &> /dev/null"
+			cmd="sudo perf record -o ${RESULTS_PATH}/run${iteration}-perf.data -F 99 -a -g -- sleep ${PERF_DURATION} &> /dev/null"
 			if [[ ${SERVER_REMOTE} == true ]] ; then
 				$SSH_COMMAND $cmd
 				# perf.data is owned by root since perf record ran via sudo; make it
