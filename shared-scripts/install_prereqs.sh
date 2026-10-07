@@ -26,6 +26,11 @@ fi
 # Over ssh -t, needrestart/debconf would otherwise open an interactive dialog and block the run
 APT="sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get -y"
 
+# True if git clone $2, on the host reached via $1 ("bash -c" for this host), has tag or branch $3 checked out
+has_ref() {
+	$1 "{ git -C $2 rev-parse --abbrev-ref HEAD; git -C $2 tag --points-at HEAD; } 2>/dev/null" | tr -d '\r' | grep -qxF "$3"
+}
+
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
 
 # Check if this is a client-only installation
@@ -65,6 +70,11 @@ fi
 if ! $SSH_COMMAND command -v "git" &>/dev/null; then
 	echo "The prerequisite git is not installed on the server. Unable to automatically install it. Failing."
 	exit 1
+fi
+
+if [[ "${skip_redis_installation}" != "true" ]] && $SSH_COMMAND test -d "$REDIS_PATH" && ! has_ref "${SSH_COMMAND:-bash -c}" "$REDIS_PATH" "$REDIS_BRANCH"; then
+	echo "$SERVER_TYPE in $REDIS_PATH is not $REDIS_BRANCH. Reinstalling."
+	$SSH_COMMAND rm -rf "$REDIS_PATH"
 fi
 
 # Only install the server if this is not a client-only installation
@@ -289,6 +299,11 @@ fi
 if ! command -v "git" &>/dev/null; then
 	echo "The prerequisite git is not installed on the client. Unable to automatically install it. Failing."
 	exit 1
+fi
+
+if [[ -d "$MEMTIER_PATH" ]] && ! has_ref "bash -c" "$MEMTIER_PATH" "$MEMTIER_BRANCH"; then
+	echo "memtier-benchmark in $MEMTIER_PATH is not $MEMTIER_BRANCH. Reinstalling."
+	rm -rf "$MEMTIER_PATH"
 fi
 
 if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then
@@ -546,9 +561,9 @@ install_remote_client_prerequisites() {
         
         echo "Installing prerequisites on client $client_ip"
         
-        # First check if memtier is already built in MEMTIER_PATH on the remote client (run_all.sh runs it from there)
-        if $ssh_cmd "test -x ${MEMTIER_PATH}/memtier_benchmark"; then
-            echo "Memtier already installed on client $client_ip - skipping installation"
+        # First check if memtier MEMTIER_BRANCH is already built in MEMTIER_PATH on the remote client (run_all.sh runs it from there)
+        if $ssh_cmd "test -x ${MEMTIER_PATH}/memtier_benchmark" && has_ref "$ssh_cmd" "$MEMTIER_PATH" "$MEMTIER_BRANCH"; then
+            echo "Memtier $MEMTIER_BRANCH already installed on client $client_ip - skipping installation"
             continue
         fi
         
