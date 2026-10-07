@@ -37,6 +37,10 @@ echo "SSH Connection is Successfull!"
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
 source $HOME_DIR/redis-scripts/shared-scripts/install_prereqs.sh
 
+source $HOME_DIR/redis-scripts/shared-scripts/placement.sh
+# Server vCPUs come from the test suite (<test>:<vCPU list> per line)
+placement SERVER "${SSH_COMMAND:-bash -c}" "" "$(cut -d: -f2 $BENCHSPEC_CONFIG_FILE | paste -sd,)"
+SERVER_NUMA_NODES=$SLOT_NODES
 source $HOME_DIR//redis-scripts/shared-scripts/check_numa.sh
 
 mkdir -p $LOG_PATH
@@ -75,8 +79,6 @@ ARCHT=$($SSH_COMMAND lscpu |grep "Model name:"|awk -F ":" '{print $2'}|tr -d '[:
 SOCKETS=$($SSH_COMMAND lscpu |grep "Socket(s):"|awk -F ":" '{print $2'}|tr -d '[:space:]')
 CORES=$($SSH_COMMAND lscpu |grep "Core(s) per socket:"|awk -F ":" '{print $2'}|tr -d '[:space:]')
 THREADS=$($SSH_COMMAND lscpu |grep "Thread(s) per core:"|awk -F ":" '{print $2'}|tr -d '[:space:]')
-
-SERVER_THREAD=$($SSH_COMMAND lscpu |grep "NUMA node${SERVER_SOCKET} CPU(s):"| awk '{print $(NF)}'|awk -F ',' '{print $1}'|awk -F '-' '{print $1}')
 
 echo $ARCHT
 echo "Sockets: $SOCKETS"
@@ -129,7 +131,8 @@ do
 
             echo -e "Starting redis server $instance on CPU $CPU."
 
-            cmd="numactl -m ${SERVER_SOCKET} -N ${SERVER_SOCKET} --physcpubind=${CPU} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log  --save \"\""
+            placement SERVER "${SSH_COMMAND:-bash -c}" "" "$CPU"
+            cmd="${SLOTS[0]} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --PORT ${PORT} --logfile $REDIS_PATH/server.log  --save \"\""
             echo -e $cmd
             $SSH_COMMAND $cmd &
             sleep 1

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Ensuring that the Redis server is on the same NUMA node as the network interface..." 
-echo "SERVER_SOCKET: $SERVER_SOCKET" 
+echo "Redis server NUMA nodes: $SERVER_NUMA_NODES" 
 
 # The server's benchmark NIC is the interface that owns SERVER_IP (also used by set_irq.sh)
 SERVER_IFACE=$(${SSH_COMMAND:-bash -c} "ip -o -4 addr show | awk '{split(\$4,a,\"/\"); if (a[1]==\"$SERVER_IP\") print \$2}'" | tr -d '\r')
@@ -18,7 +18,7 @@ else
 		echo "IRQ_NUMA_NODE: $IRQ_NUMA_NODE"
 		echo "IRQ Pinning: $SET_IRQ" 
 
-		if [[ $IRQ_NUMA_NODE != $SERVER_SOCKET ]] ; then
+		if [[ " $SERVER_NUMA_NODES " != *" $IRQ_NUMA_NODE "* ]] ; then
 			echo "WARNING: The Redis server is running on a different numa node than the network interface." 
 			echo "WARNING: The Redis server is running on a different numa node than the network interface." >> ${RESULTS_PATH}/WARNING.txt
 		else

@@ -31,11 +31,6 @@ else
 	done
 fi
 
-if [ $PIN == "sub-numa" ]; then
-    IFS=',' read -ra nodes_array <<< "$NUMA_NODES"
-    nodes_array_len=${#nodes_array[@]}
-fi
-
 mkdir -p ${RESULTS_PATH}
 if [[ ${SERVER_REMOTE} == true ]] ; then
 	$SSH_COMMAND mkdir -p ${RESULTS_PATH}
@@ -43,56 +38,9 @@ fi
 cp $config_file ${RESULTS_PATH}
 
 
-#---------------------------check cpu configuration------------------------------------------
-if [[ ${SERVER_REMOTE} == true ]] ; then
-	echo "Redis server and memtier benchmark are on different nodes." 
-	NUM_CPUS=$($SSH_COMMAND numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w | tr -d '[:space:]')
-	CPUS=$($SSH_COMMAND numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}' | tr -d '\r')
-	MEMTIER_CPUS=$(numactl --hardware | grep "node ${MEMTIER_SOCKET} cpus" |  awk -F ':' '{print $2}')
-	if [[ $NUM_CPUS -lt $NUM_SERVERS ]]; then
-		echo "Use at most $NUM_CPUS Redis servers per socket. " 
-		exit 1
-	fi
-else
-	NUM_CPUS=`numactl --hardware | grep "node 0 cpus" |  awk -F ':' '{print $2}' | wc -w`
-	if [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
-		echo "Redis server and memtier benchmark are on the same node and on the same socket." 
-		SPLIT_SOCKET=$((NUM_CPUS / 2))
-		if [[ $SPLIT_SOCKET -lt $NUM_SERVERS ]]; then
-			echo "Since we are sharing the socket between Redis and Memtier, use at most $SPLIT_SOCKET Redis servers. " 
-			exit 1
-		fi
-
-		CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
-		REV_CPUS=""
-		for cpu in $CPUS
-		do
-			REV_CPUS="$cpu $REV_CPUS"
-		done
-		MEMTIER_CPUS=$REV_CPUS
-	else
-		echo "Redis server and memtier benchmark are on the same node on different sockets." 
-		CPUS=`numactl --hardware | grep "node ${SERVER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
-		MEMTIER_CPUS=`numactl --hardware | grep "node ${MEMTIER_SOCKET} cpus" |  awk -F ':' '{print $2}'`
-
-		if [[ $NUM_CPUS -lt $NUM_SERVERS ]]; then
-			echo "Use at most $NUM_CPUS Redis servers per socket. " 
-			exit 1
-		fi
-	fi
-fi
-
-echo "Redis server CPUS: $CPUS" 
-echo "Memtier CPUS: $MEMTIER_CPUS" 
-
-if [ -z "$CPUS" ]; then
-	echo "Error identifying Redis server CPUs."
-	exit 1
-fi
-if [ -z "$MEMTIER_CPUS" ]; then
-	echo "Error identifying memtier server CPUs."
-	exit 1
-fi
+#---------------------------process placement------------------------------------------
+source "$(dirname "$0")/../shared-scripts/placement.sh"
+place_servers_and_memtier "${SSH_COMMAND:-bash -c}" $NUM_SERVERS
 
 
 $SSH_COMMAND mkdir -p ${REDIS_PATH}/log
@@ -102,72 +50,28 @@ do
 	mkdir ${RESULTS_PATH}/run${iteration}
 
 	#--------------------------start master servers------------------------------------------------------
-	instances=1
-    if [ ${PIN} == "cpu" ]; then
-            for cpu in $CPUS
-                do
-                    port=$(($START_PORT + ${instances}))
-                    ret=$($SSH_COMMAND lsof -i:$port)
-                    ret_code=$(echo $? | tr -d '[:space:]') 
-                    
-                    #In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-                    cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-                    if [[ ${SERVER_REMOTE} == true ]] ; then
-                        cpu_numa_node=$($SSH_COMMAND "$cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]'")  
-                    else
-                        cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]" )
-                    fi
+	for (( instances=1; instances <= NUM_SERVERS; instances++ ))
+	do
+		port=$(($START_PORT + ${instances}))
+		ret=$($SSH_COMMAND lsof -i:$port)
+		ret_code=$(echo $? | tr -d '[:space:]')
+		if [[ $ret_code != 1 ]]; then
+			echo "Port: $port is already in use. Will not be able to start redis-server. Exiting."
+			exit 1
+		fi
+		slot=${SERVER_SLOTS[$(( (instances - 1) % ${#SERVER_SLOTS[@]} ))]}
+		echo -e "starting redis server $instances: $slot"
+		cmd="$slot $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+		echo -e $cmd
 
-                    if [[ $ret_code == 1 ]]; then
-                        echo -e "starting redis server $instances on vCPU $cpu"
-                        cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
-                        echo -e $cmd
-
-                        #NOTE: Do not start the Redis servers using SSH if they are not remote. 
-                        #For some unknown reason that leads to a performace degradation. 
-                        if [[ ${SERVER_REMOTE} == true ]] ; then
-                            $SSH_COMMAND $cmd & 
-                        else
-                            $cmd &
-                        fi
-                        instances=$((instances + 1))
-                    else
-                        echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
-                        exit 1      
-                    fi
-
-                    if [ $instances -gt $NUM_SERVERS ]
-                    then
-                        break
-                    fi
-                done
-        elif [ ${PIN} == "sub-numa" ]; then
-            iter_var=0
-            while [ "$instances" -le $NUM_SERVERS ]; do
-                port=$(($START_PORT + ${instances}))
-                ret=$($SSH_COMMAND lsof -i:$port)
-                ret_code=$(echo $? | tr -d '[:space:]') 
-                if [[ $ret_code == 1 ]]; then
-                    echo -e "starting redis server $instances on sub-numa ${nodes_array[$iter_var]}"
-                    cmd="numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
-                    echo -e $cmd
-                    if [[ ${SERVER_REMOTE} == true ]] ; then
-                        $SSH_COMMAND $cmd & 
-                    else
-                        $cmd &
-                    fi
-                    iter_var=$((iter_var+1))
-                else
-                    echo "Port: $port is already in use. Will not be able to start redis-server. Exiting." 
-                    exit 1   
-                fi
-                if [ "$iter_var" -eq "$nodes_array_len" ]; then
-                    iter_var=0
-                fi
-                ((instances++))
-            done
-
-        fi
+		#NOTE: Do not start the Redis servers using SSH if they are not remote.
+		#For some unknown reason that leads to a performace degradation.
+		if [[ ${SERVER_REMOTE} == true ]] ; then
+			$SSH_COMMAND $cmd &
+		else
+			$cmd &
+		fi
+	done
 
 	if [[ ${SERVER_REMOTE} == true ]] ; then
 		while [ $($SSH_COMMAND ps -e | grep -c redis-server | tr -d '[:space:]') -lt $NUM_SERVERS ];do
@@ -186,11 +90,11 @@ do
 
 	#--------------------------start memtier benchmark FILL ---------------------------------------------
 	instances=1
-	for cpu in $MEMTIER_CPUS
+	for proc in $MEMTIER_PROCS
 	do
 		port=$(($START_PORT + ${instances}))
-		echo -e "starting memtier benchmark $instances on vCPU $cpu"
-		cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+		echo -e "starting memtier benchmark $instances"
+		cmd="$(memtier_slot $proc) ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
 		instances=$((instances + 1))
 		echo -e $cmd
 		$cmd >/dev/null &
@@ -209,11 +113,11 @@ do
 
 	#--------------------------start memtier benchmark BENCHMARK ------------------------------------------
 	instances=1
-	for cpu in $MEMTIER_CPUS
+	for proc in $MEMTIER_PROCS
 	do
 		port=$(($START_PORT + ${instances}))
-		echo -e "starting memtier benchmark $instances on vCPU $cpu"
-		cmd="numactl -m ${MEMTIER_SOCKET} taskset -c $cpu ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+		echo -e "starting memtier benchmark $instances"
+		cmd="$(memtier_slot $proc) ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
 		instances=$((instances + 1))
 		echo -e $cmd
 		$cmd >/dev/null &

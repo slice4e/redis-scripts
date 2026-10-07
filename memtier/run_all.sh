@@ -142,7 +142,7 @@ launch_remote_memtier() {
     for ((server=$start_server; server<=$end_server; server++)); do
         local port=$(($START_PORT + $server))
         # All clients are assumed to have the primary client's topology, so reuse its memtier CPU list
-        local prefix=$(memtier_pin_prefix "${memtier_cpus_array[$((server - start_server))]}")
+        local prefix=$(memtier_slot $((server - start_server)))
         
         if [ "$phase" = "fill" ]; then
             # Fill phase: use -n allkeys and write-only ratio
@@ -330,20 +330,17 @@ if [[ ${SERVER_REMOTE} == true ]] ; then
 fi
 cp $config_file ${RESULTS_PATH}
 
-if [ $PIN == "sub-numa" ]; then
-	IFS=',' read -ra nodes_array <<< "$NUMA_NODES"
-	nodes_array_len=${#nodes_array[@]}
-elif [ $PIN == "core" ]; then
-	IFS=',' read -ra server_cores_array <<< "$SERVER_CORES"
-	IFS=',' read -ra memtier_cores_array <<< "$MEMTIER_CORES"
-fi
-
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
 # Note: install_prereqs.sh now automatically handles remote client installation
 # when CLIENT_IPS array is populated (set by set_ssh.sh in multi-client mode)
 # Set SCRIPT_BASE_DIR for use by install_prereqs.sh
 export SCRIPT_BASE_DIR="$(cd "${MEMTIER_SCRIPT_DIR}/../shared-scripts" && pwd)"
 source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/install_prereqs.sh"
+
+#---------------------------------------------------------- Process placement -------------------------------------------------------
+# Additional clients are assumed to have the controller's topology, so they reuse its memtier placement
+source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/placement.sh"
+place_servers_and_memtier "${SSH_COMMAND:-bash -c}" $(( (NUM_SERVERS + ${NUM_CLIENTS:-1} - 1) / ${NUM_CLIENTS:-1} ))
 
 source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/check_numa.sh"
 
@@ -376,97 +373,6 @@ else
 	sudo sysctl vm.overcommit_memory=1
 fi
 
-#---------------------------check cpu configuration------------------------------------------
-# Step 1: Discover server-side CPUs ($SSH_COMMAND handles both local and remote)
-if [ "$PIN" == "sub-numa" ]; then
-	echo "Sub-NUMA pinning mode with nodes: $NUMA_NODES"
-	NUM_CPUS=0
-	CPUS=""
-	for node in "${nodes_array[@]}"; do
-		node_cpus=$($SSH_COMMAND numactl --hardware | grep "node [$node] cpus" | awk -F ':' '{print $2}' | tr -d '\n' | tr -d '\r')
-		node_count=$(echo $node_cpus | wc -w)
-		NUM_CPUS=$((NUM_CPUS + node_count))
-		CPUS="$CPUS $node_cpus"
-	done
-	CPUS=$(echo $CPUS)  # trim leading space
-elif [ "$PIN" == "core" ]; then
-	echo "Core pinning mode with server cores: $SERVER_CORES"
-	CPUS="${server_cores_array[*]}"
-	NUM_CPUS=${#server_cores_array[@]}
-else
-	NUM_CPUS=$($SSH_COMMAND numactl --hardware | grep "node [$SERVER_SOCKET] cpus" | awk -F ':' '{print $2}' | wc -w | tr -d '[:space:]')
-	CPUS=$($SSH_COMMAND numactl --hardware | grep "node [${SERVER_SOCKET}] cpus" | awk -F ':' '{print $2}' | tr -d '\n' | tr -d '\r')
-fi
-
-# Step 2: Discover memtier client CPUs (always local)
-if [ "$PIN" == "core" ]; then
-	if [[ "${MEMTIER_CORES,,}" == "all" ]]; then
-		echo "Memtier cores set to 'all': memtier client processes will not be pinned to specific CPUs/NUMA nodes and may use all available cores."
-		# Produce one "all" placeholder token per Redis server instance so the existing
-		# "for cpu in \$MEMTIER_CPUS" launch loops still iterate the expected number of times.
-		MEMTIER_CPUS=$(printf 'all %.0s' $(seq 1 $NUM_SERVERS))
-	else
-		echo "Core pinning mode with memtier cores: $MEMTIER_CORES"
-		MEMTIER_CPUS="${memtier_cores_array[*]}"
-	fi
-elif [[ ${SERVER_REMOTE} != true ]] && [[ $SERVER_SOCKET == $MEMTIER_SOCKET ]]; then
-	echo "Redis server and memtier benchmark are on the same socket."
-	# Split the socket: Redis gets the first half, memtier gets the second half (reversed)
-	SPLIT_SOCKET=$((NUM_CPUS / 2))
-	if [[ $SPLIT_SOCKET -lt $NUM_SERVERS ]]; then
-		echo "Since we are sharing the socket between Redis and Memtier, use at most $SPLIT_SOCKET Redis servers. "
-		exit 1
-	fi
-	REV_CPUS=""
-	for cpu in $CPUS; do
-		REV_CPUS="$cpu $REV_CPUS"
-	done
-	MEMTIER_CPUS=$REV_CPUS
-else
-	if [[ ${SERVER_REMOTE} == true ]]; then
-		echo "Redis server and memtier benchmark are on different nodes."
-	else
-		echo "Redis server and memtier benchmark are on different sockets."
-	fi
-	MEMTIER_CPUS=$(numactl --hardware | grep "node [${MEMTIER_SOCKET}] cpus" | awk -F ':' '{print $2}' | tr -d '\n')
-	if [[ $NUM_CPUS -lt $NUM_SERVERS ]]; then
-		echo "Use at most $NUM_CPUS Redis servers. "
-		exit 1
-	fi
-fi
-
-echo "Redis server CPUS: $CPUS"
-echo "Memtier CPUS: $MEMTIER_CPUS"
-
-if [ -z "$CPUS" ]; then
-	echo "Error identifying Redis server CPUs."
-	exit 1
-fi
-if [ -z "$MEMTIER_CPUS" ]; then
-	echo "Error identifying memtier server CPUs."
-	exit 1
-fi
-read -ra memtier_cpus_array <<< "$MEMTIER_CPUS"
-max_servers_per_client=$(( (NUM_SERVERS + ${NUM_CLIENTS:-1} - 1) / ${NUM_CLIENTS:-1} ))
-if [[ ${#memtier_cpus_array[@]} -lt $max_servers_per_client ]]; then
-	echo "Each client drives up to $max_servers_per_client Redis servers, but only ${#memtier_cpus_array[@]} memtier CPUs are available per client."
-	exit 1
-fi
-
-# Build the numactl/taskset prefix used to pin a memtier_benchmark process to a specific
-# vCPU. When the token from $MEMTIER_CPUS is the literal "all" (set when MEMTIER_CORES=="all"),
-# no prefix is produced so the process is left unpinned and can use every available core.
-memtier_pin_prefix() {
-	local cpu=$1
-	if [[ "$cpu" == "all" ]]; then
-		return
-	fi
-	local numa_cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-	local cpu_numa_node
-	cpu_numa_node=$($numa_cmd | grep "^node" | grep -o "[0-9]")
-	echo "numactl -m $cpu_numa_node taskset -c $cpu"
-}
-
 #---------------------------------------------------------- Capture SVR-INFO --------------------------------------------------------
 if [[ ${RUN_SVR_INFO} == true ]] ; then
 	echo "Capture svr-info from the server."
@@ -494,70 +400,28 @@ do
 	mkdir ${RESULTS_PATH}/run${iteration}
 
 	#--------------------------start master servers------------------------------------------------------
-	instances=1
-	if [ ${PIN} == "cpu" ] || [ ${PIN} == "core" ]; then
-		for cpu in $CPUS
-		do
-			port=$(($START_PORT + ${instances}))
-			ret=$($SSH_COMMAND lsof -i:$port)
-			ret_code=$(echo $? | tr -d '[:space:]')
+	for (( instances=1; instances <= NUM_SERVERS; instances++ ))
+	do
+		port=$(($START_PORT + ${instances}))
+		ret=$($SSH_COMMAND lsof -i:$port)
+		ret_code=$(echo $? | tr -d '[:space:]')
+		if [[ $ret_code != 1 ]]; then
+			echo "Port: $port is already in use. Will not be able to start $SERVER_BINARY. Exiting."
+			exit 1
+		fi
+		slot=${SERVER_SLOTS[$(( (instances - 1) % ${#SERVER_SLOTS[@]} ))]}
+		echo -e "starting $SERVER_TYPE server $instances: $slot"
+		cmd="$slot $REDIS_PATH/src/$SERVER_BINARY $REDIS_PATH/$SERVER_CONF_FILE --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+		echo -e $cmd
 
-			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-			cmd="ls /sys/devices/system/cpu/cpu${cpu}"
-			if [[ ${SERVER_REMOTE} == true ]] ; then
-				cpu_numa_node=$($SSH_COMMAND "$cmd | grep "^node" | grep -o "[0-9]" | tr -d '[:space:]'")
-			else
-				cpu_numa_node=$($cmd | grep "^node" | grep -o "[0-9]" )
-			fi
-
-			if [[ $ret_code == 1 ]]; then
-				echo -e "starting $SERVER_TYPE server $instances on vCPU $cpu"
-				cmd="numactl -m $cpu_numa_node taskset -c $cpu  $REDIS_PATH/src/$SERVER_BINARY $REDIS_PATH/$SERVER_CONF_FILE --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
-				echo -e $cmd
-
-				#NOTE: Do not start the Redis servers using SSH if they are not remote.
-				#For some unknown reason that leads to a performace degradation.
-				if [[ ${SERVER_REMOTE} == true ]] ; then
-					$SSH_COMMAND $cmd &
-				else
-					$cmd &
-				fi
-				instances=$((instances + 1))
-			else
-				echo "Port: $port is already in use. Will not be able to start $SERVER_BINARY. Exiting."
-				exit 1
-			fi
-
-			if [ $instances -gt $NUM_SERVERS ]; then
-				break
-			fi
-		done
-	elif [ ${PIN} == "sub-numa" ]; then
-		iter_var=0
-		while [ "$instances" -le $NUM_SERVERS ]; do
-			port=$(($START_PORT + ${instances}))
-			ret=$($SSH_COMMAND lsof -i:$port)
-			ret_code=$(echo $? | tr -d '[:space:]')
-			if [[ $ret_code == 1 ]]; then
-				echo -e "starting $SERVER_TYPE server $instances on sub-numa ${nodes_array[$iter_var]}"
-				cmd="numactl -m ${nodes_array[$iter_var]} -N ${nodes_array[$iter_var]} $REDIS_PATH/src/$SERVER_BINARY $REDIS_PATH/$SERVER_CONF_FILE --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
-				echo -e $cmd
-				if [[ ${SERVER_REMOTE} == true ]] ; then
-					$SSH_COMMAND $cmd &
-				else
-					$cmd &
-				fi
-				iter_var=$((iter_var+1))
-			else
-				echo "Port: $port is already in use. Will not be able to start $SERVER_BINARY. Exiting."
-				exit 1
-			fi
-			if [ "$iter_var" -eq "$nodes_array_len" ]; then
-				iter_var=0
-			fi
-			((instances++))
-		done
-	fi
+		#NOTE: Do not start the Redis servers using SSH if they are not remote.
+		#For some unknown reason that leads to a performace degradation.
+		if [[ ${SERVER_REMOTE} == true ]] ; then
+			$SSH_COMMAND $cmd &
+		else
+			$cmd &
+		fi
+	done
 
 	while [ "$(count_servers)" -lt $NUM_SERVERS ];do
 		echo -e "Waiting for all $SERVER_TYPE servers to start"
@@ -583,15 +447,13 @@ do
 		IFS='-' read -r start_server end_server <<< "$server_range"
 		
 		instances=$start_server
-		for cpu in $MEMTIER_CPUS
+		for proc in $MEMTIER_PROCS
 		do
 			if [ $instances -gt $end_server ]; then break; fi
 			
 			port=$(($START_PORT + ${instances}))
-			echo -e "starting memtier benchmark $instances on vCPU $cpu"
-			
-			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-			pin_prefix=$(memtier_pin_prefix "$cpu")
+			echo -e "starting memtier benchmark $instances"
+			pin_prefix=$(memtier_slot $proc)
 
 			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
@@ -601,13 +463,11 @@ do
 	else
 		# Single client mode - original logic
 		instances=1
-		for cpu in $MEMTIER_CPUS
+		for proc in $MEMTIER_PROCS
 		do
 			port=$(($START_PORT + ${instances}))
-			echo -e "starting memtier benchmark $instances on vCPU $cpu"
-			
-			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-			pin_prefix=$(memtier_pin_prefix "$cpu")
+			echo -e "starting memtier benchmark $instances"
+			pin_prefix=$(memtier_slot $proc)
 
 			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
@@ -662,15 +522,13 @@ do
 				instances=1
 				last_server=$NUM_SERVERS
 			fi
-			for cpu in $MEMTIER_CPUS
+			for proc in $MEMTIER_PROCS
 			do
 				if [ $instances -gt $last_server ]; then break; fi
 
 				port=$(($START_PORT + ${instances}))
-				echo -e "AUTOTUNING. starting memtier benchmark $instances on vCPU $cpu"
-		
-				#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-				pin_prefix=$(memtier_pin_prefix "$cpu")
+				echo -e "AUTOTUNING. starting memtier benchmark $instances"
+				pin_prefix=$(memtier_slot $proc)
 
 				cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=10 --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/autotune/benchmark_$instances.log"
 				instances=$((instances + 1))
@@ -742,14 +600,13 @@ do
 		IFS='-' read -r start_server end_server <<< "$server_range"
 		
 		instances=$start_server
-		for cpu in $MEMTIER_CPUS
+		for proc in $MEMTIER_PROCS
 		do
 			if [ $instances -gt $end_server ]; then break; fi
 			
 			port=$(($START_PORT + ${instances}))
-			echo -e "starting memtier benchmark $instances on vCPU $cpu"
-			
-			pin_prefix=$(memtier_pin_prefix "$cpu")
+			echo -e "starting memtier benchmark $instances"
+			pin_prefix=$(memtier_slot $proc)
 
 			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
@@ -759,13 +616,11 @@ do
 	else
 		# Original single-client code
 		instances=1
-		for cpu in $MEMTIER_CPUS
+		for proc in $MEMTIER_PROCS
 		do
 			port=$(($START_PORT + ${instances}))
-			echo -e "starting memtier benchmark $instances on vCPU $cpu"
-
-			#In the case of more than one NUMA node, discover to which NUMA node this CPU belongs
-			pin_prefix=$(memtier_pin_prefix "$cpu")
+			echo -e "starting memtier benchmark $instances"
+			pin_prefix=$(memtier_slot $proc)
 
 			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
