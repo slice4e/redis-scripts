@@ -1,1 +1,4 @@
 vecsim/vecsim-benchmark/config.file
+memtier/redis_bench.config
+pyedp_config.txt
+benchmark-spec/config.file
