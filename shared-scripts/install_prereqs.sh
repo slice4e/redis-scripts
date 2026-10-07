@@ -73,8 +73,8 @@ if ! $SSH_COMMAND command -v "git" &>/dev/null; then
 fi
 
 if [[ "${skip_redis_installation}" != "true" ]] && $SSH_COMMAND test -d "$REDIS_PATH" && ! has_ref "${SSH_COMMAND:-bash -c}" "$REDIS_PATH" "$REDIS_BRANCH"; then
-	echo "$SERVER_TYPE in $REDIS_PATH is not $REDIS_BRANCH. Reinstalling."
-	$SSH_COMMAND rm -rf "$REDIS_PATH"
+	echo "$SERVER_TYPE in $REDIS_PATH is not $REDIS_BRANCH. Point REDIS_PATH to a new directory to install $REDIS_BRANCH next to it. Failing."
+	exit 1
 fi
 
 # Only install the server if this is not a client-only installation
@@ -302,8 +302,8 @@ if ! command -v "git" &>/dev/null; then
 fi
 
 if [[ -d "$MEMTIER_PATH" ]] && ! has_ref "bash -c" "$MEMTIER_PATH" "$MEMTIER_BRANCH"; then
-	echo "memtier-benchmark in $MEMTIER_PATH is not $MEMTIER_BRANCH. Reinstalling."
-	rm -rf "$MEMTIER_PATH"
+	echo "memtier-benchmark in $MEMTIER_PATH is not $MEMTIER_BRANCH. Point MEMTIER_PATH to a new directory to install $MEMTIER_BRANCH next to it. Failing."
+	exit 1
 fi
 
 if ! command -v "${MEMTIER_PATH}/memtier_benchmark" &>/dev/null; then

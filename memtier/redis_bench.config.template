@@ -3,8 +3,8 @@
 ########################################################
 HOME_DIR=/home/$USER/redis
 SERVER_TYPE=redis  # "redis" or "valkey" -- selects which server is installed/started/killed
-REDIS_PATH=$HOME_DIR/redis-8.10.2
 REDIS_BRANCH=8.10.2   	# Branch/tag to install in case it is not already installed in REDIS_PATH. For SERVER_TYPE=valkey, use a valkey tag/branch, e.g. "8.1"
+REDIS_PATH=$HOME_DIR/redis-$REDIS_BRANCH  # one directory per version, so versions install side by side
 # REDIS_BUILD_FLAGS='REDIS_CFLAGS="-fno-plt" REDIS_LDFLAGS="-fno-plt"'  # if building redis, we can pass build flags
 RDB_PATH=$REDIS_PATH
 PIN="sub-numa"      # Set this variable to "sub-numa", "cpu", or "core"
@@ -27,8 +27,8 @@ SET_IRQ=false  # true: pin the NIC IRQs (NIC found from SERVER_IP) to the server
 ########################################################
 AUTOTUNE=true
 ITERATION_NUM=3
-MEMTIER_PATH=$HOME_DIR/memtier_benchmark
 MEMTIER_BRANCH=2.5.2
+MEMTIER_PATH=$HOME_DIR/memtier_benchmark-$MEMTIER_BRANCH  # one directory per version, so versions install side by side
 MEMTIER_SOCKET=1 	# To assign more than one socket, e.g. in the case of SNC, separate by coma: 1,2
 MEMTIER_CORES=""   # Use this variable if PIN==core, comma-separated list of cores for memtier clients, e.g. "1,3,5,7,9,11". Set to "all" to leave memtier client processes unpinned (no CPU/NUMA restriction) so they can use every available core.
 RESULTS_FOLDER=memtier_$(date +"%Y%m%d%H%M")
