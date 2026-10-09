@@ -3,6 +3,16 @@
 Repository of helper scripts indended to faciliate Redis benchmarking and telemetry collection. Scripts in benchmark-spec/ facilitate executing the Redis regression suite: https://github.com/redis/redis-benchmarks-specification . Scripts in single-node/ faciliate quick benchmarking of Redis on a single-node using memtier benchmark. 
 
 
+## Versioning
+
+Releases are tagged `vX.Y.Z` in git ([semantic versioning](https://semver.org)):
+
+- **MAJOR**: a change that alters results or breaks existing configs (e.g. renamed/removed config keys, different default placement or tuning).
+- **MINOR**: new features or config options that are backward compatible.
+- **PATCH**: bug fixes that do not change how results are measured.
+
+To use a release: `git checkout v1.0.0`. To see which version you have: `git describe --tags`. Report this version with your results.
+
 ## Usage
 
 Copy the template config file to create your own. 
