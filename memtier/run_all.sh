@@ -329,6 +329,7 @@ if [[ ${SERVER_REMOTE} == true ]] ; then
 	$SSH_COMMAND mkdir -p ${RESULTS_PATH}
 fi
 cp $config_file ${RESULTS_PATH}
+git -C "${MEMTIER_SCRIPT_DIR}" describe --tags --always --dirty > ${RESULTS_PATH}/redis-scripts-version.txt 2>/dev/null
 
 #---------------------------------------------------------- Install Pre-reqs -------------------------------------------------------
 # Note: install_prereqs.sh now automatically handles remote client installation

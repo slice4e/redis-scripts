@@ -36,6 +36,7 @@ if [[ ${SERVER_REMOTE} == true ]] ; then
 	$SSH_COMMAND mkdir -p ${RESULTS_PATH}
 fi
 cp $config_file ${RESULTS_PATH}
+git -C "$(dirname "$0")" describe --tags --always --dirty > ${RESULTS_PATH}/redis-scripts-version.txt 2>/dev/null
 
 
 #---------------------------process placement------------------------------------------

@@ -112,6 +112,7 @@ main() {
     local results_path="$VECTORDB_BENCHMARK_PATH/results"
     if [[ -d "$results_path" && -f "$config_file" ]]; then
         cp "$config_file" "$results_path/config.file"
+        git -C "$SCRIPT_DIR" describe --tags --always --dirty > "$results_path/redis-scripts-version.txt" 2>/dev/null
         log_info "Config file copied to $results_path/config.file"
     fi
 

@@ -45,6 +45,7 @@ source $HOME_DIR//redis-scripts/shared-scripts/check_numa.sh
 
 mkdir -p $LOG_PATH
 cp $config_file $LOG_PATH
+git -C $HOME_DIR/redis-scripts describe --tags --always --dirty > $LOG_PATH/redis-scripts-version.txt 2>/dev/null
 
 #---------------------------------------------------------- Disable Huge Pages -------------------------------------------------------
 # This is very important. Without disabling huge pages, we can get into a difficult to reproduce situation of bad performance. 
