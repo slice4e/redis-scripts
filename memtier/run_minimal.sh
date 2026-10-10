@@ -13,6 +13,8 @@ if [ ! -f "$config_file" ]; then
 	  exit 1
 fi
 source $config_file
+IFS='|' read -ra SERVER_IPS <<< "$SERVER_IP"
+SERVER_IP=${SERVER_IPS[0]}
 
 
 if [[ ${SERVER_REMOTE} == true ]] ; then
@@ -60,7 +62,7 @@ do
 			echo "Port: $port is already in use. Will not be able to start redis-server. Exiting."
 			exit 1
 		fi
-		slot=${SERVER_SLOTS[$(( (instances - 1) % ${#SERVER_SLOTS[@]} ))]}
+		slot=$(server_slot $instances)
 		echo -e "starting redis server $instances: $slot"
 		cmd="$slot $REDIS_PATH/src/redis-server $REDIS_PATH/redis.conf --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
 		echo -e $cmd
@@ -95,7 +97,7 @@ do
 	do
 		port=$(($START_PORT + ${instances}))
 		echo -e "starting memtier benchmark $instances"
-		cmd="$(memtier_slot $proc) ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
+		cmd="$(memtier_slot $proc $instances) ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $instances) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_$instances.log"
 		instances=$((instances + 1))
 		echo -e $cmd
 		$cmd >/dev/null &
@@ -118,7 +120,7 @@ do
 	do
 		port=$(($START_PORT + ${instances}))
 		echo -e "starting memtier benchmark $instances"
-		cmd="$(memtier_slot $proc) ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
+		cmd="$(memtier_slot $proc $instances) ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $instances) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_$instances.log"
 		instances=$((instances + 1))
 		echo -e $cmd
 		$cmd >/dev/null &

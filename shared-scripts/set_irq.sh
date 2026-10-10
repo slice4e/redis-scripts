@@ -28,12 +28,15 @@ restore_irqs(){
 trap restore_irqs EXIT
 trap 'exit 1' HUP INT TERM
 
-# A client's benchmark NIC is the interface it routes SERVER_IP through; SERVER_IFACE comes from check_numa.sh
-CLIENT_IFACE_CMD="ip -o -4 route get $SERVER_IP | grep -o 'dev [^ ]*' | cut -d' ' -f2"
-
-pin_irqs "${SSH_COMMAND:-bash -c}" "$SERVER_IFACE" $CPUS
-if [[ ${SERVER_REMOTE} == true ]]; then
-	for run in "bash -c" "${CLIENT_SSH_CMDS[@]}"; do
-		pin_irqs "$run" "$($run "$CLIENT_IFACE_CMD" | tr -d '\r')" $MEMTIER_CPUS
-	done
-fi
+# Per server group (one per server NIC): the server NIC (from check_numa.sh) goes to the group's server vCPUs, and
+# the client NIC it is routed through goes to the group's memtier vCPUs on every client
+irq_ips=("${SERVER_IPS[@]:-$SERVER_IP}")
+for g in "${!irq_ips[@]}"; do
+        pin_irqs "${SSH_COMMAND:-bash -c}" "${SERVER_IFACES[$g]:-$SERVER_IFACE}" ${GROUP_CPUS[$g]:-$CPUS}
+        if [[ ${SERVER_REMOTE} == true ]]; then
+                for run in "bash -c" "${CLIENT_SSH_CMDS[@]}"; do
+                        iface=$($run "ip -o -4 route get ${irq_ips[$g]} | grep -o 'dev [^ ]*' | cut -d' ' -f2" | tr -d '\r')
+                        pin_irqs "$run" "$iface" ${GROUP_MEMTIER_CPUS[$g]:-$MEMTIER_CPUS}
+                done
+        fi
+done

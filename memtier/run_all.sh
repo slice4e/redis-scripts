@@ -43,6 +43,10 @@ case "$SERVER_TYPE" in
 		;;
 esac
 
+# A '|'-separated SERVER_IP gives one server group per NIC (see placement.sh); SSH and host setup use the first IP.
+IFS='|' read -ra SERVER_IPS <<< "$SERVER_IP"
+SERVER_IP=${SERVER_IPS[0]}
+
 # Use a script-specific directory variable so sourced files cannot clobber it.
 MEMTIER_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source set_ssh.sh from the shared-scripts directory relative to the script location
@@ -51,7 +55,7 @@ source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
 #---------------------------------------------------------- Multi-Client Helper Functions -------------------------------------------------------
 
 # This run's ports, so concurrent runs (run_parallel.sh) sharing one install never touch each other's processes.
-PORT_REGEX=$(seq -s'|' $START_PORT $((START_PORT + NUM_SERVERS - 1)))
+PORT_REGEX=$(seq -s'|' $((START_PORT + 1)) $((START_PORT + NUM_SERVERS)))
 
 # memtier processes started by this run; anchored on the binary path so other users' memtier processes are ignored.
 MEMTIER_PATTERN="^${MEMTIER_PATH}/memtier_benchmark .* -p (${PORT_REGEX}) "
@@ -145,11 +149,11 @@ launch_remote_memtier() {
     for ((server=$start_server; server<=$end_server; server++)); do
         local port=$(($START_PORT + $server))
         # All clients are assumed to have the primary client's topology, so reuse its memtier CPU list
-        local prefix=$(memtier_slot $((server - start_server)))
+        local prefix=$(memtier_slot $((server - start_server)) $server)
         
         if [ "$phase" = "fill" ]; then
             # Fill phase: use -n allkeys and write-only ratio
-            remote_cmd+="$prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=$MEMTIER_PIPELINE --key-pattern=P:P --ratio=1:0 --out-file=${out_dir}/fill_${server}_run${iteration}.log >/dev/null & "
+            remote_cmd+="$prefix ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $server) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=$MEMTIER_PIPELINE --key-pattern=P:P --ratio=1:0 --out-file=${out_dir}/fill_${server}_run${iteration}.log >/dev/null & "
         else
             # Benchmark/autotune phase: use test-time and read/write ratio
             local test_duration="${BENCHMARK_DURATION:-300}"
@@ -158,7 +162,7 @@ launch_remote_memtier() {
                 test_duration=10
                 out_file="${out_dir}/benchmark_${server}.log"
             fi
-            remote_cmd+="$prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$test_duration --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${out_file} >/dev/null & "
+            remote_cmd+="$prefix ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $server) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$test_duration --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${out_file} >/dev/null & "
         fi
     done
     
@@ -422,7 +426,7 @@ do
 			echo "Port: $port is already in use. Will not be able to start $SERVER_BINARY. Exiting."
 			exit 1
 		fi
-		slot=${SERVER_SLOTS[$(( (instances - 1) % ${#SERVER_SLOTS[@]} ))]}
+		slot=$(server_slot $instances)
 		echo -e "starting $SERVER_TYPE server $instances: $slot"
 		cmd="$slot $REDIS_PATH/src/$SERVER_BINARY $REDIS_PATH/$SERVER_CONF_FILE --logfile $REDIS_PATH/log/server_${port}.log --port ${port} --save \"\" "
 		echo -e $cmd
@@ -466,9 +470,9 @@ do
 			
 			port=$(($START_PORT + ${instances}))
 			echo -e "starting memtier benchmark $instances"
-			pin_prefix=$(memtier_slot $proc)
+			pin_prefix=$(memtier_slot $proc $instances)
 
-			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $instances) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -480,9 +484,9 @@ do
 		do
 			port=$(($START_PORT + ${instances}))
 			echo -e "starting memtier benchmark $instances"
-			pin_prefix=$(memtier_slot $proc)
+			pin_prefix=$(memtier_slot $proc $instances)
 
-			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $instances) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} -n allkeys --data-size-list=${DATA_SIZE_LIST} --pipeline=15 --key-pattern=P:P --ratio=1:0 --out-file=${RESULTS_PATH}/run${iteration}/fill_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -541,9 +545,9 @@ do
 
 				port=$(($START_PORT + ${instances}))
 				echo -e "AUTOTUNING. starting memtier benchmark $instances"
-				pin_prefix=$(memtier_slot $proc)
+				pin_prefix=$(memtier_slot $proc $instances)
 
-				cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=10 --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/autotune/benchmark_$instances.log"
+				cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $instances) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=10 --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/autotune/benchmark_$instances.log"
 				instances=$((instances + 1))
 				echo -e $cmd
 				$cmd >/dev/null &
@@ -619,9 +623,9 @@ do
 			
 			port=$(($START_PORT + ${instances}))
 			echo -e "starting memtier benchmark $instances"
-			pin_prefix=$(memtier_slot $proc)
+			pin_prefix=$(memtier_slot $proc $instances)
 
-			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $instances) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &
@@ -633,9 +637,9 @@ do
 		do
 			port=$(($START_PORT + ${instances}))
 			echo -e "starting memtier benchmark $instances"
-			pin_prefix=$(memtier_slot $proc)
+			pin_prefix=$(memtier_slot $proc $instances)
 
-			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $SERVER_IP -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
+			cmd="$pin_prefix ${MEMTIER_PATH}/memtier_benchmark -s $(server_ip $instances) -p ${port} --hide-histogram --key-maximum=${NUM_FILL_REQ} --data-size-list=${DATA_SIZE_LIST} --randomize --distinct-client-seed --key-pattern=$KEY_PATTERN --test-time=$BENCHMARK_DURATION --ratio=$RATIO --pipeline=$MEMTIER_PIPELINE -c $MEMTIER_CLIENTS -t $MEMTIER_THREADS --out-file=${RESULTS_PATH}/run${iteration}/benchmark_${instances}_client_${PRIMARY_CLIENT_SUFFIX}_run${iteration}.log"
 			instances=$((instances + 1))
 			echo -e $cmd
 			$cmd >/dev/null &

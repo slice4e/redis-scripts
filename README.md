@@ -18,7 +18,9 @@ To use a release: `git checkout v1.0.0`. To see which version you have: `git des
 Copy the template config file to create your own. 
 Then execute: ./run_all.sh  [my_config_file]  
 
-To load both sockets, each through its local NIC, create one config per socket and run them together:
+To load both sockets, each through its local NIC, in one run: set SERVER_IP to one IP per NIC separated by '|' (e.g. "192.168.100.11|192.168.101.11") and give SERVER_NODES/SERVER_CORES and MEMTIER_NODES/MEMTIER_CORES one '|'-separated entry per IP (see the template).
+
+Alternatively, create one config per socket and run them together:
 ./run_parallel.sh socket0.config socket1.config  
 Each config needs its own RESULTS_PATH and port range (START_PORT + NUM_SERVERS), a SERVER_IP on the NIC local to its SERVER_NODES, and memtier placed on the client socket local to the client's matching NIC. All configs need AUTOTUNE=false (set MEMTIER_CLIENTS/MEMTIER_THREADS) and the same BENCHMARK_DURATION and ITERATION_NUM, so the runs stay in step. Enable RUN_EMON in one config only. The configs can share one Redis/memtier install; on a fresh host, run run_all.sh once first so the runs do not install it at the same time.
 

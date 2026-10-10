@@ -16,6 +16,11 @@ NUM_SERVERS=36 # Each Redis server contributes about 20GB of memory capacity. Ve
 
 LOGIN_ID=$USER      # SSH user for the server (and any remote clients). Can be a non-root user as long as it has passwordless (NOPASSWD) sudo, since run_all.sh now uses sudo for privileged operations (package installs, THP, sysctl, perf, IRQ pinning) instead of assuming a root login.
 SERVER_IP="127.0.0.1"  # replace with the IP address of the server. Using a physical interface is prefered to using localhost. 
+# To load several sockets through their local NICs in one run, list one IP per NIC separated by '|', e.g.
+# SERVER_IP="192.168.100.11|192.168.101.11", and give SERVER_NODES|SERVER_CORES and MEMTIER_NODES|MEMTIER_CORES one
+# '|'-separated entry per IP, e.g. SERVER_NODES="0,1,2|3,4,5" and MEMTIER_CORES="0-35,72-107|36-71,108-143".
+# Servers alternate between the IPs; each client drives every IP from the vCPUs of that IP's entry, so give each
+# entry the client vCPUs local to the client NIC on the same subnet.
 SERVER_REMOTE=false # The server and memtier client are on different nodes
 SSH_KEY_PATH=~/.ssh
 SSH_KEY_NAME=id_rsa
