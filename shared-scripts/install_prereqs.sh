@@ -28,7 +28,8 @@ APT="sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get -y"
 
 # True if git clone $2, on the host reached via $1 ("bash -c" for this host), has tag or branch $3 checked out
 has_ref() {
-	$1 "{ git -C $2 rev-parse --abbrev-ref HEAD; git -C $2 tag --points-at HEAD; } 2>/dev/null" | tr -d '\r' | grep -qxF "$3"
+	# --no-pager: over "ssh -t" git sees a tty and would page "tag" output, wrapping it in escape codes
+	$1 "{ git --no-pager -C $2 rev-parse --abbrev-ref HEAD; git --no-pager -C $2 tag --points-at HEAD; } 2>/dev/null" | tr -d '\r' | grep -qxF "$3"
 }
 
 #---------------------------------------------------------- Pre-requisites --------------------------------------------------------
