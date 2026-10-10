@@ -50,8 +50,11 @@ source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
 
 #---------------------------------------------------------- Multi-Client Helper Functions -------------------------------------------------------
 
+# This run's ports, so concurrent runs (run_parallel.sh) sharing one install never touch each other's processes.
+PORT_REGEX=$(seq -s'|' $START_PORT $((START_PORT + NUM_SERVERS - 1)))
+
 # memtier processes started by this run; anchored on the binary path so other users' memtier processes are ignored.
-MEMTIER_PATTERN="^${MEMTIER_PATH}/memtier_benchmark"
+MEMTIER_PATTERN="^${MEMTIER_PATH}/memtier_benchmark .* -p (${PORT_REGEX}) "
 count_local_memtier() {
     pgrep -c -f "$MEMTIER_PATTERN"
 }
@@ -312,13 +315,22 @@ if [ "$SSH_CONNECTED" != "true" ]; then
 	exit 1
 fi
 
-# Only match servers started from this REDIS_PATH, so other users' servers on a shared host are left alone.
-SERVER_PATTERN="^${REDIS_PATH}/src/${SERVER_BINARY}"
+# Only match this run's servers (REDIS_PATH and ports), so other users' and other runs' servers are left alone.
+# The port follows ":" in the Redis process title, or "--port " if the title is not set.
+SERVER_PATTERN="^${REDIS_PATH}/src/${SERVER_BINARY} .*[: ](${PORT_REGEX})( |\$)"
+# Runs a command on the server with its arguments quoted for the remote shell.
+on_server() {
+	if [ -n "$SSH_COMMAND" ]; then
+		$SSH_COMMAND "$(printf '%q ' "$@")"
+	else
+		"$@"
+	fi
+}
 count_servers() {
-	$SSH_COMMAND pgrep -c -f "$SERVER_PATTERN" | tr -d '[:space:]'
+	on_server pgrep -c -f "$SERVER_PATTERN" | tr -d '[:space:]'
 }
 
-$SSH_COMMAND pkill -f "$SERVER_PATTERN"
+on_server pkill -f "$SERVER_PATTERN"
 while [ "$(count_servers)" -gt 0 ];do
 	echo -e "Waiting for $(count_servers) $SERVER_BINARY(s) to stop"
 	sleep 5
@@ -412,7 +424,7 @@ do
 		fi
 		slot=${SERVER_SLOTS[$(( (instances - 1) % ${#SERVER_SLOTS[@]} ))]}
 		echo -e "starting $SERVER_TYPE server $instances: $slot"
-		cmd="$slot $REDIS_PATH/src/$SERVER_BINARY $REDIS_PATH/$SERVER_CONF_FILE --logfile $REDIS_PATH/log/server${instances}.log --port ${port} --save \"\" "
+		cmd="$slot $REDIS_PATH/src/$SERVER_BINARY $REDIS_PATH/$SERVER_CONF_FILE --logfile $REDIS_PATH/log/server_${port}.log --port ${port} --save \"\" "
 		echo -e $cmd
 
 		#NOTE: Do not start the Redis servers using SSH if they are not remote.
@@ -715,7 +727,7 @@ do
 
 	echo "Killing existing $SERVER_TYPE server instances and remove rdb files..."
 	KILL_SIGNAL=15
-	$SSH_COMMAND pkill -$KILL_SIGNAL -f "$SERVER_PATTERN"
+	on_server pkill -$KILL_SIGNAL -f "$SERVER_PATTERN"
 	while [ "$(count_servers)" -gt 0 ];do
 		echo -e "Waiting for $(count_servers) $SERVER_TYPE servers to die"
 		sleep 5
