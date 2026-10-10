@@ -43,7 +43,7 @@ for cfg in "${configs[@]}"; do
 	for range in "${port_ranges[@]}"; do
 		read -r other_start other_end other_cfg <<< "$range"
 		if [ "$start_port" -lt "$other_end" ] && [ "$other_start" -lt "$end_port" ]; then
-			echo "Error: ports ${start_port}-$((end_port - 1)) of '$cfg' overlap the ports of '$other_cfg'."
+			echo "Error: ports $((start_port + 1))-${end_port} of '$cfg' overlap the ports of '$other_cfg'."
 			exit 1
 		fi
 	done
