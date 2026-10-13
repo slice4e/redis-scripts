@@ -54,7 +54,7 @@ source "${MEMTIER_SCRIPT_DIR}/../shared-scripts/set_ssh.sh"
 
 #---------------------------------------------------------- Multi-Client Helper Functions -------------------------------------------------------
 
-# This run's ports, so concurrent runs (run_parallel.sh) sharing one install never touch each other's processes.
+# This run's ports, so runs sharing one install (e.g. other users' configs) never touch each other's processes.
 PORT_REGEX=$(seq -s'|' $((START_PORT + 1)) $((START_PORT + NUM_SERVERS)))
 
 # memtier processes started by this run; anchored on the binary path so other users' memtier processes are ignored.
