@@ -19,8 +19,9 @@ SERVER_IP="127.0.0.1"  # replace with the IP address of the server. Using a phys
 # To load both sockets in one run, each through its own NIC, list one server IP per socket separated by '|',
 # e.g. SERVER_IP="192.168.100.11|192.168.101.11" (socket 0 NIC | socket 1 NIC). Then give SERVER_NODES (or
 # SERVER_CORES) and MEMTIER_NODES (or MEMTIER_CORES) one '|'-separated entry per IP, in the same order:
-#   SERVER_NODES="0,1,2|3,4,5"                    # Redis servers on socket 0 use the 1st IP, socket 1 the 2nd
+#   SERVER_NODES="0,1,2|3,4,5"                    # servers on NUMA nodes 0,1,2 use the 1st IP | nodes 3,4,5 the 2nd
 #   MEMTIER_CORES="0-35,72-107|36-71,108-143"     # client vCPUs that drive the 1st IP | the 2nd IP
+# Each SERVER entry should be the server NUMA nodes (or cores) on the same socket as the NIC that owns that IP.
 # Each MEMTIER entry should be the client vCPUs on the same socket as the client NIC that reaches that IP
 # (e.g. the client's 192.168.100.x NIC for the 1st IP), so traffic stays socket-local on both ends.
 # Servers alternate between the IPs, so every client drives both server NICs.
