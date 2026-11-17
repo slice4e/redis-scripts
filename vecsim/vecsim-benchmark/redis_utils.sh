@@ -45,12 +45,13 @@ setup_redis() {
     ensure_directory "$(dirname "$REDIS_PATH")" "$target_server" || return 1
     execute_command "git clone $REDIS_REPO_URL $REDIS_PATH" "$target_server" || { log_error "Failed to clone Redis"; return 1; }
     
-    # Redis's Rust installer writes to /usr/local (needs root) and races cargo under make -j, so run it first with sudo
-    local rust_cmd="cd $REDIS_PATH && git checkout $REDIS_BRANCH && { command -v cargo >/dev/null || sudo make -C modules install-rust INSTALL_RUST_TOOLCHAIN=yes; }"
-    execute_command "$rust_cmd" "$target_server" || { log_error "Failed to install the Rust toolchain"; return 1; }
+    # Redis >= 8.10 installs module prerequisites (LLVM, CMake, Rust) with 'make bootstrap' after 'make modules-update'.
+    # Older trees: Redis's Rust installer writes to /usr/local (needs root) and races cargo under make -j, so run it first with sudo
+    local deps_cmd="cd $REDIS_PATH && git checkout $REDIS_BRANCH && if [ -f scripts/bootstrap.sh ]; then make modules-update && make bootstrap; else command -v cargo >/dev/null || sudo make -C modules install-rust INSTALL_RUST_TOOLCHAIN=yes; fi"
+    execute_command "$deps_cmd" "$target_server" || { log_error "Failed to install the Redis module build prerequisites"; return 1; }
 
-    # Build Redis
-    local build_cmd="cd $REDIS_PATH && export $DEFAULT_BUILD_FLAGS && make -j REDIS_CFLAGS=\"$DEFAULT_REDIS_CFLAGS\""
+    # Build Redis (bootstrap may install Rust under ~/.cargo, which a non-login shell does not have on PATH)
+    local build_cmd="cd $REDIS_PATH && { [ ! -f ~/.cargo/env ] || . ~/.cargo/env; } && export $DEFAULT_BUILD_FLAGS && make -j REDIS_CFLAGS=\"$DEFAULT_REDIS_CFLAGS\""
     execute_command "$build_cmd" "$target_server" || { log_error "Failed to build Redis"; return 1; }
     
     log_info "Redis successfully built on $target_server"
