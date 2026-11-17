@@ -46,8 +46,10 @@ setup_redis() {
     execute_command "git clone $REDIS_REPO_URL $REDIS_PATH" "$target_server" || { log_error "Failed to clone Redis"; return 1; }
     
     # Redis >= 8.10 installs module prerequisites (LLVM, CMake, Rust) with 'make bootstrap' after 'make modules-update'.
-    # Older trees: Redis's Rust installer writes to /usr/local (needs root) and races cargo under make -j, so run it first with sudo
-    local deps_cmd="cd $REDIS_PATH && git checkout $REDIS_BRANCH && if [ -f scripts/bootstrap.sh ]; then make modules-update && make bootstrap; else command -v cargo >/dev/null || sudo make -C modules install-rust INSTALL_RUST_TOOLCHAIN=yes; fi"
+    # Older trees: Redis's Rust installer writes to /usr/local (needs root) and races cargo under make -j, so run it first with sudo;
+    # fetch module sources serially (make -j races cargo fetch against the clone), then install the clang RediSearch's LTO needs
+    local llvm_cmd="f=modules/redisearch/src/.install; if [ -f \$f/install_llvm.sh ]; then . \$f/LLVM_VERSION.sh; command -v clang-\$LLVM_VERSION >/dev/null || bash \$f/install_llvm.sh sudo; fi"
+    local deps_cmd="cd $REDIS_PATH && git checkout $REDIS_BRANCH && if [ -f scripts/bootstrap.sh ]; then make modules-update && make bootstrap; else { command -v cargo >/dev/null || sudo make -C modules install-rust INSTALL_RUST_TOOLCHAIN=yes; } && make -C modules get_source && { $llvm_cmd; }; fi"
     execute_command "$deps_cmd" "$target_server" || { log_error "Failed to install the Redis module build prerequisites"; return 1; }
 
     # Build Redis (bootstrap may install Rust under ~/.cargo, which a non-login shell does not have on PATH)
