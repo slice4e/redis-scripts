@@ -83,23 +83,23 @@ main() {
             log_step "Setting Up Redis Open Source"
             # Setup Redis using the new modular approach
             local servers=($(get_server_list))
-            setup_redis_environment "${servers[@]}"
+            setup_redis_environment "${servers[@]}" || exit 1
         fi
     else
         log_info "SKIP_UPLOAD=1, setting up Redis environment without cleanup (reuse mode)."
         log_step "Setting Up Redis Open Source (Reuse Mode)"
         # Setup Redis using the new modular approach
         local servers=($(get_server_list))
-        setup_redis_environment "${servers[@]}"
+        setup_redis_environment "${servers[@]}" || exit 1
     fi
     
     # Setup benchmark components with progress tracking
     log_step "Preparing Benchmark Environment"
-    setup_benchmark_environment
+    setup_benchmark_environment || exit 1
     
     # Wait for Redis to be ready
     log_step "Waiting for Redis to be Ready"
-    wait_for_redis "$REDIS_SERVER" "$PORT"
+    wait_for_redis "$REDIS_SERVER" "$PORT" || exit 1
     
     # Prepare and execute benchmark
     log_step "Executing Benchmark"

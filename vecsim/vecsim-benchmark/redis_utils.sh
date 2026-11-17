@@ -20,7 +20,7 @@ source "$SCRIPT_DIR/common_utils.sh"
 # Constants
 REDIS_REPO_URL="https://github.com/redis/redis"
 REDISEARCH_LIB_PATH="modules/redisearch/src/bin/linux-x64-release/search-community/redisearch.so"
-DEFAULT_BUILD_FLAGS="BUILD_TLS=yes BUILD_WITH_MODULES=yes INSTALL_RUST_TOOLCHAIN=yes DISABLE_WERRORS=yes"
+DEFAULT_BUILD_FLAGS="BUILD_TLS=yes BUILD_WITH_MODULES=yes DISABLE_WERRORS=yes"
 DEFAULT_REDIS_CFLAGS="-g -fno-omit-frame-pointer"
 
 #=======================================================================================================================
@@ -45,8 +45,12 @@ setup_redis() {
     ensure_directory "$(dirname "$REDIS_PATH")" "$target_server" || return 1
     execute_command "git clone $REDIS_REPO_URL $REDIS_PATH" "$target_server" || { log_error "Failed to clone Redis"; return 1; }
     
+    # Redis's Rust installer writes to /usr/local (needs root) and races cargo under make -j, so run it first with sudo
+    local rust_cmd="cd $REDIS_PATH && git checkout $REDIS_BRANCH && { command -v cargo >/dev/null || sudo make -C modules install-rust INSTALL_RUST_TOOLCHAIN=yes; }"
+    execute_command "$rust_cmd" "$target_server" || { log_error "Failed to install the Rust toolchain"; return 1; }
+
     # Build Redis
-    local build_cmd="cd $REDIS_PATH && git checkout $REDIS_BRANCH && export $DEFAULT_BUILD_FLAGS && make -j REDIS_CFLAGS=\"$DEFAULT_REDIS_CFLAGS\""
+    local build_cmd="cd $REDIS_PATH && export $DEFAULT_BUILD_FLAGS && make -j REDIS_CFLAGS=\"$DEFAULT_REDIS_CFLAGS\""
     execute_command "$build_cmd" "$target_server" || { log_error "Failed to build Redis"; return 1; }
     
     log_info "Redis successfully built on $target_server"
@@ -357,9 +361,9 @@ setup_redis_software() {
     
     for server in "${servers[@]}"; do
         log_info "=== Setting up Redis software on: $server ==="
-        install_dependencies "$server"
-        setup_redis "$server"
-        setup_redisearch "$server"
+        install_dependencies "$server" || return 1
+        setup_redis "$server" || return 1
+        setup_redisearch "$server" || return 1
     done
 }
 
@@ -420,7 +424,7 @@ setup_redis_environment() {
     log_info "Redis config: PATH=$REDIS_PATH, BRANCH=$REDIS_BRANCH, VECTOR_SEARCH=$VECTOR_SEARCH"
     
     # Setup Redis software on all servers
-    setup_redis_software "${servers[@]}"
+    setup_redis_software "${servers[@]}" || { log_error "Redis software setup failed"; return 1; }
     
     # Start Redis instances where needed
     start_redis_instances "${servers[@]}"
