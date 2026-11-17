@@ -174,7 +174,7 @@ command_exists() {
 package_exists() {
     local pkg="$1"
     local target_server="$2"
-    execute_command_quiet "dpkg -l | grep -q $pkg" "$target_server"
+    execute_command_quiet "dpkg-query -W -f='\${Status}' $pkg 2>/dev/null | grep -q 'ok installed'" "$target_server"
 }
 
 # Function to install system dependencies
