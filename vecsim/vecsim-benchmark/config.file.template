@@ -13,6 +13,7 @@
 HOME_PATH=$HOME
 REDIS_PATH=$HOME_PATH/redis
 REDIS_BRANCH=unstable  	#this branch will be installed in case Redis is not already installed in REDIS_PATH
+REDIS_INTEL_SVS_OPT=yes      # yes: build RediSearch with Intel's SVS library (LVQ/LeanVec); no: SVS compression falls back to SQ8
 VECTOR_SEARCH=redisearch     # set this to either redisearch or vectorsets 
 PORT=9000
 
@@ -64,8 +65,8 @@ WORKER_THREADS=5
 # Benchmark settings #
 ##########################
 VECTORDB_BENCHMARK_PATH=$HOME_PATH/vector-db-benchmark
-VECTORDB_BENCHMARK_BRANCH=update.redisearch
-# Virtual environment will be created at: $HOME_PATH/venv-redis-benchmark
+VECTORDB_BENCHMARK_BRANCH=master
+# Built with cargo into $VECTORDB_BENCHMARK_PATH/target/release/vector-db-benchmark
 SKIP_UPLOAD=0       # Set SKIP_UPLOAD to 1 to skip both Redis setup and data upload -> run benchmark on existing Redis instance with existing data. Make sure that the same dataset is selected in DATASET_SIZE!
 
 # NUMA Configuration for benchmark client (optional)
@@ -86,7 +87,7 @@ REPETITIONS=1
 QUERIES=10000
 
 # Additional Vector DB Benchmark Parameters (optional)
-# Any additional parameters to pass to vector-db-benchmark run.py
+# Any additional parameters to pass to the vector-db-benchmark CLI
 # Examples:
 #   VECTORDB_BENCHMARK_PARAMS="--insert-fraction 0.1"
 #   VECTORDB_BENCHMARK_PARAMS="--timeout 3600 --verbose"

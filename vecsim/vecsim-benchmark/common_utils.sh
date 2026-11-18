@@ -207,6 +207,7 @@ install_dependencies() {
         "automake"
         "autoconf"
         "libtool"
+        "libhdf5-dev"
     )
     
     # For localhost, check if we actually need to install anything first

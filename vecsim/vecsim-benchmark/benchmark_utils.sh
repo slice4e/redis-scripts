@@ -11,39 +11,6 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/common_utils.sh"
 
-#=======================================================================================================================
-# Python Environment Setup Functions
-#=======================================================================================================================
-
-# Function to setup Python virtual environment
-setup_python_venv() {
-    local target_server="$1"
-    
-    log_info "Setting up Python virtual environment on $target_server at $VENV_PATH..."
-
-    # Check if virtual environment exists and is valid
-    if [ ! -d "$VENV_PATH" ] || [ ! -x "$VENV_PATH/bin/python" ]; then
-        log_info "Virtual environment missing or invalid, creating new one at $VENV_PATH..."
-        rm -rf "$VENV_PATH"
-        if ! python3 -m venv --upgrade-deps "$VENV_PATH"; then
-            log_error "Failed to create virtual environment"
-            return 1
-        fi
-    else
-        log_info "Virtual environment already exists at $VENV_PATH"
-    fi
-
-    # Verify pip is available and upgrade it
-    if ! "$VENV_PATH/bin/python" -m pip --version; then
-        log_info "Virtual environment pip is not working, recreating..."
-        rm -rf "$VENV_PATH"
-        python3 -m venv --upgrade-deps "$VENV_PATH"
-    fi
-
-    # Upgrade pip in the virtual environment
-    "$VENV_PATH/bin/python" -m pip install --upgrade pip
-}
-
 # Function to setup vector-db-benchmark repository
 setup_vectordb_benchmark() {
     log_info "Setting up vector-db-benchmark repository..."
@@ -63,58 +30,28 @@ setup_vectordb_benchmark() {
     cd - >/dev/null
 }
 
-# Function to setup and activate Python virtual environment for benchmarking
-setup_python_environment() {
-    
-    log_info "Setting up Python virtual environment for benchmark client..."
-    
-    # Create and setup virtual environment
-    setup_python_venv "localhost"
-    
-    # Activate and install packages
-    source "$VENV_PATH/bin/activate"
-    [[ "$VIRTUAL_ENV" != "$VENV_PATH" ]] && { log_error "Failed to activate virtual environment"; return 1; }
+# Function to build the vector-db-benchmark (Rust) CLI from the checked-out branch
+build_vectordb_benchmark() {
+    log_info "Building vector-db-benchmark in $VECTORDB_BENCHMARK_PATH..."
 
-    "$VENV_PATH/bin/python" -m pip install --upgrade pip poetry || { log_error "Failed to install pip/poetry"; return 1; }
-
-    # Install dependencies using Poetry from vector-db-benchmark directory
-    if [ -d "$VECTORDB_BENCHMARK_PATH" ] && [ -f "$VECTORDB_BENCHMARK_PATH/pyproject.toml" ]; then
-        log_info "Installing dependencies using Poetry from $VECTORDB_BENCHMARK_PATH"
-        cd "$VECTORDB_BENCHMARK_PATH" || { log_error "Failed to cd to $VECTORDB_BENCHMARK_PATH"; return 1; }
-        "$VENV_PATH/bin/python" -m poetry install --no-root || { log_error "Failed to install dependencies with Poetry"; return 1; }
-        cd - >/dev/null
-    else
-        log_warning "Poetry project not found at $VECTORDB_BENCHMARK_PATH, falling back to requirements.txt"
-        "$VENV_PATH/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-vdb.txt" || { log_error "Failed to install requirements"; return 1; }
+    [ -f ~/.cargo/env ] && . ~/.cargo/env
+    if ! command -v cargo >/dev/null; then
+        log_info "cargo not found, installing the Rust toolchain with rustup..."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal || { log_error "Failed to install Rust"; return 1; }
+        . ~/.cargo/env
     fi
-    log_success "Python environment setup completed successfully"
-}
 
-# Function to activate Python virtual environment (for manual use)
-activate_python_environment() {
-    
-    if [ -d "$VENV_PATH" ]; then
-        log_info "Activating Python virtual environment at: $VENV_PATH"
-        source "$VENV_PATH/bin/activate"
-        log_info "Virtual environment activated. Python path: $(which python)"
-        log_info "To deactivate, run: deactivate"
-        return 0
-    else
-        log_error "Virtual environment not found at: $VENV_PATH"
-        log_error "Please run the Redis setup script first to create the virtual environment."
-        return 1
-    fi
+    (cd "$VECTORDB_BENCHMARK_PATH" && cargo build --release --bin vector-db-benchmark) || { log_error "Failed to build vector-db-benchmark"; return 1; }
+    "$VDB_BIN" --version || return 1
+    log_success "vector-db-benchmark built"
 }
 
 # Function to setup complete benchmark environment
 setup_benchmark_environment() {
     log_step "Setting Up Benchmark Environment"
     
-    # Setup vector-db-benchmark repository
-    setup_vectordb_benchmark
-    
-    # Setup Python environment
-    setup_python_environment
+    setup_vectordb_benchmark || return 1
+    build_vectordb_benchmark || return 1
     
     log_success "Benchmark environment setup completed"
 }
@@ -195,7 +132,8 @@ run_benchmark_upload() {
     
     if [ "$skip_upload" -eq 0 ]; then
         log_info "Running benchmark upload stage..."
-        local base_cmd="$numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --skip-search"
+        # --keep-data: the search stage reuses this index with --skip-upload
+        local base_cmd="$numactl_prefix $VDB_BIN --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --skip-if-exists false --skip-search --keep-data"
         
         # Add additional parameters if specified
         if [ -n "$VECTORDB_BENCHMARK_PARAMS" ]; then
@@ -203,7 +141,8 @@ run_benchmark_upload() {
         fi
         
         log_info "REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $base_cmd"
-        REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port eval "$base_cmd"
+        # the CLI reads datasets/ and experiments/ from its working directory
+        (cd "$vectordb_benchmark_path" && REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port eval "$base_cmd")
     else
         log_info "Skipping upload stage (SKIP_UPLOAD=1 - using existing data and setup)"
     fi
@@ -222,7 +161,7 @@ run_benchmark_search() {
     local numactl_prefix="$9"
     
     log_info "Running benchmark search stage..."
-    local base_cmd="$numactl_prefix $VENV_PATH/bin/python $vectordb_benchmark_path/run.py --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --no-skip-if-exists --queries \"$queries\" --skip-upload"
+    local base_cmd="$numactl_prefix $VDB_BIN --engines \"$engine_name\" --datasets \"$dataset_name\" --host \"$target\" --skip-if-exists false --queries \"$queries\" --skip-upload"
     
     # Add additional parameters if specified
     if [ -n "$VECTORDB_BENCHMARK_PARAMS" ]; then
@@ -230,7 +169,7 @@ run_benchmark_search() {
     fi
     
     log_info "REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port $base_cmd"
-    REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port eval "$base_cmd"
+    (cd "$vectordb_benchmark_path" && REPETITIONS=$repetitions REDIS_CLUSTER=$redis_cluster REDIS_PORT=$port eval "$base_cmd")
 }
 
 #=======================================================================================================================
@@ -246,13 +185,10 @@ Usage: $0 [options]
 
 Options:
   -h, --help              Show this help message
-  -a, --activate-venv     Activate Python virtual environment only
-  -s, --setup             Setup complete benchmark environment (default)
+  -s, --setup             Clone/update and build vector-db-benchmark (default)
 
 Examples:
   $0                      # Setup complete benchmark environment
-  $0 --activate-venv      # Activate virtual environment only
-  source <($0 --activate-venv)  # Source activation in current shell
 
 EOF
 }
@@ -267,10 +203,6 @@ main() {
             -h|--help)
                 show_usage
                 exit 0
-                ;;
-            -a|--activate-venv)
-                action="activate"
-                shift
                 ;;
             -s|--setup)
                 action="setup"
@@ -291,14 +223,6 @@ main() {
     fi
     
     case $action in
-        activate)
-            log_step "Activating Python Virtual Environment"
-            if activate_python_environment; then
-                echo "source \"$VENV_PATH/bin/activate\""
-            else
-                exit 1
-            fi
-            ;;
         setup)
             log_step "Setting Up Benchmark Utilities"
             

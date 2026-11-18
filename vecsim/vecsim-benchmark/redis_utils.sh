@@ -53,7 +53,7 @@ setup_redis() {
     execute_command "$deps_cmd" "$target_server" || { log_error "Failed to install the Redis module build prerequisites"; return 1; }
 
     # Build Redis (bootstrap may install Rust under ~/.cargo, which a non-login shell does not have on PATH)
-    local build_cmd="cd $REDIS_PATH && { [ ! -f ~/.cargo/env ] || . ~/.cargo/env; } && export $DEFAULT_BUILD_FLAGS && make -j REDIS_CFLAGS=\"$DEFAULT_REDIS_CFLAGS\""
+    local build_cmd="cd $REDIS_PATH && { [ ! -f ~/.cargo/env ] || . ~/.cargo/env; } && export $DEFAULT_BUILD_FLAGS BUILD_INTEL_SVS_OPT=${REDIS_INTEL_SVS_OPT:-yes} && make -j REDIS_CFLAGS=\"$DEFAULT_REDIS_CFLAGS\""
     execute_command "$build_cmd" "$target_server" || { log_error "Failed to build Redis"; return 1; }
     
     log_info "Redis successfully built on $target_server"

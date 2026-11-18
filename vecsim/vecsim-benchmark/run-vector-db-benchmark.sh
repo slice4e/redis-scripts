@@ -14,9 +14,6 @@ source "$SCRIPT_DIR/config_loader.sh"
 source "$SCRIPT_DIR/redis_utils.sh"
 source "$SCRIPT_DIR/benchmark_utils.sh"
 
-# Constants
-VENV_DIR_NAME="venv-redis-benchmark"
-
 #=======================================================================================================================
 # Benchmark-specific Functions
 #=======================================================================================================================

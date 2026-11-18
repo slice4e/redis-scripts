@@ -61,23 +61,14 @@ When enabled (`MLC=1`), the benchmark will:
 
 **Note**: MLC execution requires appropriate system permissions and may take several minutes to complete.
 
-## Python Environment Management
+## Benchmark Client
 
-The benchmark system uses a Python virtual environment for dependencies. You can manage it using `benchmark_utils.sh`:
+The client is the Rust `vector-db-benchmark` CLI from `VECTORDB_BENCHMARK_BRANCH` (default `master`) of
+https://github.com/redis/vector-db-benchmark, built with `cargo build --release` (Rust is installed with
+rustup if `cargo` is missing). To clone/update and build it without running a benchmark:
 
-### Setup Complete Environment
 ```bash
-./benchmark_utils.sh --setup    # Setup benchmark environment (default)
-./benchmark_utils.sh            # Same as above
-```
-
-### Activate Virtual Environment Only
-```bash
-# Method 1 (recommended - sources in current shell)
-source <(./benchmark_utils.sh --activate-venv)
-
-# Method 2 (shows activation command)
-./benchmark_utils.sh --activate-venv
+./benchmark_utils.sh --setup
 ```
 
 ## Custom Configuration Generator
@@ -177,7 +168,7 @@ Available M and EF_CONSTRUCTION combinations:
 ## Requirements
 
 - Redis (version 8.0+ recommended)
-- Python 3.x with virtual environment support
+- Rust toolchain and libhdf5-dev (installed by the scripts if missing)
 - numactl (for NUMA optimization)
 - SSH access for remote deployments
 - EMON (optional, for performance monitoring)
